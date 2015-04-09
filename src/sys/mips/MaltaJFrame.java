@@ -12,12 +12,9 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	private static final Font MONO = new Font("Monospaced", Font.BOLD, 14);
 	
 	private final JTextField displayField = new JTextField(8);
-	private final Malta malta;
 	
-	public MaltaJFrame (Malta malta) {
+	public MaltaJFrame () {
 		super("Malta");
-		this.malta = malta;
-		malta.getSupport().addPropertyChangeListener(this);
 		
 		displayField.setFont(MONO);
 		displayField.setEditable(false);

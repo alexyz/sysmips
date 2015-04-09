@@ -5,14 +5,14 @@ import java.util.*;
 public class CpuLogger {
 	
 	private final List<String> calls = new ArrayList<>();
-	private final Symbols symbols;
+	private final Cpu cpu;
 	
-	public CpuLogger (Symbols symbols) {
-		this.symbols = symbols;
+	public CpuLogger (Cpu cpu) {
+		this.cpu = cpu;
 	}
 	
 	public void call (int addr) {
-		calls.add(symbols.getName(addr, false));
+		calls.add(cpu.getMemory().getSymbols().getName(addr, false));
 		StringBuilder sb = new StringBuilder();
 		for (String call : calls) {
 			sb.append("/").append(call);

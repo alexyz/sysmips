@@ -1,5 +1,7 @@
 package sys.mips;
 
+import java.io.PrintStream;
+
 public final class Memory {
 	
 	/** 1mb page size (divided by 4) */
@@ -31,28 +33,33 @@ public final class Memory {
 	}
 	
 	private final int[][] pages = new int[0x1000][];
-	private final int system = 0xa0000000;
+	private final Symbols symbols = new Symbols();
 	
-	private Malta malta;
+	private int system;
+	private SystemListener systemListener;
 	
 	public Memory () {
-		// 16mb for the kernel
-		for (int n = 0; n < 16; n++) {
-			pages[0x800 + n] = new int[PS];
+		//
+	}
+	
+	public void init(int addr) {
+		if ((addr & 0xfffff) == 0) {
+			pages[pageIndex(addr)] = new int[PS];
+		} else {
+			throw new IllegalArgumentException(Integer.toHexString(addr));
 		}
-		// 12mb for the system controller
-		for (int n = 0; n < 12; n++) {
-			// malta says 1f0, but linux adds a00 for some reason
-			pages[0xbf0 + n] = new int[PS];
-		}
+	}
+	
+	public Symbols getSymbols () {
+		return symbols;
+	}
+	
+	public void setSystem (int system) {
+		this.system = system;
 	}
 	
 	public int getSystem () {
 		return system;
-	}
-	
-	public final void setMalta (Malta malta) {
-		this.malta = malta;
 	}
 	
 	public final void storeBytes (final int addr, final byte[] data) {
@@ -81,10 +88,16 @@ public final class Memory {
 		if ((addr & 3) == 0) {
 			pages[pageIndex(addr)][wordIndex(addr)] = word;
 			if (addr >= system) {
-				malta.update(addr);
+				fireSystemUpdate(addr, word);
 			}
 		} else {
 			throw new IllegalArgumentException(Integer.toHexString(addr));
+		}
+	}
+	
+	private void fireSystemUpdate (int addr, int word) {
+		if (systemListener != null) {
+			systemListener.update(addr, word);
 		}
 	}
 	
@@ -143,6 +156,26 @@ public final class Memory {
 		}
 	}
 	
+	public void setSystemListener (SystemListener systemListener) {
+		this.systemListener = systemListener;
+	}
+	
+	public void print (PrintStream ps) {
+		ps.println("memory map");
+		for (int n = 0; n < pages.length; n++) {
+			int[] page = pages[n];
+			if (page != null) {
+				float c = 0;
+				for (int i = 0; i < page.length; i++) {
+					if (page[i] != 0) {
+						c++;
+					}
+				}
+				ps.println("  addr 0x" + Integer.toHexString(n * 0x100000) + " usage " + (c / 0x100000));
+			}
+		}
+	}
+	
 	@Override
 	public String toString () {
 		int count = 0;
@@ -151,6 +184,6 @@ public final class Memory {
 				count++;
 			}
 		}
-		return String.format("IntMemory[pages=%d]", count);
+		return String.format("Memory[pages=%d symbols=%s]", count, symbols);
 	}
 }

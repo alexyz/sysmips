@@ -4,19 +4,10 @@ import java.util.*;
 
 public final class Symbols {
 	
-	private final long[] addresses;
-	private final String[] names;
+	private final TreeMap<Long,String> map = new TreeMap<>();
 	
-	public Symbols (SortedMap<Long, String> syms) {
-		this.addresses = new long[syms.size()];
-		this.names = new String[syms.size()];
-		
-		int n = 0;
-		for (Map.Entry<Long, String> e : syms.entrySet()) {
-			addresses[n] = e.getKey();
-			names[n] = e.getValue();
-			n++;
-		}
+	public Symbols () {
+		//
 	}
 	
 	public final String getName (final int addr) {
@@ -24,38 +15,33 @@ public final class Symbols {
 	}
 	
 	public final String getName (final int addr, final boolean includeAddr) {
-		if (addresses.length > 0) {
-			final long longaddr = addr & 0xffffffffL;
-			int i = Arrays.binarySearch(addresses, longaddr);
-			if (i < 0) {
-				// one below insertion point
-				i = -(i + 1) - 1;
-			}
-			// ignores first and last...
-			if (i > 0 && i < addresses.length) {
-				final long a = addresses[i];
-				final String name = names[i];
-				final long offset = longaddr - a;
-				if (offset < 4096) {
-					if (includeAddr) {
-						return "0x" + Integer.toHexString(addr) + "<" + name + "+" + offset + ">";
-					} else {
-						if (offset != 0) {
-							return name + "+" + offset;
-						} else {
-							return name;
-						}
-					}
+		final long longAddr = addr & 0xffffffffL;
+		final Map.Entry<Long, String> entry = map.floorEntry(longAddr);
+		if (entry != null) {
+			final long key = entry.getKey();
+			final String value = entry.getValue();
+			final long offset = longAddr - key;
+			if (includeAddr) {
+				return "0x" + Integer.toHexString(addr) + "<" + value + "+" + offset + ">";
+			} else {
+				if (offset != 0) {
+					return value + "+" + offset;
+				} else {
+					return value;
 				}
 			}
 		}
 		return "0x" + Integer.toHexString(addr);
 	}
 	
+	public SortedMap<Long, String> getMap () {
+		return map;
+	}
+	
 	@Override
 	public String toString () {
-		int min = addresses.length > 0 ? (int) addresses[0] : 0;
-		int max = addresses.length > 0 ? (int) addresses[addresses.length - 1] : 0;
-		return String.format("Symbols[addrs=0x%x-0x%x]", min, max);
+		Map.Entry<Long, String> e1 = map.firstEntry();
+		Map.Entry<Long, String> e2 = map.lastEntry();
+		return String.format("Symbols[%d: %s - %s]", map.size(), e1, e2);
 	}
 }

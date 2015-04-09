@@ -14,36 +14,18 @@ public class Linux {
 		
 		br = new BufferedReader(new InputStreamReader(System.in));
 		
-		ELF32 elf;
-		Memory mem;
+		Malta malta = new Malta();
 		
+		ELF32 elf;
 		try (RandomAccessFile file = new RandomAccessFile("images/vmlinux", "r")) {
 			elf = new ELF32(file);
 			System.out.println("elf=" + elf);
 			//elf.print(System.out);
-			
-			mem = new Memory();
-			System.out.println("mem=" + mem);
-			for (int ph = 0; ph < elf.header.programHeaders; ph++) {
-				ELF32Program program = elf.programs[ph];
-				if (program.type == ELF32Program.PT_LOAD) {
-					file.seek(program.fileOffset);
-					final byte[] data = new byte[program.memorySize];
-					file.read(data, 0, program.fileSize);
-					mem.storeBytes(program.virtualAddress, data);
-				}
-			}
+			malta.load(elf, file);
 		}
 		
-		SortedMap<Long,String> symMap = new TreeMap<>();
-		for (ELF32Symbol symbol : elf.symbols) {
-			if (symbol.getBind() == ELF32Symbol.STB_GLOBAL) {
-				symMap.put(symbol.valueAddress & 0xffffffffL, symbol.name);
-			}
-		}
-		Symbols syms = new Symbols(symMap);
-		// TODO add malta symbols
-		System.out.println("syms=" + syms);
+		System.out.println("memory=" + malta.getCpu().getMemory());
+		malta.getCpu().getMemory().print(System.out);
 		
 		// TODO cmdline of console=ttyS0 initrd=? root=?
 		// grub-2.00\grub-core\loader\mips\linux.c
@@ -51,16 +33,12 @@ public class Linux {
 		// state.gpr[4] = linux_argc;
 		// state.gpr[5] = target_addr + argv_off;
 		// where argv is phdr->p_paddr + phdr->p_memsz + 0x100000
-		Cpu cpu = new Cpu(mem, syms);
-		cpu.setPc(elf.header.entryAddress);
 		
-		Malta malta = new Malta(cpu);
-		mem.setMalta(malta);
-		
-		MaltaJFrame frame = new MaltaJFrame(malta);
+		MaltaJFrame frame = new MaltaJFrame();
 		frame.setVisible(true);
 		
-		cpu.run();
+		malta.getSupport().addPropertyChangeListener(frame);
+		malta.getCpu().run();
 	}
 	
 }

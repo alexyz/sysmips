@@ -4,6 +4,11 @@ import java.util.*;
 
 public final class Symbols {
 	
+	private static long toLongAddr(int addr) {
+		return addr & 0xffffffffL;
+	}
+	
+	// needs to be long so it can naturally sort
 	private final TreeMap<Long,String> map = new TreeMap<>();
 	
 	public Symbols () {
@@ -15,17 +20,21 @@ public final class Symbols {
 	}
 	
 	public final String getName (final int addr, final boolean includeAddr) {
-		final long longAddr = addr & 0xffffffffL;
-		final Map.Entry<Long, String> entry = map.floorEntry(longAddr);
+		final long longAddr = toLongAddr(addr);
+		final Map.Entry<Long, String> entry = map.floorEntry(new Long(longAddr));
 		if (entry != null) {
 			final long key = entry.getKey();
 			final String value = entry.getValue();
-			final long offset = longAddr - key;
+			final int offset = (int) (longAddr - key);
 			if (includeAddr) {
-				return "0x" + Integer.toHexString(addr) + "<" + value + "+" + offset + ">";
+				if (offset != 0) {
+					return "0x" + Integer.toHexString(addr) + "<" + value + "+0x" + Integer.toHexString(offset) + ">";
+				} else {
+					return "0x" + Integer.toHexString(addr) + "<" + value + ">";
+				}
 			} else {
 				if (offset != 0) {
-					return value + "+" + offset;
+					return value + "+0x" + Integer.toHexString(offset);
 				} else {
 					return value;
 				}
@@ -34,8 +43,13 @@ public final class Symbols {
 		return "0x" + Integer.toHexString(addr);
 	}
 	
-	public SortedMap<Long, String> getMap () {
-		return map;
+	public void put(final int addr, String name) {
+		final Long key = new Long(toLongAddr(addr));
+		final String oldname = map.get(key);
+		if (oldname != null) {
+			name = oldname + "," + name;
+		}
+		map.put(key, name);
 	}
 	
 	@Override

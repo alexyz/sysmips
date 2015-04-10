@@ -30,7 +30,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	
 	@Override
 	public void propertyChange (PropertyChangeEvent evt) {
-		System.out.println("jframe event " + evt);
+		//System.out.println("jframe event " + evt);
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run () {
@@ -40,9 +40,8 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	}
 
 	private void update (String propertyName, Object newValue) {
-		System.out.println("jframe update " + propertyName);
+		//System.out.println("jframe update " + propertyName);
 		if (propertyName.equals("display")) {
-			System.out.println("jframe update display");
 			displayField.setText((String) newValue);
 			displayField.repaint();
 		}

@@ -1,7 +1,6 @@
 package sys.linux;
 
 import java.io.*;
-import java.util.*;
 
 import sys.elf.*;
 import sys.mips.*;
@@ -16,9 +15,8 @@ public class Linux {
 		
 		Malta malta = new Malta();
 		
-		ELF32 elf;
 		try (RandomAccessFile file = new RandomAccessFile("images/vmlinux", "r")) {
-			elf = new ELF32(file);
+			ELF32 elf = new ELF32(file);
 			System.out.println("elf=" + elf);
 			//elf.print(System.out);
 			malta.load(elf, file);
@@ -36,9 +34,14 @@ public class Linux {
 		
 		MaltaJFrame frame = new MaltaJFrame();
 		frame.setVisible(true);
-		
 		malta.getSupport().addPropertyChangeListener(frame);
-		malta.getCpu().run();
+		try {
+			malta.getCpu().run();
+		} catch (Exception e) {
+			e.printStackTrace(System.out);
+		}
+		Thread.sleep(60000);
+		System.exit(1);
 	}
 	
 }

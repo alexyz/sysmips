@@ -11,7 +11,7 @@ public final class Memory {
 		if ((bytes.length & 3) != 0) {
 			throw new RuntimeException();
 		}
-		int[] words = new int[bytes.length >> 2];
+		final int[] words = new int[bytes.length >> 2];
 		int w = 0;
 		// a(0) b(1) c(2) d(3)
 		for (int n = 0; n < bytes.length; n += 4) {
@@ -24,10 +24,12 @@ public final class Memory {
 		return words;
 	}
 	
+	/** return index of 1mb page */
 	private static int pageIndex (int addr) {
 		return addr >>> 20;
 	}
 	
+	/** return index of word within 1mb page */
 	private static int wordIndex (int addr) {
 		return (addr & 0xfffff) >> 2;
 	}
@@ -42,11 +44,17 @@ public final class Memory {
 		//
 	}
 	
-	public void init(int addr) {
+	/** create 1mb page, must be aligned */
+	public void init (int addr) {
 		if ((addr & 0xfffff) == 0) {
-			pages[pageIndex(addr)] = new int[PS];
+			final int[] page = pages[pageIndex(addr)];
+			if (page == null) {
+				pages[pageIndex(addr)] = new int[PS];
+			} else {
+				throw new IllegalArgumentException("existing " + Integer.toHexString(addr));
+			}
 		} else {
-			throw new IllegalArgumentException(Integer.toHexString(addr));
+			throw new IllegalArgumentException("unaligned " + Integer.toHexString(addr));
 		}
 	}
 	
@@ -58,53 +66,77 @@ public final class Memory {
 		this.system = system;
 	}
 	
-	public int getSystem () {
-		return system;
-	}
-	
 	public final void storeBytes (final int addr, final byte[] data) {
 		storeWords(addr, toInt(data));
 	}
 	
-	public final int loadWordUnchecked (final int addr) {
-		final int[] page = pages[pageIndex(addr)];
-		if (page != null) {
-			return page[wordIndex(addr)];
+	public final int loadWord (final int addr) {
+		if ((addr & 3) == 0) {
+			final int w = pages[pageIndex(addr)][wordIndex(addr)];
+			if (addr > system) {
+				fireSystemRead(addr, w);
+			}
+			return w;
 		} else {
-			System.out.println("invalid address " + Integer.toHexString(addr));
-			return 0;
+			throw new IllegalArgumentException(Integer.toHexString(addr));
 		}
 	}
 	
-	public final int loadWord (final int addr) {
-		if ((addr & 3) == 0) {
-			return pages[pageIndex(addr)][wordIndex(addr)];
+	/** load word from system area, doesn't call system listener */
+	public final int loadWordSystem (final int addr) {
+		return pages[pageIndex(addr + system)][wordIndex(addr)];
+	}
+	
+	/** load boxed word, null if unmapped */
+	public final Integer loadWordSafe (final int addr) {
+		final int[] page = pages[pageIndex(addr)];
+		if (page != null) {
+			return Integer.valueOf(page[wordIndex(addr)]);
 		} else {
-			throw new IllegalArgumentException(Integer.toHexString(addr));
+			return null;
 		}
 	}
 	
 	public final void storeWord (final int addr, final int word) {
 		if ((addr & 3) == 0) {
-			pages[pageIndex(addr)][wordIndex(addr)] = word;
-			if (addr >= system) {
-				fireSystemUpdate(addr, word);
+			final int[] page = pages[pageIndex(addr)];
+			if (page != null) {
+				page[wordIndex(addr)] = word;
+				if (addr >= system) {
+					fireSystemWrite(addr, word);
+				}
+			} else {
+				throw new IllegalArgumentException("store unmapped " + Integer.toHexString(addr));
 			}
 		} else {
-			throw new IllegalArgumentException(Integer.toHexString(addr));
+			throw new IllegalArgumentException("store unaligned " + Integer.toHexString(addr));
 		}
 	}
 	
-	private void fireSystemUpdate (int addr, int word) {
+	/** store word into system area, doesn't call system listener */
+	public void storeWordSystem (final int addr, final int word) {
+		pages[pageIndex(addr + system)][wordIndex(addr)] = word;
+	}
+	
+	private void fireSystemRead (int addr, int value) {
 		if (systemListener != null) {
-			systemListener.update(addr, word);
+			systemListener.systemRead(addr - system, value);
+		}
+	}
+	
+	private void fireSystemWrite (int addr, int value) {
+		if (systemListener != null) {
+			systemListener.systemWrite(addr - system, value);
 		}
 	}
 	
 	public final byte loadByte (final int addr) {
-		int w = pages[pageIndex(addr)][wordIndex(addr)];
+		final int w = pages[pageIndex(addr)][wordIndex(addr)];
+		if (addr > system) {
+			fireSystemRead(addr, w);
+		}
 		// 0,1,2,3 -> 3,2,1,0 -> 24,16,8,0
-		int s = (3 - (addr & 3)) << 3;
+		final int s = (3 - (addr & 3)) << 3;
 		return (byte) (w >>> s);
 	}
 	
@@ -114,8 +146,15 @@ public final class Memory {
 		final int s = (3 - (addr & 3)) << 3;
 		final int andm = ~(0xff << s);
 		final int orm = (b & 0xff) << s;
-		int[] page = pages[pageIndex(addr)];
-		page[i] = (page[i] & andm) | orm;
+		final int[] page = pages[pageIndex(addr)];
+		if (page != null) {
+			page[i] = (page[i] & andm) | orm;
+			if (addr >= system) {
+				fireSystemWrite(addr, b);
+			}
+		} else {
+			throw new IllegalArgumentException("store unmapped " + Integer.toHexString(addr));
+		}
 	}
 	
 	public final short loadHalfWord (final int addr) {
@@ -123,36 +162,42 @@ public final class Memory {
 			final int i = wordIndex(addr);
 			// 0,2 -> 2,0 -> 16,0
 			final int s = (2 - (addr & 2)) << 3;
-			return (short) (pages[pageIndex(addr)][i] >>> s);
-			
+			final int w = pages[pageIndex(addr)][i];
+			if (addr > system) {
+				fireSystemRead(addr, w);
+			}
+			return (short) (w >>> s);
 		} else {
-			throw new IllegalArgumentException(Integer.toHexString(addr));
+			throw new IllegalArgumentException("load unaligned " + Integer.toHexString(addr));
 		}
 	}
 	
 	public final void storeHalfWord (final int addr, final short hw) {
 		if ((addr & 1) == 0) {
-			final int i = wordIndex(addr);
 			// 0,2 -> 2,0 -> 16,0
 			final int s = (2 - (addr & 2)) << 3;
+			final int i = wordIndex(addr);
 			final int andm = ~(0xffff << s);
 			final int orm = (hw & 0xffff) << s;
-			int[] page = pages[pageIndex(addr)];
-			page[i] = (page[i] & andm) | orm;
+			final int[] page = pages[pageIndex(addr)];
+			if (page != null) {
+				page[i] = (page[i] & andm) | orm;
+				if (addr >= system) {
+					fireSystemWrite(addr, hw);
+				}
+			} else {
+				throw new IllegalArgumentException("store unmapped " + Integer.toHexString(addr));
+			}
 		} else {
-			throw new IllegalArgumentException(Integer.toHexString(addr));
+			throw new IllegalArgumentException("store unaligned " + Integer.toHexString(addr));
 		}
 	}
 	
 	public final void storeWords (final int addr, final int[] data) {
 		System.out.println("int mem store ints " + data.length);
-		if ((addr & 3) == 0) {
-			for (int n = 0; n < data.length; n++) {
-				final int a = addr + (n * 4);
-				pages[pageIndex(a)][wordIndex(a)] = data[n];
-			}
-		} else {
-			throw new IllegalArgumentException(Integer.toHexString(addr));
+		for (int n = 0; n < data.length; n++) {
+			final int a = addr + (n * 4);
+			storeWord(a, data[n]);
 		}
 	}
 	
@@ -163,7 +208,7 @@ public final class Memory {
 	public void print (PrintStream ps) {
 		ps.println("memory map");
 		for (int n = 0; n < pages.length; n++) {
-			int[] page = pages[n];
+			final int[] page = pages[n];
 			if (page != null) {
 				float c = 0;
 				for (int i = 0; i < page.length; i++) {

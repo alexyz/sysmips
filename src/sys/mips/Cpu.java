@@ -640,7 +640,7 @@ public final class Cpu {
 			for (final String s : log) {
 				System.out.println(s);
 			}
-			e.printStackTrace(System.out);
+			throw e;
 		}
 	}
 

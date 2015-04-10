@@ -75,16 +75,20 @@ public final class Mips {
 		return isn & 0x3f;
 	}
 	
-	private static String formatIsn (final Isn name, final int isn, final Cpu cpu) {
-		final StringBuilder sb = new StringBuilder(name.name);
+	private static String formatIsn (final Isn isnObj, final int isn, final Cpu cpu) {
+		final StringBuilder sb = new StringBuilder(isnObj.name);
 		while (sb.length() < 8) {
 			sb.append(" ");
 		}
-		sb.append(name.format);
+		sb.append(isnObj.format);
 		int i;
 		while ((i = sb.indexOf("{")) >= 0) {
 			final int j = sb.indexOf("}", i);
-			sb.replace(i, j + 1, valueOf(sb.substring(i + 1, j), isn, cpu));
+			if (j > i) {
+				sb.replace(i, j + 1, valueOf(sb.substring(i + 1, j), isn, cpu));
+			} else {
+				throw new RuntimeException("invalid format " + isnObj.format);
+			}
 		}
 		return sb.toString();
 	}
@@ -302,8 +306,10 @@ public final class Mips {
 				return syms.getName(reg[base(isn)] + simm(isn));
 			case "syscall":
 				return "0x" + Integer.toHexString(syscall(isn));
-			case "membaseoffset":
-				return "0x" + Integer.toHexString(mem.loadWordUnchecked((reg[base(isn)] + simm(isn))));
+			case "membaseoffset": {
+				Integer w = mem.loadWordSafe((reg[base(isn)] + simm(isn)));
+				return w != null ? "0x" + Integer.toHexString(w) : null;
+			}
 			case "jump":
 				return syms.getName(jump(isn, pc));
 			case "sa":

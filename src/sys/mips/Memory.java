@@ -5,7 +5,7 @@ import java.io.PrintStream;
 public final class Memory {
 	
 	/** 1mb page size (divided by 4) */
-	private static final int PS = 0x40000;
+	private static final int PAGELEN = 0x40000;
 	
 	public static int[] toInt (byte[] bytes) {
 		if ((bytes.length & 3) != 0) {
@@ -44,20 +44,6 @@ public final class Memory {
 		//
 	}
 	
-	/** create 1mb page, must be aligned */
-	public void init (int addr) {
-		if ((addr & 0xfffff) == 0) {
-			final int[] page = pages[pageIndex(addr)];
-			if (page == null) {
-				pages[pageIndex(addr)] = new int[PS];
-			} else {
-				throw new IllegalArgumentException("existing " + Integer.toHexString(addr));
-			}
-		} else {
-			throw new IllegalArgumentException("unaligned " + Integer.toHexString(addr));
-		}
-	}
-	
 	public Symbols getSymbols () {
 		return symbols;
 	}
@@ -66,19 +52,42 @@ public final class Memory {
 		this.system = system;
 	}
 	
+	public void setSystemListener (SystemListener systemListener) {
+		this.systemListener = systemListener;
+	}
+	
+	/** create 1mb page, must be aligned */
+	public void init (int addr) {
+		if ((addr & 0xfffff) == 0) {
+			final int[] page = pages[pageIndex(addr)];
+			if (page == null) {
+				pages[pageIndex(addr)] = new int[PAGELEN];
+			} else {
+				throw new IllegalArgumentException("existing " + Integer.toHexString(addr));
+			}
+		} else {
+			throw new IllegalArgumentException("unaligned " + Integer.toHexString(addr));
+		}
+	}
+	
 	public final void storeBytes (final int addr, final byte[] data) {
 		storeWords(addr, toInt(data));
 	}
 	
 	public final int loadWord (final int addr) {
 		if ((addr & 3) == 0) {
-			final int w = pages[pageIndex(addr)][wordIndex(addr)];
-			if (addr > system) {
-				fireSystemRead(addr, w);
+			final int[] page = pages[pageIndex(addr)];
+			if (page != null) {
+				final int w = page[wordIndex(addr)];
+				if (addr > system) {
+					fireSystemRead(addr, w);
+				}
+				return w;
+			} else {
+				throw new IllegalArgumentException("load unmapped " + Integer.toHexString(addr));
 			}
-			return w;
 		} else {
-			throw new IllegalArgumentException(Integer.toHexString(addr));
+			throw new IllegalArgumentException("load unaligned " + Integer.toHexString(addr));
 		}
 	}
 	
@@ -131,13 +140,18 @@ public final class Memory {
 	}
 	
 	public final byte loadByte (final int addr) {
-		final int w = pages[pageIndex(addr)][wordIndex(addr)];
-		if (addr > system) {
-			fireSystemRead(addr, w);
+		final int[] page = pages[pageIndex(addr)];
+		if (page != null) {
+			final int w = page[wordIndex(addr)];
+			if (addr > system) {
+				fireSystemRead(addr, w);
+			}
+			// 0,1,2,3 -> 3,2,1,0 -> 24,16,8,0
+			final int s = (3 - (addr & 3)) << 3;
+			return (byte) (w >>> s);
+		} else {
+			throw new IllegalArgumentException("load unmapped " + Integer.toHexString(addr));
 		}
-		// 0,1,2,3 -> 3,2,1,0 -> 24,16,8,0
-		final int s = (3 - (addr & 3)) << 3;
-		return (byte) (w >>> s);
 	}
 	
 	public final void storeByte (final int addr, final byte b) {
@@ -159,14 +173,19 @@ public final class Memory {
 	
 	public final short loadHalfWord (final int addr) {
 		if ((addr & 1) == 0) {
-			final int i = wordIndex(addr);
-			// 0,2 -> 2,0 -> 16,0
-			final int s = (2 - (addr & 2)) << 3;
-			final int w = pages[pageIndex(addr)][i];
-			if (addr > system) {
-				fireSystemRead(addr, w);
+			final int[] page = pages[pageIndex(addr)];
+			if (page != null) {
+				final int i = wordIndex(addr);
+				final int w = page[i];
+				if (addr > system) {
+					fireSystemRead(addr, w);
+				}
+				// 0,2 -> 2,0 -> 16,0
+				final int s = (2 - (addr & 2)) << 3;
+				return (short) (w >>> s);
+			} else {
+				throw new IllegalArgumentException("load unmapped " + Integer.toHexString(addr));
 			}
-			return (short) (w >>> s);
 		} else {
 			throw new IllegalArgumentException("load unaligned " + Integer.toHexString(addr));
 		}
@@ -174,13 +193,13 @@ public final class Memory {
 	
 	public final void storeHalfWord (final int addr, final short hw) {
 		if ((addr & 1) == 0) {
-			// 0,2 -> 2,0 -> 16,0
-			final int s = (2 - (addr & 2)) << 3;
-			final int i = wordIndex(addr);
-			final int andm = ~(0xffff << s);
-			final int orm = (hw & 0xffff) << s;
 			final int[] page = pages[pageIndex(addr)];
 			if (page != null) {
+				// 0,2 -> 2,0 -> 16,0
+				final int s = (2 - (addr & 2)) << 3;
+				final int andm = ~(0xffff << s);
+				final int orm = (hw & 0xffff) << s;
+				final int i = wordIndex(addr);
 				page[i] = (page[i] & andm) | orm;
 				if (addr >= system) {
 					fireSystemWrite(addr, hw);
@@ -199,10 +218,6 @@ public final class Memory {
 			final int a = addr + (n * 4);
 			storeWord(a, data[n]);
 		}
-	}
-	
-	public void setSystemListener (SystemListener systemListener) {
-		this.systemListener = systemListener;
 	}
 	
 	public void print (PrintStream ps) {

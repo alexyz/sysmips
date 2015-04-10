@@ -7,7 +7,7 @@ import java.util.Arrays;
  * coprocessor 0 (system control), FP means coprocessor 1 (floating point).
  */
 public final class Mips {
-
+	
 	public static class Format {
 		public static final String LOAD = "{rt} <- [{base}+{offset}]: {membaseoffset} <- {baseoffset}";
 		public static final String STORE = "[{base}+{offset}] <- {rt}: [{baseoffset}] <- {regrt}";
@@ -22,7 +22,7 @@ public final class Mips {
 		public static final String CONDZMOV = "{rd} <- {rs} if {regrt} ~ 0";
 		public static final String HLOP = "hi:lo <- {rs} * {rt}";
 	}
-
+	
 	public static class Status {
 		public static final int ERL = 2;
 		public static final int BEV = 22;
@@ -47,12 +47,12 @@ public final class Mips {
 		}
 		return rd + "." + sel + ":" + name;
 	}
-
+	
 	public static String cpRegString (Cpu cpu) {
 		final int[][] reg = cpu.getCpRegisters();
 		final Memory mem = cpu.getMemory();
 		final Symbols syms = mem.getSymbols();
-
+		
 		final StringBuilder sb = new StringBuilder(256);
 		sb.append("cycle=").append(cpu.getCycle());
 		for (int n = 0; n < reg.length; n++) {
@@ -70,7 +70,7 @@ public final class Mips {
 	public static int fd (final int isn) {
 		return sa(isn);
 	}
-
+	
 	public static int fn (final int isn) {
 		return isn & 0x3f;
 	}
@@ -85,14 +85,14 @@ public final class Mips {
 		while ((i = sb.indexOf("{")) >= 0) {
 			final int j = sb.indexOf("}", i);
 			if (j > i) {
-				sb.replace(i, j + 1, valueOf(sb.substring(i + 1, j), isn, cpu));
+				sb.replace(i, j + 1, String.valueOf(eval(sb.substring(i + 1, j), isn, cpu)));
 			} else {
 				throw new RuntimeException("invalid format " + isnObj.format);
 			}
 		}
 		return sb.toString();
 	}
-
+	
 	private static String fpFormatName (final int rs) {
 		switch (rs) {
 			case FP_RS_D:
@@ -141,7 +141,7 @@ public final class Mips {
 		final int[] reg = cpu.getRegisters();
 		final Memory mem = cpu.getMemory();
 		final Symbols syms = mem.getSymbols();
-
+		
 		final StringBuilder sb = new StringBuilder(256);
 		sb.append("pc=").append(syms.getName(pc));
 		for (int n = 0; n < reg.length; n++) {
@@ -170,9 +170,9 @@ public final class Mips {
 		final int rt = rt(isn);
 		final int rd = rd(isn);
 		final int fn = fn(isn);
-
+		
 		final Isn name;
-
+		
 		switch (op) {
 			case OP_SPECIAL:
 				if (fn == FN_SLL && rd == 0) {
@@ -211,7 +211,7 @@ public final class Mips {
 			default:
 				name = OP_NAMES[op];
 		}
-
+		
 		final String addr = syms.getName(pc);
 		final String isnValue = formatIsn(name, isn, cpu);
 		return String.format("%-40s %08x %s", addr, isn, isnValue);
@@ -266,12 +266,12 @@ public final class Mips {
 		return (isn >>> 6) & 0xfffff;
 	}
 	
-	private static String valueOf (final String name, final int isn, final Cpu cpu) {
+	private static String eval (final String name, final int isn, final Cpu cpu) {
 		final Memory mem = cpu.getMemory();
 		final int[] reg = cpu.getRegisters();
 		final int pc = cpu.getPc();
 		final Symbols syms = mem.getSymbols();
-
+		
 		switch (name) {
 			case "rs":
 				return gpRegName(rs(isn));
@@ -332,7 +332,7 @@ public final class Mips {
 	public static final Isn[] FP_RS_NAMES = new Isn[32];
 	public static final Isn[] FP_FN_NAMES = new Isn[64];
 	/** integer operations, typically with 16 bit immediate */
-
+	
 	public static final byte OP_SPECIAL = 0x00;
 	/** a register-immediate instruction (all branches) */
 	public static final byte OP_REGIMM = 0x01;
@@ -340,7 +340,7 @@ public final class Mips {
 	public static final byte OP_J = 0x02;
 	/** jump and link */
 	public static final byte OP_JAL = 0x03;
-
+	
 	/** branch on equal */
 	public static final byte OP_BEQ = 0x04;
 	/** branch on not equal */
@@ -396,17 +396,21 @@ public final class Mips {
 	public static final byte OP_LWC1 = 0x31;
 	/** store conditional word */
 	public static final byte OP_SC = 0x38;
-
+	
 	/** store word from coprocessor to memory */
 	public static final byte OP_SWC1 = 0x39;
-
+	
 	/** shift word left logical. also nop if sa,rd,rt = 0 */
 	public static final byte FN_SLL = 0x00;
+	/** shift word right logical */
 	public static final byte FN_SRL = 0x02;
+	/** shift word right arithmetic (preserve sign) */
 	public static final byte FN_SRA = 0x03;
+	/** shift word left logical variable */
 	public static final byte FN_SLLV = 0x04;
-
+	/**  shift word right logical variable */
 	public static final byte FN_SRLV = 0x06;
+	/** shift word right arithmetic variable */
 	public static final byte FN_SRAV = 0x07;
 	/** jump register (function call return if rs=31) */
 	public static final byte FN_JR = 0x08;
@@ -415,7 +419,6 @@ public final class Mips {
 	public static final byte FN_MOVZ = 0x0a;
 	public static final byte FN_MOVN = 0x0b;
 	public static final byte FN_SYSCALL = 0x0c;
-
 	public static final byte FN_BREAK = 0x0d;
 	/** move from hi register */
 	public static final byte FN_MFHI = 0x10;
@@ -424,12 +427,17 @@ public final class Mips {
 	/** move from lo register */
 	public static final byte FN_MFLO = 0x12;
 	public static final byte FN_MTLO = 0x13;
+	/** multiply 32 bit signed integers */
 	public static final byte FN_MULT = 0x18;
+	/** mul unsigned integers */
 	public static final byte FN_MULTU = 0x19;
+	/** divide 32 bit signed integers */
 	public static final byte FN_DIV = 0x1a;
-
+	/** divide unsigned word */
 	public static final byte FN_DIVU = 0x1b;
+	/** add unsigned word */
 	public static final byte FN_ADDU = 0x21;
+	/** subtract unsigned word */
 	public static final byte FN_SUBU = 0x23;
 	/** bitwise logical and */
 	public static final byte FN_AND = 0x24;
@@ -437,7 +445,7 @@ public final class Mips {
 	public static final byte FN_OR = 0x25;
 	/** exclusive or */
 	public static final byte FN_XOR = 0x26;
-
+	
 	/** not or */
 	public static final byte FN_NOR = 0x27;
 	/** set on less than signed */
@@ -463,14 +471,14 @@ public final class Mips {
 	public static final byte CP_RS_MTC0 = 0x04;
 	public static final byte CP_RS_MTH = 0x06;
 	public static final byte CP_RS_RDPGPR = 0x0a;
-
+	
 	public static final byte CP_RS_MFMC0 = 0x0b;
 	public static final byte CP_RS_WRPGPR = 0x0e;
 	/** move word from floating point reg to gpr */
 	public static final byte FP_RS_MFC1 = 0x00;
 	/** move control word from floating point */
 	public static final byte FP_RS_CFC1 = 0x02;
-
+	
 	/** move word to floating point from gpr */
 	public static final byte FP_RS_MTC1 = 0x04;
 	/** move control word to floating point */
@@ -485,77 +493,77 @@ public final class Mips {
 	public static final byte FP_RS_W = 0x14;
 	public static final byte CP_FN_TLBR = 0x01;
 	public static final byte CP_FN_TLBWI = 0x02;
-
+	
 	public static final byte CP_FN_TLBINV = 0x03;
-
+	
 	public static final byte CP_FN_TLBINVF = 0x04;
-
+	
 	public static final byte CP_FN_TLBWR = 0x06;
-
+	
 	public static final byte CP_FN_TLBP = 0x08;
-
+	
 	public static final byte FP_FN_ADD_D = 0x00;
-
+	
 	public static final byte FP_FN_SUB_D = 0x01;
-
+	
 	public static final byte FP_FN_MUL_D = 0x02;
-
+	
 	public static final byte FP_FN_DIV_D = 0x03;
-
+	
 	public static final byte FP_FN_ABS_D = 0x05;
-
+	
 	public static final byte FP_FN_MOV_D = 0x06;
-
+	
 	public static final byte FP_FN_NEG_D = 0x07;
-
+	
 	/** convert to single */
 	public static final byte FP_FN_CVT_S = 0x20;
-
+	
 	/** convert to double */
 	public static final byte FP_FN_CVT_D = 0x21;
-
+	
 	/** convert to word */
 	public static final byte FP_FN_CVT_W = 0x24;
-
+	
 	/** compare for equal */
 	public static final byte FP_FN_C_EQ = 0x32;
-
+	
 	/** unordered or less than */
 	public static final byte FP_FN_C_ULT = 0x35;
-
+	
 	/** compare for less than */
 	public static final byte FP_FN_C_LT = 0x3c;
-
+	
 	/** less then or equal */
 	public static final byte FP_FN_C_LE = 0x3e;
-
+	
 	/** coproc round to nearest */
 	public static final int FCSR_RM_RN = 0x0;
-
+	
 	/** coproc round towards zero */
 	public static final int FCSR_RM_RZ = 0x1;
-
+	
 	/** coproc round towards plus infinity */
 	public static final int FCSR_RM_RP = 0x2;
-
+	
 	/** coproc round towards minus infinity */
 	public static final int FCSR_RM_RM = 0x3;
-
+	
 	public static final int HI_GPR = 32;
-
+	
 	public static final int LO_GPR = 33;
-
+	
 	public static final int STATUS_CPR = 12;
-
+	
 	public static final int STATUS_SEL = 0;
-
+	
 	public static final int PRID_CPR = 15;
-
+	
 	public static final int PRID_SEL = 0;
-
+	
 	/** fp control register index */
 	public static final int FIR_FCR = 0;
-
+	
 	/** fp control and status register index */
 	public static final int FCSR_FCR = 31;
 	
@@ -564,7 +572,7 @@ public final class Mips {
 	 */
 	public static final String[] REG_NAMES = new String[] { "zero", "at", "v0", "v1", "a0", "a1", "a2", "a3", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
 		"s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "t8", "t9", "k0", "k1", "gp", "sp", "s8", "ra", "hi", "lo" };
-
+	
 	public static final String[][] CP_REG_NAMES = new String[][] { 
 		new String[] { "Index", "MVPControl", "MVPConf0", "MVPConf1" },
 		new String[] { "Random", "VPEControl", "VPEConf0", "VPEConf1", "YQMask", "VPESchedule", "VPEScheFBack", "VPEOpt" },
@@ -583,9 +591,9 @@ public final class Mips {
 		new String[] { "PRId", "EBase", "CDMMBase", "CMGCRBase" },
 		new String[] { "Config", "Config1", "Config2", "Config3", "Config4", "Config5" }, 
 	};
-
+	
 	public static final Isn NOP = new Isn("nop");
-
+	
 	/**
 	 * set up the opcode names/types array. must call from main.
 	 */
@@ -599,7 +607,7 @@ public final class Mips {
 		Arrays.fill(CP_RS_NAMES, new Isn("undef-cp-rs"));
 		Arrays.fill(FP_RS_NAMES, new Isn("undef-rs"));
 		Arrays.fill(RT_NAMES, new Isn("undef-rt"));
-
+		
 		OP_NAMES[OP_SPECIAL] = new Isn("**spec");
 		OP_NAMES[OP_REGIMM] = new Isn("**regimm");
 		OP_NAMES[OP_J] = new Isn("j", Format.JUMP);
@@ -634,7 +642,7 @@ public final class Mips {
 		OP_NAMES[OP_SWR] = new Isn("swr", Format.STORE);
 		OP_NAMES[OP_LWC1] = new Isn("lwc1");
 		OP_NAMES[OP_SWC1] = new Isn("swc1");
-
+		
 		FN_NAMES[FN_SLL] = new Isn("sll", Format.SHIFT);
 		FN_NAMES[FN_SRL] = new Isn("srl", Format.SHIFT);
 		FN_NAMES[FN_SRA] = new Isn("sra", Format.SHIFT);
@@ -664,9 +672,9 @@ public final class Mips {
 		FN_NAMES[FN_SLT] = new Isn("slt", Format.OP);
 		FN_NAMES[FN_SLTU] = new Isn("sltu", Format.OP);
 		FN_NAMES[FN_TNE] = new Isn("tne", Format.COND);
-
+		
 		FN2_NAMES[FN2_MUL] = new Isn("mul", Format.OP);
-
+		
 		CP_RS_NAMES[CP_RS_MFC0] = new Isn("mfc0", "{rt} <- {cprd}");
 		CP_RS_NAMES[CP_RS_MFH] = new Isn("mfh", "");
 		CP_RS_NAMES[CP_RS_MFMC0] = new Isn("mfmc0", "");
@@ -674,7 +682,7 @@ public final class Mips {
 		CP_RS_NAMES[CP_RS_MTH] = new Isn("mth", "");
 		CP_RS_NAMES[CP_RS_RDPGPR] = new Isn("rdpgpr", "");
 		CP_RS_NAMES[CP_RS_WRPGPR] = new Isn("wrpgpr", "");
-
+		
 		FP_RS_NAMES[FP_RS_MFC1] = new Isn("mfc1");
 		FP_RS_NAMES[FP_RS_CFC1] = new Isn("cfc1");
 		FP_RS_NAMES[FP_RS_MTC1] = new Isn("mtc1");
@@ -683,14 +691,14 @@ public final class Mips {
 		FP_RS_NAMES[FP_RS_S] = new Isn("**fmts");
 		FP_RS_NAMES[FP_RS_D] = new Isn("**fmtd");
 		FP_RS_NAMES[FP_RS_W] = new Isn("**fmtw");
-
+		
 		CP_FN_NAMES[CP_FN_TLBINV] = new Isn("tlbinv");
 		CP_FN_NAMES[CP_FN_TLBINVF] = new Isn("tlbinvf");
 		CP_FN_NAMES[CP_FN_TLBP] = new Isn("tlbp");
 		CP_FN_NAMES[CP_FN_TLBR] = new Isn("tlbr");
 		CP_FN_NAMES[CP_FN_TLBWI] = new Isn("tlbwi");
 		CP_FN_NAMES[CP_FN_TLBWR] = new Isn("tlbiwr");
-
+		
 		FP_FN_NAMES[FP_FN_ADD_D] = new Isn("add.{fpfmt}");
 		FP_FN_NAMES[FP_FN_SUB_D] = new Isn("sub.{fpfmt}");
 		FP_FN_NAMES[FP_FN_MUL_D] = new Isn("mul.{fpfmt}");
@@ -704,7 +712,7 @@ public final class Mips {
 		FP_FN_NAMES[FP_FN_C_EQ] = new Isn("eq.{fptf}");
 		FP_FN_NAMES[FP_FN_C_LT] = new Isn("lt.{fptf}");
 		FP_FN_NAMES[FP_FN_C_LE] = new Isn("le.{fptf}");
-
+		
 		RT_NAMES[RT_BLTZ] = new Isn("bltz", Format.ZCONDBRA);
 		RT_NAMES[RT_BGEZ] = new Isn("bgez", Format.ZCONDBRA);
 		RT_NAMES[RT_BLTZAL] = new Isn("bltzal", Format.ZCONDBRA);
@@ -714,5 +722,5 @@ public final class Mips {
 	private Mips () {
 		//
 	}
-
+	
 }

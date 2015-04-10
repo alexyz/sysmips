@@ -38,6 +38,7 @@ public class Linux {
 		try {
 			malta.getCpu().run();
 		} catch (Exception e) {
+			malta.getCpu().getLogger().print(System.out);
 			e.printStackTrace(System.out);
 		}
 		Thread.sleep(60000);

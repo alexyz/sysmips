@@ -14,6 +14,7 @@ public class Malta implements SystemListener {
 	public static final int M_GTBASE = 0x1be0_0000;
 	public static final int M_GT_PCI0_CMD = M_GTBASE + 0xc00;
 	public static final int M_GT_PCI0IOLD = M_GTBASE + 0x048;
+	public static final int M_GT_PCI0IOREMAP = M_GTBASE + 0x0f0;
 	public static final int M_UNUSED = 0x1c00_0000;
 	public static final int M_FLASH1 = 0x1e00_0000;
 	public static final int M_RESERVED = 0x1e40_0000;
@@ -25,7 +26,6 @@ public class Malta implements SystemListener {
 	public static final int M_SCSPEC1 = 0x1f10_0010;
 	public static final int M_FLASH2 = 0x1fc0_0000;
 	public static final int M_REVISION = 0x1fc0_0010;
-	public static final int M_FLASH2A = M_REVISION + 4;
 	public static final int M_SCSPEC2 = 0x1fd0_0010;
 	public static final int M_SCSPEC2_BONITO = 0x1fe0_0010;
 	
@@ -52,19 +52,19 @@ public class Malta implements SystemListener {
 		sym.put(SYSTEM + M_DISPLAY, "M_DISPLAY");
 		sym.put(SYSTEM + M_FLASH1, "M_FLASH1");
 		sym.put(SYSTEM + M_FLASH2, "M_FLASH2");
-		sym.put(SYSTEM + M_FLASH2A, "M_FLASH2A");
 		sym.put(SYSTEM + M_PCI1, "M_PCI1");
 		sym.put(SYSTEM + M_PCI2, "M_PCI2");
 		sym.put(SYSTEM + M_RESERVED, "M_RESERVED");
 		sym.put(SYSTEM + M_GTBASE, "M_GTBASE");
-		sym.put(SYSTEM + M_GT_PCI0_CMD, "M_GT_PCI0_CMD");
-		sym.put(SYSTEM + M_GT_PCI0IOLD, "M_GT_PCI0IOLD");
+		sym.put(SYSTEM + M_GT_PCI0_CMD, "M_GT_PCI0_CMD", 8);
+		sym.put(SYSTEM + M_GT_PCI0IOLD, "M_GT_PCI0IOLD", 8);
 		sym.put(SYSTEM + M_SCSPEC1, "M_SCSPEC1");
 		sym.put(SYSTEM + M_SCSPEC2, "M_SCSPEC2");
 		sym.put(SYSTEM + M_SCSPEC2_BONITO, "M_SCSPEC2_BONITO");
 		sym.put(SYSTEM + M_SDRAM, "M_SDRAM");
 		sym.put(SYSTEM + M_UNUSED, "M_UNUSED");
-		sym.put(SYSTEM + M_REVISION, "M_REVISION");
+		sym.put(SYSTEM + M_REVISION, "M_REVISION", 8);
+		sym.put(SYSTEM + M_GT_PCI0IOREMAP, "M_GT_PCI0IOREMAP", 8);
 		
 		mem.setSystem(SYSTEM);
 		// set the system controller revision
@@ -103,6 +103,7 @@ public class Malta implements SystemListener {
 			case M_REVISION:
 			case M_GT_PCI0IOLD:
 			case M_GT_PCI0_CMD:
+			case M_GT_PCI0IOREMAP:
 				break;
 			default:
 				throw new RuntimeException("unknown malta read " + Integer.toHexString(addr));

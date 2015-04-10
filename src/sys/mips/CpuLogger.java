@@ -1,14 +1,29 @@
 package sys.mips;
 
+import java.io.PrintStream;
 import java.util.*;
 
 public class CpuLogger {
 	
+	private final LinkedList<String> log = new LinkedList<>();
 	private final List<String> calls = new ArrayList<>();
 	private final Cpu cpu;
 	
 	public CpuLogger (Cpu cpu) {
 		this.cpu = cpu;
+	}
+	
+	public void print (PrintStream ps) {
+		for (String line : log) {
+			ps.println(line);
+		}
+	}
+	
+	public void info (String msg) {
+		while (log.size() > 50) {
+			log.removeFirst();
+		}
+		log.add(cpu.getCycle() + ": " + msg);
 	}
 	
 	public void call (int addr) {

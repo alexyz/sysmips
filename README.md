@@ -9,7 +9,7 @@ Loosely based on the mipsem/cfern project
 Suggested Reading
 -
 
-* [LinuxMIPS Wiki](http://www.linux-mips.org/wiki/MIPS_Malta]
+* [LinuxMIPS Wiki](http://www.linux-mips.org/wiki/MIPS_Malta)
 * [MIPS Architecture For Programmers Volumes I-III](http://www.imgtec.com/mips/architectures/mips32.asp)
 * TIS ELF Specification (PDF)
 * MIPS Malta User's Manual

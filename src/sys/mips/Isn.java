@@ -32,17 +32,21 @@ public class Isn {
 		return new Isn(OP_COP1, rs, 0, 0, name, asm, disasm);
 	}
 	
-	public static Isn newCop1Fn (int fn, String name, String asm, String disasm) {
+	public static Isn newCop1Fn (int rs, int fn, String name, String asm, String disasm) {
 		// only add these for S, though they apply to D, W and L as well
-		return new Isn(OP_COP1, FP_RS_S, 0, fn, name, asm, disasm);
+		return new Isn(OP_COP1, rs, 0, fn, name, asm, disasm);
 	}
 	
+	/** the code at bit position 26 */
 	public final int op;
+	/** the code at bit position 21 */
 	public final int rs;
+	/** the code at bit position 16 */
 	public final int rt;
+	/** the code at bit position 0 */
 	public final int fn;
 	public final String name;
-	public final String asm;
+	public final String type;
 	public final String disasm;
 	
 	public Isn (String name) {
@@ -55,13 +59,13 @@ public class Isn {
 		this.rt = rt;
 		this.fn = fn;
 		this.name = name;
-		this.asm = asm;
+		this.type = asm;
 		this.disasm = disasm;
 	}
 	
 	@Override
 	public String toString () {
-		return getClass().getSimpleName() + "[" + name + ", " + asm + "]";
+		return getClass().getSimpleName() + "[" + name + " " + type + "]";
 	}
 	
 }

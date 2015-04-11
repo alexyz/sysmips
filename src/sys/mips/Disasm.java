@@ -8,8 +8,17 @@ public final class Disasm {
 	/**
 	 * gas names of general registers
 	 */
-	public static final String[] REG_NAMES = new String[] { "zero", "at", "v0", "v1", "a0", "a1", "a2", "a3", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
-		"s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "t8", "t9", "k0", "k1", "gp", "sp", "s8", "ra", "hi", "lo" };
+	public static final String[] REG_NAMES = new String[] { 
+		"zero", "at", "v0", "v1", 
+		"a0", "a1", "a2", "a3", 
+		"t0", "t1", "t2", "t3", 
+		"t4", "t5", "t6", "t7",
+		"s0", "s1", "s2", "s3", 
+		"s4", "s5", "s6", "s7", 
+		"t8", "t9", "k0", "k1", 
+		"gp", "sp", "s8", "ra", 
+		"hi", "lo" 
+	};
 	
 	public static final String[][] CP_REG_NAMES = new String[][] { 
 		new String[] { "Index", "MVPControl", "MVPConf0", "MVPConf1" },
@@ -70,7 +79,8 @@ public final class Disasm {
 				if (rs < FP_RS_S) {
 					isnObj = SET.fpu[rs];
 				} else {
-					isnObj = SET.fpuFn[fn];
+					// XXX not always s...
+					isnObj = SET.fpuFnSingle[fn];
 				}
 				break;
 			case OP_SPECIAL2:
@@ -151,19 +161,6 @@ public final class Disasm {
 			}
 		}
 		return sb.toString();
-	}
-	
-	private static String fpFormatName (final int rs) {
-		switch (rs) {
-			case FP_RS_D:
-				return "d";
-			case FP_RS_S:
-				return "s";
-			case FP_RS_W:
-				return "w";
-			default:
-				throw new RuntimeException("unknown fp format " + rs);
-		}
 	}
 	
 	private static String gpRegName (int reg) {

@@ -36,8 +36,10 @@ public final class MipsConstants {
 	public static final byte OP_LUI = 0x0f;
 	/** coprocessor 0 meta instruction selected by RS then by FN */
 	public static final byte OP_COP0 = 0x10;
-	/** coprocessor 1 meta instruction selected by RS then by FN */
+	/** coprocessor 1 meta instruction selected by RS then by RT/FN */
 	public static final byte OP_COP1 = 0x11;
+	/** branch if equal likely, execute delay slot only if taken */
+	public static final byte OP_BEQL = 0x14;
 	/** meta instruction selected by fn */
 	public static final byte OP_SPECIAL2 = 0x1c;
 	/** load byte (signed) */
@@ -159,7 +161,7 @@ public final class MipsConstants {
 	public static final byte FP_RS_MTC1 = 0x04;
 	/** move control word to floating point */
 	public static final byte FP_RS_CTC1 = 0x06;
-	/** branch on fp condition */
+	/** branch on fp condition sort-of meta instruction (depends on CC and TF) */
 	public static final byte FP_RS_BC1 = 0x08;
 	/**
 	 * single precision meta instruction, when rs >= FP_RS_S (and < 0x18), isn is
@@ -168,8 +170,11 @@ public final class MipsConstants {
 	public static final byte FP_RS_S = 0x10;
 	/** double precision meta instruction */
 	public static final byte FP_RS_D = 0x11;
-	/** word precision instruction */
+	/** word precision meta instruction */
 	public static final byte FP_RS_W = 0x14;
+	/** long precision meta instruction */
+	public static final byte FP_RS_L = 0x15;
+	
 	public static final byte CP_FN_TLBR = 0x01;
 	public static final byte CP_FN_TLBWI = 0x02;
 	
@@ -189,7 +194,7 @@ public final class MipsConstants {
 	
 	public static final byte FP_FN_DIV = 0x03;
 	
-	public static final byte FP_FN_ABS_D = 0x05;
+	public static final byte FP_FN_ABS = 0x05;
 	
 	public static final byte FP_FN_MOV = 0x06;
 	
@@ -341,7 +346,22 @@ public final class MipsConstants {
 	public static final int syscall (final int isn) {
 		return (isn >>> 6) & 0xfffff;
 	}
-	
+
+	/** convert rs meta instruction to d, s, w, or l */
+	public static String fpFormatName (final int rs) {
+		switch (rs) {
+			case FP_RS_D:
+				return "d";
+			case FP_RS_S:
+				return "s";
+			case FP_RS_W:
+				return "w";
+			case FP_RS_L:
+				return "l";
+			default:
+				throw new RuntimeException("unknown fp format " + rs);
+		}
+	}
 	private MipsConstants () {
 		//
 	}

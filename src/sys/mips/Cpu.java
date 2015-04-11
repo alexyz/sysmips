@@ -596,7 +596,7 @@ public final class Cpu {
 				access.set(fpReg, fd, round.round(fsValue / ftValue));
 				return;
 			}
-			case FP_FN_ABS_D: {
+			case FP_FN_ABS: {
 				final double fsValue = access.get(fpReg, fs);
 				access.set(fpReg, fd, StrictMath.abs(fsValue));
 				return;

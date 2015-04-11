@@ -1,6 +1,6 @@
 package sys.mips;
 
-import static sys.mips.Mips.*;
+import static sys.mips.MipsConstants.*;
 
 public abstract class Access {
 	

@@ -113,9 +113,6 @@ public class ELF32Symbol implements Comparable<ELF32Symbol> {
 		}
 	}
 	
-	/**
-	 * Print a full description of this symbol
-	 */
 	@Override
 	public String toString () {
 		return String.format("ELF32Symbol[x%x %s bind=%s type=%s other=%s]", valueAddress, name, bindString(), typeString(), other());

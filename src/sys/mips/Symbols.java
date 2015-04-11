@@ -16,6 +16,11 @@ public final class Symbols {
 			this.name = name;
 			this.size = size;
 		}
+		
+		@Override
+		public String toString () {
+			return name;
+		}
 	}
 	
 	private static long toLongAddr (int addr) {

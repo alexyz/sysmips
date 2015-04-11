@@ -1,6 +1,6 @@
 package sys.mips;
 
-import static sys.mips.Mips.*;
+import static sys.mips.MipsConstants.*;
 
 public final class Cpu {
 	
@@ -24,16 +24,15 @@ public final class Cpu {
 	private boolean fccr;
 	
 	public Cpu () {
-		cpReg[STATUS_CPR][STATUS_SEL] = (3 << Status.CU) | (1 << Status.BEV) | (1 << Status.ERL);
-		// #define PRID_COMP_LEGACY 0x000000
-		// #define PRID_IMP_R2000 0x0100
-		// #define PRID_REV_R2000A 0x0010
+		// linux_3.2.65\arch\mips\include\asm\cpu-features.h
+		// linux_3.2.65\arch\mips\include\asm\cpu.h
+		// linux_3.2.65\arch\mips\include\asm\mipsregs.h
+		// default values on reboot
+		cpReg[STATUS_CPR][STATUS_SEL] = (3 << 28) | (1 << 22) | (1 << 2);
+		// R2000A
 		cpReg[PRID_CPR][PRID_SEL] = 0x0110;
-		// ((cpu_get_fpu_id() & 0xff00) != FPIR_IMP_NONE);
-		// #define MIPS_FPIR_S (_ULCAST_(1) << 16)
-		// #define MIPS_FPIR_D (_ULCAST_(1) << 17)
-		// #define MIPS_FPIR_W (_ULCAST_(1) << 20)
-		// TODO add L (required by spec)
+		// support S, D, W, L
+		int fcr = (1 << 16) | (1 << 17) | (1 << 20) | (1 << 21) | (1 << 8);
 		fpControlReg[FIR_FCR] = 0x130100;
 	}
 
@@ -78,7 +77,7 @@ public final class Cpu {
 			
 			// log.add(cpRegString(this));
 			// log.add(gpRegString(this));
-			logger.info(isnString(this));
+			logger.info(Disasm.isnString(this));
 			
 			if (reg[0] != 0) {
 				System.out.println("cpu cycle " + cycle + ": reg 0 not 0");
@@ -142,7 +141,7 @@ public final class Cpu {
 					case OP_COP1:
 						execFpuRs(isn);
 						return;
-					case OP_SPEC2:
+					case OP_SPECIAL2:
 						execFn2(isn);
 						return;
 					case OP_LWC1:

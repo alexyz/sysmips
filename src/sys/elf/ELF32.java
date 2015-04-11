@@ -1,12 +1,6 @@
 package sys.elf;
 
-import java.io.DataInput;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.io.RandomAccessFile;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.io.*;
 
 public class ELF32 {
 	

@@ -2,8 +2,9 @@ package sys.mips;
 
 public final class MipsConstants {
 	
+	/** special meta instruction selected by FN */
 	public static final byte OP_SPECIAL = 0x00;
-	/** a register-immediate instruction (all branches) */
+	/** register-immediate meta instruction (selected by RT) */
 	public static final byte OP_REGIMM = 0x01;
 	/** branch within 256mb region */
 	public static final byte OP_J = 0x02;
@@ -33,9 +34,11 @@ public final class MipsConstants {
 	/** exclusive or immediate (zx) */
 	public static final byte OP_XORI = 0x0e;
 	public static final byte OP_LUI = 0x0f;
-	/** coprocessor 0 instruction selected by RS and FN */
+	/** coprocessor 0 meta instruction selected by RS then by FN */
 	public static final byte OP_COP0 = 0x10;
+	/** coprocessor 1 meta instruction selected by RS then by FN */
 	public static final byte OP_COP1 = 0x11;
+	/** meta instruction selected by fn */
 	public static final byte OP_SPECIAL2 = 0x1c;
 	/** load byte (signed) */
 	public static final byte OP_LB = 0x20;
@@ -178,19 +181,19 @@ public final class MipsConstants {
 	
 	public static final byte CP_FN_TLBP = 0x08;
 	
-	public static final byte FP_FN_ADD_D = 0x00;
+	public static final byte FP_FN_ADD = 0x00;
 	
-	public static final byte FP_FN_SUB_D = 0x01;
+	public static final byte FP_FN_SUB = 0x01;
 	
-	public static final byte FP_FN_MUL_D = 0x02;
+	public static final byte FP_FN_MUL = 0x02;
 	
-	public static final byte FP_FN_DIV_D = 0x03;
+	public static final byte FP_FN_DIV = 0x03;
 	
 	public static final byte FP_FN_ABS_D = 0x05;
 	
-	public static final byte FP_FN_MOV_D = 0x06;
+	public static final byte FP_FN_MOV = 0x06;
 	
-	public static final byte FP_FN_NEG_D = 0x07;
+	public static final byte FP_FN_NEG = 0x07;
 	
 	/** convert to single */
 	public static final byte FP_FN_CVT_S = 0x20;

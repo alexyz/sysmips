@@ -53,7 +53,7 @@ public final class Disasm {
 				if (fn == FN_SLL && rd == 0) {
 					isnObj = NOP;
 				} else {
-					isnObj = SET.special[fn];
+					isnObj = SET.fn[fn];
 				}
 				break;
 			case OP_REGIMM:
@@ -68,13 +68,13 @@ public final class Disasm {
 				break;
 			case OP_COP1:
 				if (rs < FP_RS_S) {
-					isnObj = SET.floatingPoint[rs];
+					isnObj = SET.fpu[rs];
 				} else {
-					isnObj = SET.floatingPointFn[fn];
+					isnObj = SET.fpuFn[fn];
 				}
 				break;
 			case OP_SPECIAL2:
-				isnObj = SET.special2[fn];
+				isnObj = SET.fn2[fn];
 				break;
 			default:
 				isnObj = SET.op[op];

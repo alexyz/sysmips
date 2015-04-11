@@ -572,25 +572,25 @@ public final class Cpu {
 		final int fn = fn(isn);
 		
 		switch (fn) {
-			case FP_FN_ADD_D: {
+			case FP_FN_ADD: {
 				final double fsValue = access.get(fpReg, fs);
 				final double ftValue = access.get(fpReg, ft);
 				access.set(fpReg, fd, round.round(fsValue + ftValue));
 				return;
 			}
-			case FP_FN_SUB_D: {
+			case FP_FN_SUB: {
 				final double fsValue = access.get(fpReg, fs);
 				final double ftValue = access.get(fpReg, ft);
 				access.set(fpReg, fd, round.round(fsValue - ftValue));
 				return;
 			}
-			case FP_FN_MUL_D: {
+			case FP_FN_MUL: {
 				final double fsValue = access.get(fpReg, fs);
 				final double ftValue = access.get(fpReg, ft);
 				access.set(fpReg, fd, round.round(fsValue * ftValue));
 				return;
 			}
-			case FP_FN_DIV_D: {
+			case FP_FN_DIV: {
 				final double fsValue = access.get(fpReg, fs);
 				final double ftValue = access.get(fpReg, ft);
 				access.set(fpReg, fd, round.round(fsValue / ftValue));
@@ -601,12 +601,12 @@ public final class Cpu {
 				access.set(fpReg, fd, StrictMath.abs(fsValue));
 				return;
 			}
-			case FP_FN_MOV_D: {
+			case FP_FN_MOV: {
 				final double fsValue = access.get(fpReg, fs);
 				access.set(fpReg, fd, fsValue);
 				return;
 			}
-			case FP_FN_NEG_D: {
+			case FP_FN_NEG: {
 				final double fsValue = access.get(fpReg, fs);
 				access.set(fpReg, fd, -fsValue);
 				return;

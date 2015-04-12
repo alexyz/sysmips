@@ -6,6 +6,8 @@ Intended to run the Debian Stable Linux 3.2 for MIPS Malta kernel
 
 Loosely based on the mipsem/cfern project
 
+For a MIPS compiler, try Sourcery CodeBench Lite Edition for MIPS ELF
+
 Suggested Reading
 -
 

@@ -62,32 +62,32 @@ public final class Disasm {
 				if (fn == FN_SLL && rd == 0) {
 					isnObj = NOP;
 				} else {
-					isnObj = SET.fn[fn];
+					isnObj = ISNSET.fn[fn];
 				}
 				break;
 			case OP_REGIMM:
-				isnObj = SET.regimm[rt];
+				isnObj = ISNSET.regimm[rt];
 				break;
 			case OP_COP0:
 				if (rs < CP_RS_CO) {
-					isnObj = SET.system[rs];
+					isnObj = ISNSET.system[rs];
 				} else {
-					isnObj = SET.systemFn[fn];
+					isnObj = ISNSET.systemFn[fn];
 				}
 				break;
 			case OP_COP1:
 				if (rs < FP_RS_S) {
-					isnObj = SET.fpu[rs];
+					isnObj = ISNSET.fpu[rs];
 				} else {
 					// XXX not always s...
-					isnObj = SET.fpuFnSingle[fn];
+					isnObj = ISNSET.fpuFnSingle[fn];
 				}
 				break;
 			case OP_SPECIAL2:
-				isnObj = SET.fn2[fn];
+				isnObj = ISNSET.fn2[fn];
 				break;
 			default:
-				isnObj = SET.op[op];
+				isnObj = ISNSET.op[op];
 		}
 		
 		final String addr = syms.getName(pc);

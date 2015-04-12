@@ -6,6 +6,9 @@ import java.io.*;
  * ELF header file
  */
 public class ELF32Header {
+	
+	public static final int HEADER_SIZE = 52;
+	
 	/** these appear at the start of every elf file */
 	public static final int ELF_MAGIC = 0x7f454c46;
 	public static final int ET_NONE = 0;
@@ -19,6 +22,7 @@ public class ELF32Header {
 	public static final int ET_HIPROC = 0xffff;
 	public static final int EM_MIPS = 8;
 	public static final int SHN_UNDEF = 0;
+	public static final int EV_CURRENT = 1;
 	
 	/** type (2 = executable) */
 	public final short type;
@@ -45,27 +49,27 @@ public class ELF32Header {
 	
 	/** load elf header from file */
 	public ELF32Header (DataInput f) throws IOException {
-		int e_ident = f.readInt(); // 4
+		int e_ident = f.readInt();
 		if (e_ident != ELF_MAGIC) {
 			throw new IOException("Not an ELF file");
 		}
-		f.skipBytes(12); // 16
-		type = f.readShort(); // 18
-		machine = f.readShort(); // 20
-		version = f.readInt(); // 24
-		entryAddress = f.readInt(); // 28
-		programHeaderOffset = f.readInt(); // 32
-		sectionHeaderOffset = f.readInt(); // 36
-		flags = f.readInt(); // 40
-		headerSize = f.readShort(); // 42
-		programHeaderSize = f.readShort(); // 44
-		programHeaders = f.readShort(); // 46
-		sectionHeaderSize = f.readShort(); // 48
-		sectionHeaders = f.readShort(); // 50
-		stringTableSection = f.readShort(); // 54
+		f.skipBytes(12);
+		type = f.readShort();
+		machine = f.readShort();
+		version = f.readInt();
+		entryAddress = f.readInt();
+		programHeaderOffset = f.readInt();
+		sectionHeaderOffset = f.readInt();
+		flags = f.readInt();
+		headerSize = f.readShort();
+		programHeaderSize = f.readShort();
+		programHeaders = f.readShort();
+		sectionHeaderSize = f.readShort();
+		sectionHeaders = f.readShort();
+		stringTableSection = f.readShort();
 	}
 	
-	public String type () {
+	public String typeString () {
 		switch (type) {
 			case ET_CORE:
 				return "core";
@@ -80,18 +84,21 @@ public class ELF32Header {
 		}
 	}
 	
-	public String machine() {
+	public String machineString () {
 		switch (machine) {
-			case EM_MIPS: return "mips";
-			default: return Integer.toString(machine);
+			case EM_MIPS:
+				return "mips";
+			default:
+				return Integer.toString(machine);
 		}
 	}
 	
 	@Override
 	public String toString () {
-		String s = "ELF32Header[type: %s machine: %s version: %d ehsize: %d entry: %x flags: x%x strsh: %d phoff: x%x phent: %d phnum: %d shoff: x%x shent: %d shnum: %d]";
-		return String.format(s, type(), machine(), version, headerSize, entryAddress, flags, stringTableSection, programHeaderOffset, programHeaderSize, programHeaders, sectionHeaderOffset, sectionHeaderSize,
-				sectionHeaders);
+		return "ELF32Header [type=" + typeString() + ", machine=" + machineString() + ", version=" + version + ", entryAddress=0x"
+				+ Integer.toHexString(entryAddress) + ", programHeaderOffset=" + programHeaderOffset + ", sectionHeaderOffset=" + sectionHeaderOffset
+				+ ", flags=" + flags + ", headerSize=" + headerSize + ", programHeaderSize=" + programHeaderSize + ", programHeaders=" + programHeaders
+				+ ", sectionHeaderSize=" + sectionHeaderSize + ", sectionHeaders=" + sectionHeaders + ", stringTableSection=" + stringTableSection + "]";
 	}
 	
 }

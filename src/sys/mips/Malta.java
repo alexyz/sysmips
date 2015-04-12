@@ -73,8 +73,7 @@ public class Malta implements SystemListener {
 	}
 	
 	public void load (ELF32 elf, RandomAccessFile file) throws Exception {
-		for (int ph = 0; ph < elf.header.programHeaders; ph++) {
-			ELF32Program program = elf.programs[ph];
+		for (ELF32Program program : elf.programs) {
 			if (program.type == ELF32Program.PT_LOAD) {
 				file.seek(program.fileOffset);
 				final byte[] data = new byte[program.memorySize];

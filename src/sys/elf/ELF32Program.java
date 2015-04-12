@@ -7,6 +7,8 @@ import java.io.*;
  */
 public class ELF32Program {
 	
+	public static final int PROGRAM_SIZE = 32;
+	
 	public static final int PT_NULL = 0;
 	/** a block to load */
 	public static final int PT_LOAD = 1;
@@ -18,9 +20,7 @@ public class ELF32Program {
 	public static final int PT_PHDR = 6;
 	public static final int PT_LOPROC = 0x70000000;
 	public static final int PT_HIPROC = 0x7fffffff;
-	/**
-	 * register usage for shared object, mips psabi page 86
-	 */
+	/** register usage for shared object */
 	public static final int PT_MIPS_REGINFO = 0x70000000;
 	
 	/** Load if equal to PT_LOAD */
@@ -38,24 +38,18 @@ public class ELF32Program {
 	public final int flags;
 	public final int align;
 	
-	/**
-	 * Load program header from given DataInput
-	 */
-	public ELF32Program (DataInput f) throws IOException {
-		type = f.readInt();
-		fileOffset = f.readInt();
-		virtualAddress = f.readInt();
-		physicalAddress = f.readInt();
-		fileSize = f.readInt();
-		memorySize = f.readInt();
-		flags = f.readInt();
-		align = f.readInt();
+	public ELF32Program (DataInput in) throws IOException {
+		type = in.readInt();
+		fileOffset = in.readInt();
+		virtualAddress = in.readInt();
+		physicalAddress = in.readInt();
+		fileSize = in.readInt();
+		memorySize = in.readInt();
+		flags = in.readInt();
+		align = in.readInt();
 	}
 	
-	/**
-	 * Return string of the type of this program header
-	 */
-	public String type () {
+	public String typeString () {
 		switch (type) {
 			case PT_NULL:
 				return "null";
@@ -71,20 +65,16 @@ public class ELF32Program {
 				return "shlib";
 			case PT_PHDR:
 				return "phdr";
-			case PT_MIPS_REGINFO:
-				return "reginfo";
 			default:
 				return Integer.toHexString(type);
 		}
 	}
 	
-	/**
-	 * Print a full description of this header
-	 */
 	@Override
 	public String toString () {
-		String f = "ELF32Program[type: %s offset: %s vaddr: x%x paddr: x%x filesz: %d memsize: %d flags: x%x align: %d]";
-		return String.format(f, type(), fileOffset, virtualAddress, physicalAddress, fileSize, memorySize, flags, align);
+		return "ELF32Program [type=" + typeString() + ", fileOffset=" + fileOffset + ", virtualAddress=0x" + Integer.toHexString(virtualAddress)
+				+ ", physicalAddress=0x" + Integer.toHexString(physicalAddress) + ", fileSize=" + fileSize + ", memorySize=" + memorySize + ", flags=" + flags
+				+ ", align=" + align + "]";
 	}
 	
 }

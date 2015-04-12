@@ -7,6 +7,8 @@ import java.io.*;
  */
 public class ELF32Section {
 	
+	public static final int SECTION_SIZE = 40;
+	
 	/**
 	 * Section types
 	 */
@@ -65,7 +67,7 @@ public class ELF32Section {
 		entrySize = f.readInt();
 	}
 	
-	private String type () {
+	private String typeString () {
 		switch (type) {
 			case SHT_RELA:
 				return "rela";
@@ -90,7 +92,7 @@ public class ELF32Section {
 		}
 	}
 	
-	private String flags () {
+	private String flagString () {
 		StringBuilder sb = new StringBuilder();
 		sb.append(Integer.toHexString(flags));
 		if ((flags & SHF_WRITE) != 0) {
@@ -105,13 +107,10 @@ public class ELF32Section {
 		return sb.toString();
 	}
 	
-	/**
-	 * Return string describing section
-	 */
 	@Override
 	public String toString () {
 		String s = "ELF32Section[%s type=%s flags=%s addr=x%x offset=x%x size=%d link=x%x info=x%x align=x%x entsize=%d]";
-		return String.format(s, name, type(), flags(), address, fileOffset, fileSize, linkedSection, info, addressAlign, entrySize);
+		return String.format(s, name, typeString(), flagString(), address, fileOffset, fileSize, linkedSection, info, addressAlign, entrySize);
 	}
 	
 }

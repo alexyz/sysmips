@@ -10,7 +10,7 @@ import java.util.*;
  */
 public class IsnSet {
 	
-	public static final IsnSet SET = new IsnSet();
+	public static final IsnSet ISNSET = new IsnSet();
 	
 	//
 	// assembly types (not just I, J and R...)
@@ -30,6 +30,8 @@ public class IsnSet {
 	public static final String T_S = "S";
 	/** rd, rs, rt */
 	public static final String T_R3 = "R3";
+	/** rd, rt, sa */
+	public static final String T_R3S = "R3S";
 	/** fd, fs, ft */
 	public static final String T_FR3 = "FR3";
 	/** fd, fs */
@@ -71,6 +73,7 @@ public class IsnSet {
 	public final Isn[] fpuFnDouble = new Isn[64];
 	public final Isn[] fpuFnWord = new Isn[64];
 	public final Isn[] fpuFnLong = new Isn[64];
+	/** all instructions by name */
 	public final SortedMap<String, Isn> names = new TreeMap<>();
 	
 	private IsnSet () {
@@ -106,13 +109,13 @@ public class IsnSet {
 		add(newOp(OP_LWC1, "lwc1", T_I3, ""));
 		add(newOp(OP_SWC1, "swc1", T_I3, ""));
 		
-		add(newRegimm(RT_BLTZ, "bltz", "", SF_ZCONDBRA));
-		add(newRegimm(RT_BGEZ, "bgez", "", SF_ZCONDBRA));
+		add(newRegimm(RT_BLTZ, "bltz", T_IB2, SF_ZCONDBRA));
+		add(newRegimm(RT_BGEZ, "bgez", T_IB2, SF_ZCONDBRA));
 		add(newRegimm(RT_BLTZAL, "bltzal", "", SF_ZCONDBRA));
 		add(newRegimm(RT_BGEZAL, "bgezal", T_IB2, SF_ZCONDBRA));
 		
-		add(newFn(FN_SLL, "sll", T_R3, SF_SHIFT));
-		add(newFn(FN_SRL, "srl", T_R3, SF_SHIFT));
+		add(newFn(FN_SLL, "sll", T_R3S, SF_SHIFT));
+		add(newFn(FN_SRL, "srl", T_R3S, SF_SHIFT));
 		add(newFn(FN_SRA, "sra", T_R3, SF_SHIFT));
 		add(newFn(FN_SLLV, "sllv", T_R3, SF_SHIFTREG));
 		add(newFn(FN_SRLV, "srlv", T_R3, SF_SHIFTREG));

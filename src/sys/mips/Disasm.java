@@ -43,7 +43,6 @@ public final class Disasm {
 		new String[] { "Config", "Config1", "Config2", "Config3", "Config4", "Config5" }, 
 	};
 	
-	private static final Isn NOP = new Isn("nop");
 	
 	/**
 	 * Disassemble an instruction
@@ -56,51 +55,16 @@ public final class Disasm {
 		final int op = op(isn);
 		final int rs = rs(isn);
 		final int rt = rt(isn);
-		final int rd = rd(isn);
 		final int fn = fn(isn);
 		
-		final Isn isnObj;
-		
-		switch (op) {
-			case OP_SPECIAL:
-				if (fn == FN_SLL && rd == 0) {
-					isnObj = NOP;
-				} else {
-					isnObj = ISNSET.fn[fn];
-				}
-				break;
-			case OP_REGIMM:
-				isnObj = ISNSET.regimm[rt];
-				break;
-			case OP_COP0:
-				if (rs < CP_RS_CO) {
-					isnObj = ISNSET.system[rs];
-				} else {
-					isnObj = ISNSET.systemFn[fn];
-				}
-				break;
-			case OP_COP1:
-				if (rs < FP_RS_S) {
-					isnObj = ISNSET.fpu[rs];
-				} else {
-					// XXX not always s...
-					isnObj = ISNSET.fpuFnSingle[fn];
-				}
-				break;
-			case OP_SPECIAL2:
-				isnObj = ISNSET.fn2[fn];
-				break;
-			default:
-				isnObj = ISNSET.op[op];
-		}
-		
-		final String addr = syms.getName(pc);
+		Isn isnObj = IsnSet.getIsn(isn);
 		final String isnValue;
 		if (isnObj != null) {
 			isnValue = formatIsn(isnObj, isn, cpu);
 		} else {
 			isnValue = "op=" + op + " rt=" + rt + " rs=" + rs + " fn=" + fn;
 		}
+		final String addr = syms.getName(pc);
 		return String.format("%-40s %08x %s", addr, isn, isnValue);
 	}
 	
@@ -154,22 +118,25 @@ public final class Disasm {
 		while (sb.length() < 8) {
 			sb.append(" ");
 		}
-		sb.append(isnObj.disasm);
+		sb.append(isnObj.format);
 		int i;
 		while ((i = sb.indexOf("{")) >= 0) {
 			final int j = sb.indexOf("}", i);
 			if (j > i) {
 				sb.replace(i, j + 1, String.valueOf(eval(sb.substring(i + 1, j), isn, cpu)));
 			} else {
-				throw new RuntimeException("invalid format " + isnObj.disasm);
+				throw new RuntimeException("invalid format " + isnObj.format);
 			}
 		}
 		return sb.toString();
 	}
 	
 	private static String gpRegName (int reg) {
-		// return "$" + reg + ":" + REG_NAMES[reg];
 		return REG_NAMES[reg];
+	}
+	
+	private static String fpRegName (int reg) {
+		return "f" + reg;
 	}
 	
 	private static String eval (final String name, final int isn, final Cpu cpu) {
@@ -179,6 +146,8 @@ public final class Disasm {
 		final Symbols syms = mem.getSymbols();
 		
 		switch (name) {
+			case "ft":
+				return fpRegName(ft(isn));
 			case "rs":
 				return gpRegName(rs(isn));
 			case "base":
@@ -201,7 +170,7 @@ public final class Disasm {
 			case "cprd":
 				return cpRegName(rd(isn), sel(isn));
 			case "imm":
-				return "0x" + Integer.toHexString(imm(isn));
+				return "" + simm(isn);
 			case "branch":
 				return syms.getName(branch(isn, pc));
 			case "hi":

@@ -17,9 +17,10 @@ public class Test2 {
 	
 	private void before() throws Exception {
 		cpu.getMemory().init(0x400000);
-		cpu.getRegisters()[29] = 0x4ffff0;
-		cpu.getMemory().init(0x500000);
-		cpu.getRegisters()[4] = 0x500000;
+		cpu.getRegisters()[29] = 0x4e0000;
+		cpu.getRegisters()[4] = 0x4f0000;
+		cpu.getMemory().getSymbols().put(0x4d0000, "STACK");
+		cpu.getMemory().getSymbols().put(0x4f0000, "RESULTS");
 		try (RandomAccessFile file = new RandomAccessFile("xbin/a.out", "r")) {
 			load(file);
 		}

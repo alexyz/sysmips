@@ -176,8 +176,8 @@ public final class Cpu {
 			case OP_SLTIU: {
 				// zero extend
 				long rsValue = reg[rs] & 0xffffffffL;
-				// zero extend the sign extended imm (so it represents ends of
-				// unsigned range)
+				// zero extend the sign extended imm so it represents ends of
+				// unsigned range
 				long immValue = simm & 0xffffffffL;
 				reg[rt] = (rsValue < immValue) ? 1 : 0;
 				return;
@@ -235,29 +235,40 @@ public final class Cpu {
 				reg[rt] = memory.loadHalfWord(reg[rs] + simm);
 				return;
 			case OP_LWL: {
+				// unaligned address
 				final int a = reg[rs] + simm;
+				// 0,1,2,3 -> 0,8,16,24
 				final int s = (a & 3) << 3;
-				reg[rt] = (memory.loadWord(a & ~3) << s) | (reg[rt] & ((int) (0xffffffffL >>> (32 - s))));
+				final int w = memory.loadWord(a & ~3);
+				reg[rt] = (w << s) | (reg[rt] & (0xffffffff >>> (32 - s)));
 				return;
 			}
-			case OP_LWR: { // load word right. least signicant byte at eff.addr.
+			case OP_LWR: {
 				final int a = reg[rs] + simm;
+				// 0,1,2,3 -> 8,16,24,32
 				final int s = ((a & 3) + 1) << 3;
-				reg[rt] = (memory.loadWord(a & ~3) >>> (32 - s)) | (reg[rt] & ((int) (0xffffffffL << s)));
+				final int w = memory.loadWord(a & ~3);
+				reg[rt] = (w >>> (32 - s)) | (reg[rt] & (0xffffffff << s));
 				return;
 			}
 			case OP_SWL: {
-				final int a = reg[rs] + simm; // msb
-				final int b = a & ~3; // aligned address
+				// unaligned addr
+				final int a = reg[rs] + simm;
+				// aligned address
+				final int aa = a & ~3; 
 				final int s = (a & 3) << 3;
-				memory.storeWord(b, (reg[rt] >>> s) | (memory.loadWord(b) & ((int) (0xffffffffL << (32 - s)))));
+				final int w = memory.loadWord(aa);
+				memory.storeWord(aa, (reg[rt] >>> s) | (w & (0xffffffff << (32 - s))));
 				return;
 			}
 			case OP_SWR: {
-				final int a = reg[rs] + simm; // lsb
-				final int b = a & ~3;
+				// unaligned addr
+				final int a = reg[rs] + simm;
+				// aligned addr
+				final int aa = a & ~3;
 				final int s = ((a & 3) + 1) << 3;
-				memory.storeWord(b, (reg[rt] << (32 - s)) | (memory.loadWord(b) & ((int) (0xffffffffL >>> s))));
+				final int w = memory.loadWord(aa);
+				memory.storeWord(aa, (reg[rt] << (32 - s)) | (w & (0xffffffff >>> s)));
 				return;
 			}
 			
@@ -422,9 +433,13 @@ public final class Cpu {
 			case FN_SLT:
 				reg[rd] = (reg[rs] < reg[rt]) ? 1 : 0;
 				return;
-			case FN_SLTU:
-				reg[rd] = ((reg[rs] & 0xffffffffL) < (reg[rt] & 0xffffffffL)) ? 1 : 0;
+			case FN_SLTU: {
+				// zero extend
+				long rsValue = reg[rs] & 0xffffffffL;
+				long rtValue = reg[rt] & 0xffffffffL;
+				reg[rd] = rsValue < rtValue ? 1 : 0;
 				return;
+			}
 			case FN_TNE:
 				if (reg[rs] != reg[rt]) {
 					throw new CpuException(CpuException.Type.Trap);

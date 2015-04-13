@@ -55,6 +55,7 @@ public final class MipsConstants {
 	public static final byte OP_LBU = 0x24;
 	/** load halfword unsigned */
 	public static final byte OP_LHU = 0x25;
+	/** load word right */
 	public static final byte OP_LWR = 0x26;
 	/** store byte */
 	public static final byte OP_SB = 0x28;

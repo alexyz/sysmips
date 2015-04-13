@@ -287,15 +287,6 @@ public final class MipsConstants {
 		return rt(isn);
 	}
 	
-	public static double getDouble (int[] fpReg, int in) {
-		final long mask = 0xffffffffL;
-		return Double.longBitsToDouble((fpReg[in] & mask) | ((fpReg[in + 1] & mask) << 32));
-	}
-	
-	public static float getSingle (int[] fpReg, int i) {
-		return Float.intBitsToFloat(fpReg[i]);
-	}
-	
 	/** unsigned immediate */
 	public static final int imm (final int isn) {
 		return isn & 0xffff;
@@ -330,16 +321,6 @@ public final class MipsConstants {
 		return isn & 0x7;
 	}
 	
-	public static void setDouble (final int[] fpReg, final int i, final double d) {
-		final long dl = Double.doubleToRawLongBits(d);
-		fpReg[i] = (int) dl;
-		fpReg[i + 1] = (int) (dl >>> 32);
-	}
-	
-	public static void setSingle (final int[] fpReg, final int i, final float f) {
-		fpReg[i] = Float.floatToRawIntBits(f);
-	}
-	
 	/** sign extended immediate */
 	public static final int simm (final int isn) {
 		return (short) isn;
@@ -348,6 +329,33 @@ public final class MipsConstants {
 	/** syscall or break number */
 	public static final int syscall (final int isn) {
 		return (isn >>> 6) & 0xfffff;
+	}
+
+	public static double getDouble (final int[] fpReg, final int i) {
+		if ((i & 1) == 0) {
+			final long mask = 0xffffffffL;
+			return Double.longBitsToDouble((fpReg[i] & mask) | ((fpReg[i + 1] & mask) << 32));
+		} else {
+			throw new IllegalArgumentException("unaligned " + i);
+		}
+	}
+	
+	public static void setDouble (final int[] fpReg, final int i, final double d) {
+		if ((i & 1) == 0) {
+			final long dl = Double.doubleToRawLongBits(d);
+			fpReg[i] = (int) dl;
+			fpReg[i + 1] = (int) (dl >>> 32);
+		} else {
+			throw new IllegalArgumentException("unaligned " + i);
+		}
+	}
+	
+	public static float getSingle (final int[] fpReg, final int i) {
+		return Float.intBitsToFloat(fpReg[i]);
+	}
+	
+	public static void setSingle (final int[] fpReg, final int i, final float f) {
+		fpReg[i] = Float.floatToRawIntBits(f);
 	}
 
 	/** convert rs meta instruction to d, s, w, or l */

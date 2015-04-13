@@ -1,9 +1,6 @@
 package sys.mips;
 
 import java.beans.PropertyChangeSupport;
-import java.io.RandomAccessFile;
-
-import sys.elf.*;
 
 public class Malta implements SystemListener {
 	
@@ -41,11 +38,11 @@ public class Malta implements SystemListener {
 		// initialise the memory for linux and malta
 		final Memory mem = cpu.getMemory();
 		for (int n = 0; n < 16; n++) {
-			mem.init(LINUX + 0x100000 * n);
+			mem.initPage(LINUX + 0x100000 * n);
 		}
-		mem.init(SYSTEM + M_DEVICES);
-		mem.init(SYSTEM + M_FLASH2);
-		mem.init(SYSTEM + M_GTBASE);
+		mem.initPage(SYSTEM + M_DEVICES);
+		mem.initPage(SYSTEM + M_FLASH2);
+		mem.initPage(SYSTEM + M_GTBASE);
 		
 		final Symbols sym = mem.getSymbols();
 		sym.put(SYSTEM + M_DEVICES, "M_DEVICES");

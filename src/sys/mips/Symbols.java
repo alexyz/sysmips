@@ -19,10 +19,6 @@ public final class Symbols {
 		}
 	}
 	
-	private static long toLongAddr (int addr) {
-		return addr & 0xffffffffL;
-	}
-	
 	// needs to be long so it can naturally sort
 	private final TreeMap<Long, Symbol> map = new TreeMap<>();
 	
@@ -35,7 +31,8 @@ public final class Symbols {
 	}
 	
 	public final String getName (final int addr, final boolean includeAddr) {
-		final long longAddr = toLongAddr(addr);
+		// zero extend address
+		final long longAddr = addr & 0xffffffffL;
 		final String addrStr = "0x" + Integer.toHexString(addr);
 		
 		Map.Entry<Long, Symbol> entry = map.floorEntry(new Long(longAddr));
@@ -72,7 +69,8 @@ public final class Symbols {
 	
 	public void put (final int addr, String name, int size) {
 		if (size > 0) {
-			final Long key = new Long(toLongAddr(addr));
+			// zero extend address
+			final Long key = new Long(addr & 0xffffffffL);
 			final Symbol prev = map.get(key);
 			if (prev != null) {
 				map.put(key, new Symbol(prev.name + "," + name, Math.max(prev.size, size)));

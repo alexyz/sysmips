@@ -24,7 +24,7 @@ public class Test {
 	
 	private void run() {
 		System.out.println("test start");
-		mem.init(0);
+		mem.initPage(0);
 		testSll();
 		testAddu();
 		System.out.println("test end");

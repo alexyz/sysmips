@@ -57,7 +57,7 @@ public final class Memory {
 	}
 	
 	/** create 1mb page, must be aligned */
-	public void init (int addr) {
+	public void initPage (int addr) {
 		if ((addr & 0xfffff) == 0) {
 			final int[] page = pages[pageIndex(addr)];
 			if (page == null) {

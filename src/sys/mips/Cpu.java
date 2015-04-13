@@ -284,7 +284,6 @@ public final class Cpu {
 		switch (rt) {
 			case RT_BGEZAL:
 				reg[31] = nextPc;
-				System.out.println("RT_BGEZAL " + memory.getSymbols().getName(nextPc));
 				// fall through
 			case RT_BGEZ:
 				if (reg[rs] >= 0) {
@@ -293,7 +292,6 @@ public final class Cpu {
 				return;
 			case RT_BLTZAL:
 				reg[31] = nextPc;
-				System.out.println("RT_BLTZAL " + memory.getSymbols().getName(nextPc));
 				// fall through
 			case RT_BLTZ:
 				if (reg[rs] < 0) {

@@ -4,8 +4,10 @@ import java.beans.PropertyChangeSupport;
 
 public class Malta implements SystemListener {
 	
-	// mips malta chapter 4 - memory map
 	public static final int M_SDRAM = 0x0;
+	public static final int M_PORT = 0x03f8;
+	public static final int M_UART_TX = M_PORT;
+	public static final int M_UART_LSR = M_PORT + 5;
 	public static final int M_PCI1 = 0x0800_0000;
 	public static final int M_PCI2 = 0x1800_0000;
 	public static final int M_GTBASE = 0x1be0_0000;
@@ -33,6 +35,7 @@ public class Malta implements SystemListener {
 	
 	private final Cpu cpu = new Cpu();
 	private final PropertyChangeSupport support = new PropertyChangeSupport(this);
+	private final StringBuilder consoleSb = new StringBuilder();
 	
 	public Malta () {
 		// initialise the memory for linux and malta
@@ -40,6 +43,7 @@ public class Malta implements SystemListener {
 		for (int n = 0; n < 16; n++) {
 			mem.initPage(LINUX + 0x100000 * n);
 		}
+		mem.initPage(SYSTEM + M_SDRAM);
 		mem.initPage(SYSTEM + M_DEVICES);
 		mem.initPage(SYSTEM + M_FLASH2);
 		mem.initPage(SYSTEM + M_GTBASE);
@@ -62,10 +66,15 @@ public class Malta implements SystemListener {
 		sym.put(SYSTEM + M_UNUSED, "M_UNUSED");
 		sym.put(SYSTEM + M_REVISION, "M_REVISION", 8);
 		sym.put(SYSTEM + M_GT_PCI0IOREMAP, "M_GT_PCI0IOREMAP", 8);
+		sym.put(SYSTEM + M_PORT, "M_PORT", 65536);
+		sym.put(SYSTEM + M_UART_LSR, "M_UART_LSR", 1);
 		
 		mem.setSystem(SYSTEM);
 		// set the system controller revision
 		mem.storeWordSystem(M_REVISION, CORE_LV);
+		// allow io
+		// UART_LSR_THRE
+		mem.storeByteSystem(M_UART_LSR, (byte) 0x20);
 		mem.setSystemListener(this);
 	}
 	
@@ -81,6 +90,7 @@ public class Malta implements SystemListener {
 			case M_GT_PCI0IOLD:
 			case M_GT_PCI0_CMD:
 			case M_GT_PCI0IOREMAP:
+			case M_UART_LSR:
 				break;
 			default:
 				throw new RuntimeException("unknown malta read " + Integer.toHexString(addr));
@@ -90,12 +100,24 @@ public class Malta implements SystemListener {
 	@Override
 	public void systemWrite (int addr, int value) {
 		System.out.println("system write " + cpu.getMemory().getSymbols().getName(SYSTEM + addr) + " <= " + Integer.toHexString(value));
-		if (addr >= M_DISPLAY && addr < M_DISPLAY + 0x100) {
-			support.firePropertyChange("display", "", displayText());
-		} else if (addr == M_GT_PCI0_CMD) {
-			System.out.println("ignore pci command");
-		} else {
-			throw new RuntimeException("unknown malta write " + Integer.toHexString(addr));
+		switch (addr) {
+			case M_GT_PCI0_CMD:
+				System.out.println("ignore pci command " + value);
+				break;
+			case M_UART_TX:
+				if (value >= 32) {
+					consoleSb.append((char) value);
+				} else {
+					// TODO flush to ui...
+					throw new RuntimeException("console=" + consoleSb);
+				}
+				break;
+			default:
+				if (addr >= M_DISPLAY && addr < M_DISPLAY + 0x100) {
+					support.firePropertyChange("display", "", displayText());
+				} else {
+					throw new RuntimeException("unknown malta write " + Integer.toHexString(addr) + ", " + Integer.toHexString(value));
+				}
 		}
 	}
 	

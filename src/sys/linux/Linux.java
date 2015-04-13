@@ -18,11 +18,11 @@ public class Linux {
 		try (RandomAccessFile file = new RandomAccessFile(args[0], "r")) {
 			final int top = CpuLoader.loadElf(cpu, file);
 			// command line of console=ttyS0 initrd=? root=?
-			// environment keys: ethaddr, modetty0, memsize
+			// TODO environment keys: ethaddr, modetty0, memsize (defaults to 32MB)
 			
 			final List<String> argsList = Arrays.asList("console=ttyS0");
 			final List<Integer> argv = new ArrayList<>();
-			final List<String> envList = Arrays.asList("alex", "slack");
+			final List<String> envList = Arrays.asList("key", "value");
 			final List<Integer> env = new ArrayList<>();
 
 			int p = top + 0x100000;

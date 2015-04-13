@@ -2,24 +2,16 @@ package sys.linux;
 
 import java.io.*;
 
-import sys.elf.*;
 import sys.mips.*;
 
 public class Linux {
 	
-	public static BufferedReader br;
-	
 	public static void main (String[] args) throws Exception {
-		
-		br = new BufferedReader(new InputStreamReader(System.in));
 		
 		Malta malta = new Malta();
 		
-		try (RandomAccessFile file = new RandomAccessFile("images/vmlinux", "r")) {
-			ELF32 elf = new ELF32(file);
-			System.out.println("elf=" + elf);
-			//elf.print(System.out);
-			malta.load(elf, file);
+		try (RandomAccessFile file = new RandomAccessFile(args[0], "r")) {
+			CpuLoader.loadElf(malta.getCpu(), file);
 		}
 		
 		System.out.println("memory=" + malta.getCpu().getMemory());

@@ -22,9 +22,9 @@ public class ELF32Symbol implements Comparable<ELF32Symbol> {
 	/** symbol name and section name */
 	public final String name;
 	public final int nameIndex;
-	public final int nameSize;
+	public final int size;
 	/** address of object that symbol refers to */
-	public final int valueAddress;
+	public final int value;
 	/** symbol type (can be misleading) */
 	public final byte info;
 	public final byte other;
@@ -37,8 +37,8 @@ public class ELF32Symbol implements Comparable<ELF32Symbol> {
 	 */
 	public ELF32Symbol (DataInput file, byte[] strings) throws IOException {
 		nameIndex = file.readInt();
-		valueAddress = file.readInt();
-		nameSize = file.readInt();
+		value = file.readInt();
+		size = file.readInt();
 		info = file.readByte();
 		other = file.readByte();
 		section = file.readShort();
@@ -47,8 +47,9 @@ public class ELF32Symbol implements Comparable<ELF32Symbol> {
 	
 	@Override
 	public int compareTo (final ELF32Symbol other) {
-		final long a1 = valueAddress & 0xffffffffL;
-		final long a2 = other.valueAddress & 0xffffffffL;
+		// compare addresses as unsigned
+		final long a1 = value & 0xffffffffL;
+		final long a2 = other.value & 0xffffffffL;
 		int c = a1 > a2 ? 1 : a1 == a2 ? 0 : -1;
 		if (c == 0) {
 			c = info - other.info;
@@ -115,7 +116,7 @@ public class ELF32Symbol implements Comparable<ELF32Symbol> {
 	
 	@Override
 	public String toString () {
-		return String.format("ELF32Symbol[x%x %s bind=%s type=%s other=%s]", valueAddress, name, bindString(), typeString(), other());
+		return String.format("ELF32Symbol[x%x %s bind=%s type=%s other=%s]", value, name, bindString(), typeString(), other());
 	}
 	
 }

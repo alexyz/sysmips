@@ -33,6 +33,7 @@ public final class MipsConstants {
 	public static final byte OP_ORI = 0x0d;
 	/** exclusive or immediate (zx) */
 	public static final byte OP_XORI = 0x0e;
+	/** load upper immediate */
 	public static final byte OP_LUI = 0x0f;
 	/** coprocessor 0 meta instruction selected by RS then by FN */
 	public static final byte OP_COP0 = 0x10;
@@ -57,6 +58,7 @@ public final class MipsConstants {
 	public static final byte OP_LWR = 0x26;
 	/** store byte */
 	public static final byte OP_SB = 0x28;
+	/** store halfword */
 	public static final byte OP_SH = 0x29;
 	/** store word left */
 	public static final byte OP_SWL = 0x2a;

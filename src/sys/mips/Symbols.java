@@ -4,13 +4,9 @@ import java.util.*;
 
 public final class Symbols {
 	
-	public static class Symbol {
+	private static class Symbol {
 		public final String name;
 		public final int size;
-		
-		public Symbol (String name) {
-			this(name, Integer.MAX_VALUE);
-		}
 		
 		public Symbol (String name, int size) {
 			this.name = name;
@@ -75,12 +71,16 @@ public final class Symbols {
 	}
 	
 	public void put (final int addr, String name, int size) {
-		final Long key = new Long(toLongAddr(addr));
-		final Symbol prev = map.get(key);
-		if (prev != null) {
-			map.put(key, new Symbol(prev.name + "," + name, Math.max(prev.size, size)));
+		if (size > 0) {
+			final Long key = new Long(toLongAddr(addr));
+			final Symbol prev = map.get(key);
+			if (prev != null) {
+				map.put(key, new Symbol(prev.name + "," + name, Math.max(prev.size, size)));
+			} else {
+				map.put(key, new Symbol(name, size));
+			}
 		} else {
-			map.put(key, new Symbol(name, size));
+			throw new IllegalArgumentException("invalid name " + name + " size " + size);
 		}
 	}
 	

@@ -28,12 +28,13 @@ public final class Cpu {
 		// linux_3.2.65\arch\mips\include\asm\cpu.h
 		// linux_3.2.65\arch\mips\include\asm\mipsregs.h
 		// default values on reboot
-		cpReg[STATUS_CPR][STATUS_SEL] = (3 << 28) | (1 << 22) | (1 << 2);
+		int st = (3 << 28) | (1 << 22) | (1 << 2);
+		cpReg[STATUS_CPR][STATUS_SEL] = st;
 		// R2000A
 		cpReg[PRID_CPR][PRID_SEL] = 0x0110;
 		// support S, D, W, L
 		int fcr = (1 << 16) | (1 << 17) | (1 << 20) | (1 << 21) | (1 << 8);
-		fpControlReg[FIR_FCR] = 0x130100;
+		fpControlReg[FIR_FCR] = fcr;
 	}
 	
 	public int[][] getCpRegisters () {
@@ -70,6 +71,7 @@ public final class Cpu {
 	}
 	
 	public final void run () {
+		System.out.println("run");
 		try {
 			while (true) {
 				if ((cycle & 0xffff) == 0) {
@@ -94,7 +96,7 @@ public final class Cpu {
 				}
 				
 				cycle++;
-			} 
+			}
 		} catch (Exception e) {
 			logger.print(System.out);
 			throw e;
@@ -102,40 +104,16 @@ public final class Cpu {
 	}
 	
 	private final void execOp (final int isn) {
-		/*
-		 * Instructions should RETURN unless they need a relative branch in
-		 * which case they should BREAK. A bit ugly but faster.
-		 */
-		final int op = isn >>> 26;
-		final int rs = (isn >>> 21) & 0x1f;
-		final int rt = (isn >>> 16) & 0x1f;
-		final short simm = (short) isn;
+		final int[] reg = this.reg;
+		final int op = op(isn);
+		final int rs = rs(isn);
+		final int rt = rt(isn);
+		final int simm = simm(isn);
 		
 		switch (op) {
 			case OP_REGIMM:
-				switch (rt) {
-					case RT_BGEZAL:
-						reg[31] = nextPc;
-						System.out.println("RT_BGEZAL " + memory.getSymbols().getName(nextPc));
-						// fall through
-					case RT_BGEZ:
-						if (reg[rs] >= 0) {
-							break;
-						}
-						return;
-					case RT_BLTZAL:
-						reg[31] = nextPc;
-						System.out.println("RT_BLTZAL " + memory.getSymbols().getName(nextPc));
-						// fall through
-					case RT_BLTZ:
-						if (reg[rs] < 0) {
-							break;
-						}
-						return;
-					default:
-						throw new RuntimeException("invalid regimm " + rt);
-				}
-				break;
+				execRegimm(isn);
+				return;
 			case OP_COP0:
 				if (rs < 16) {
 					execCpRs(isn);
@@ -165,17 +143,17 @@ public final class Cpu {
 				return;
 			case OP_BLEZ:
 				if (reg[rs] <= 0) {
-					break;
+					nextPc = branch(isn, pc);
 				}
 				return;
 			case OP_BEQ:
 				if (reg[rs] == reg[rt]) {
-					break;
+					nextPc = branch(isn, pc);
 				}
 				return;
 			case OP_BNE:
 				if (reg[rs] != reg[rt]) {
-					break;
+					nextPc = branch(isn, pc);
 				}
 				return;
 			case OP_ADDIU:
@@ -189,28 +167,34 @@ public final class Cpu {
 				return;
 			case OP_BGTZ:
 				if (reg[rs] > 0) {
-					break;
+					nextPc = branch(isn, pc);
 				}
 				return;
 			case OP_SLTI:
 				reg[rt] = reg[rs] < simm ? 1 : 0;
 				return;
-			case OP_SLTIU:
-				reg[rt] = ((reg[rs] & 0xffffffffL) < (simm & 0xffffffffL)) ? 1 : 0;
+			case OP_SLTIU: {
+				// zero extend
+				long rsValue = reg[rs] & 0xffffffffL;
+				// zero extend the sign extended imm (so it represents ends of
+				// unsigned range)
+				long immValue = simm & 0xffffffffL;
+				reg[rt] = (rsValue < immValue) ? 1 : 0;
 				return;
+			}
 			case OP_ORI:
 				reg[rt] = reg[rs] | (simm & 0xffff);
 				return;
 			case OP_SW:
 				memory.storeWord(reg[rs] + simm, reg[rt]);
 				return;
-			case OP_SH: // store halfword
-			memory.storeHalfWord(reg[rs] + simm, ((short) (reg[rt] & 0xffff)));
-			return;
-			case OP_SB:
-				memory.storeByte(reg[rs] + simm, ((byte) (reg[rt] & 0xff)));
+			case OP_SH:
+				memory.storeHalfWord(reg[rs] + simm, (short) reg[rt]);
 				return;
-			case OP_LUI: // load upper immediate
+			case OP_SB:
+				memory.storeByte(reg[rs] + simm, (byte) reg[rt]);
+				return;
+			case OP_LUI:
 				reg[rt] = simm << 16;
 				return;
 			case OP_LL: {
@@ -280,15 +264,41 @@ public final class Cpu {
 			default:
 				throw new RuntimeException("invalid op " + op);
 		}
+	}
+	
+	private final void execRegimm (final int isn) {
+		final int rs = rs(isn);
+		final int rt = rt(isn);
 		
-		nextPc = branch(isn, pc);
+		switch (rt) {
+			case RT_BGEZAL:
+				reg[31] = nextPc;
+				System.out.println("RT_BGEZAL " + memory.getSymbols().getName(nextPc));
+				// fall through
+			case RT_BGEZ:
+				if (reg[rs] >= 0) {
+					nextPc = branch(isn, pc);
+				}
+				return;
+			case RT_BLTZAL:
+				reg[31] = nextPc;
+				System.out.println("RT_BLTZAL " + memory.getSymbols().getName(nextPc));
+				// fall through
+			case RT_BLTZ:
+				if (reg[rs] < 0) {
+					nextPc = branch(isn, pc);
+				}
+				return;
+			default:
+				throw new RuntimeException("invalid regimm " + rt);
+		}
 	}
 	
 	private final void execFn (final int isn) {
-		final int rd = (isn >>> 11) & 0x1f;
-		final int rt = (isn >>> 16) & 0x1f;
-		final int rs = (isn >>> 21) & 0x1f;
-		final int fn = isn & 0x3f;
+		final int rd = rd(isn);
+		final int rt = rt(isn);
+		final int rs = rs(isn);
+		final int fn = fn(isn);
 		
 		switch (fn) {
 			case FN_SLL:
@@ -299,128 +309,129 @@ public final class Cpu {
 				return;
 			case FN_SRA:
 				reg[rd] = reg[rt] >> sa(isn);
-		return;
-		case FN_SRLV:
-			reg[rd] = reg[rt] >>> (reg[rs] & 0x1f);
-		return;
-		case FN_SRAV:
-			reg[rd] = reg[rt] >> (reg[rs] & 0x1f);
-		return;
-		case FN_SLLV:
-			reg[rd] = reg[rt] << (reg[rs] & 0x1f);
-			return;
-		case FN_JR:
-			nextPc = reg[rs];
-			if (rs == 31) {
-				logger.ret();
+				return;
+			case FN_SRLV:
+				reg[rd] = reg[rt] >>> (reg[rs] & 0x1f);
+				return;
+			case FN_SRAV:
+				reg[rd] = reg[rt] >> (reg[rs] & 0x1f);
+				return;
+				
+			case FN_SLLV:
+				reg[rd] = reg[rt] << (reg[rs] & 0x1f);
+				return;
+			case FN_JR:
+				nextPc = reg[rs];
+				if (rs == 31) {
+					logger.ret();
+				}
+				return;
+			case FN_JALR:
+				reg[rd] = nextPc;
+				nextPc = reg[rs];
+				logger.call(nextPc);
+				return;
+			case FN_MOVZ:
+				if (reg[rt] == 0) {
+					reg[rd] = reg[rs];
+				}
+				return;
+			case FN_MOVN:
+				if (reg[rt] != 0) {
+					reg[rd] = reg[rs];
+				}
+				return;
+			case FN_SYSCALL: {
+				int n = syscall(isn);
+				throw new CpuException(CpuException.Type.SystemCall, "" + n);
 			}
-			return;
-		case FN_JALR:
-			reg[rd] = nextPc;
-			nextPc = reg[rs];
-			logger.call(nextPc);
-			return;
-		case FN_MOVZ:
-			if (reg[rt] == 0) {
-				reg[rd] = reg[rs];
+			case FN_BREAK: {
+				int n = syscall(isn);
+				throw new CpuException(CpuException.Type.Breakpoint, "" + n);
 			}
-			return;
-		case FN_MOVN:
-			if (reg[rt] != 0) {
-				reg[rd] = reg[rs];
+			case FN_MFHI:
+				reg[rd] = reg[HI_GPR];
+				return;
+			case FN_MTHI:
+				reg[HI_GPR] = reg[rs];
+				return;
+			case FN_MFLO:
+				reg[rd] = reg[LO_GPR];
+				return;
+			case FN_MTLO:
+				reg[LO_GPR] = reg[rd];
+				return;
+			case FN_MULT: {
+				// sign extend
+				final long rsValue = reg[rs];
+				final long rtValue = reg[rt];
+				final long result = rsValue * rtValue;
+				reg[LO_GPR] = (int) result;
+				reg[HI_GPR] = (int) (result >>> 32);
+				return;
 			}
-			return;
-		case FN_SYSCALL: {
-			int n = syscall(isn);
-			throw new CpuException(CpuException.Type.SystemCall, "" + n);
-		}
-		case FN_BREAK: {
-			int n = syscall(isn);
-			throw new CpuException(CpuException.Type.Breakpoint, "" + n);
-		}
-		case FN_MFHI:
-			reg[rd] = reg[HI_GPR];
-			return;
-		case FN_MTHI:
-			reg[HI_GPR] = reg[rs];
-			return;
-		case FN_MFLO:
-			reg[rd] = reg[LO_GPR];
-			return;
-		case FN_MTLO:
-			reg[LO_GPR] = reg[rd];
-			return;
-		case FN_MULT: {
-			// sign extend
-			final long rsValue = reg[rs];
-			final long rtValue = reg[rt];
-			final long result = rsValue * rtValue;
-			reg[LO_GPR] = (int) result;
-			reg[HI_GPR] = (int) (result >>> 32);
-			return;
-		}
-		case FN_MULTU: {
-			// zero extend
-			final long rsValue = reg[rs] & 0xffffffffL;
-			final long rtValue = reg[rt] & 0xffffffffL;
-			final long result = rsValue * rtValue;
-			reg[LO_GPR] = (int) result;
-			reg[HI_GPR] = (int) (result >>> 32);
-			return;
-		}
-		case FN_DIV: {
-			// divide as signed
-			// result is unpredictable for zero, no exceptions thrown
-			int rsValue = reg[rs];
-			int rtValue = reg[rt];
-			if (rt != 0) {
-				reg[LO_GPR] = rsValue / rtValue;
-				reg[HI_GPR] = rsValue % rtValue;
+			case FN_MULTU: {
+				// zero extend
+				final long rsValue = reg[rs] & 0xffffffffL;
+				final long rtValue = reg[rt] & 0xffffffffL;
+				final long result = rsValue * rtValue;
+				reg[LO_GPR] = (int) result;
+				reg[HI_GPR] = (int) (result >>> 32);
+				return;
 			}
-			return;
-		}
-		case FN_DIVU: {
-			// unpredictable result and no exception for zero
-			// zero extend
-			final long rsValue = reg[rs] & 0xffffffffL;
-			final long rtValue = reg[rt] & 0xffffffffL;
-			if (rtValue != 0) {
-				reg[LO_GPR] = (int) (rsValue / rtValue);
-				reg[HI_GPR] = (int) (rsValue % rtValue);
+			case FN_DIV: {
+				// divide as signed
+				// result is unpredictable for zero, no exceptions thrown
+				int rsValue = reg[rs];
+				int rtValue = reg[rt];
+				if (rt != 0) {
+					reg[LO_GPR] = rsValue / rtValue;
+					reg[HI_GPR] = rsValue % rtValue;
+				}
+				return;
 			}
-			return;
-		}
-		case FN_ADDU:
-			reg[rd] = reg[rs] + reg[rt];
-			return;
-		case FN_SUBU:
-			reg[rd] = reg[rs] - reg[rt];
-			return;
-		case FN_AND:
-			reg[rd] = reg[rs] & reg[rt];
-			return;
-		case FN_OR:
-			reg[rd] = reg[rs] | reg[rt];
-			return;
-		case FN_XOR:
-			reg[rd] = reg[rs] ^ reg[rt];
-			return;
-		case FN_NOR:
-			reg[rd] = ~(reg[rs] | reg[rt]);
-			return;
-		case FN_SLT:
-			reg[rd] = (reg[rs] < reg[rt]) ? 1 : 0;
-			return;
-		case FN_SLTU:
-			reg[rd] = ((reg[rs] & 0xffffffffL) < (reg[rt] & 0xffffffffL)) ? 1 : 0;
-			return;
-		case FN_TNE:
-			if (reg[rs] != reg[rt]) {
-				throw new CpuException(CpuException.Type.Trap);
+			case FN_DIVU: {
+				// unpredictable result and no exception for zero
+				// zero extend
+				final long rsValue = reg[rs] & 0xffffffffL;
+				final long rtValue = reg[rt] & 0xffffffffL;
+				if (rtValue != 0) {
+					reg[LO_GPR] = (int) (rsValue / rtValue);
+					reg[HI_GPR] = (int) (rsValue % rtValue);
+				}
+				return;
 			}
-			return;
-		default:
-			throw new IllegalArgumentException("invalid fn " + fn);
+			case FN_ADDU:
+				reg[rd] = reg[rs] + reg[rt];
+				return;
+			case FN_SUBU:
+				reg[rd] = reg[rs] - reg[rt];
+				return;
+			case FN_AND:
+				reg[rd] = reg[rs] & reg[rt];
+				return;
+			case FN_OR:
+				reg[rd] = reg[rs] | reg[rt];
+				return;
+			case FN_XOR:
+				reg[rd] = reg[rs] ^ reg[rt];
+				return;
+			case FN_NOR:
+				reg[rd] = ~(reg[rs] | reg[rt]);
+				return;
+			case FN_SLT:
+				reg[rd] = (reg[rs] < reg[rt]) ? 1 : 0;
+				return;
+			case FN_SLTU:
+				reg[rd] = ((reg[rs] & 0xffffffffL) < (reg[rt] & 0xffffffffL)) ? 1 : 0;
+				return;
+			case FN_TNE:
+				if (reg[rs] != reg[rt]) {
+					throw new CpuException(CpuException.Type.Trap);
+				}
+				return;
+			default:
+				throw new IllegalArgumentException("invalid fn " + fn);
 		}
 	}
 	
@@ -553,9 +564,9 @@ public final class Cpu {
 					default:
 						throw new RuntimeException("read unimplemented fp control register " + fs);
 				}
-			reg[rt] = fpControlReg[fs];
-			return;
-			
+				reg[rt] = fpControlReg[fs];
+				return;
+				
 			case FP_RS_CTC1:
 				// move control word to floating point. 31=fcsr
 				if ((reg[rt] > 1) || (fs != 31)) {

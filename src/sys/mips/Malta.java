@@ -72,25 +72,6 @@ public class Malta implements SystemListener {
 		mem.setSystemListener(this);
 	}
 	
-	public void load (ELF32 elf, RandomAccessFile file) throws Exception {
-		for (ELF32Program program : elf.programs) {
-			if (program.type == ELF32Program.PT_LOAD) {
-				file.seek(program.fileOffset);
-				final byte[] data = new byte[program.memorySize];
-				file.read(data, 0, program.fileSize);
-				cpu.getMemory().storeBytes(program.virtualAddress, data);
-			}
-		}
-		
-		for (ELF32Symbol symbol : elf.symbols) {
-			if (symbol.getBind() == ELF32Symbol.STB_GLOBAL) {
-				cpu.getMemory().getSymbols().put(symbol.valueAddress, symbol.name);
-			}
-		}
-		
-		cpu.setPc(elf.header.entryAddress);
-	}
-	
 	public Cpu getCpu () {
 		return cpu;
 	}

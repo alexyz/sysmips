@@ -22,7 +22,7 @@ public class Test2 {
 		cpu.getMemory().getSymbols().put(0x4d0000, "STACK");
 		cpu.getMemory().getSymbols().put(0x4f0000, "RESULTS");
 		try (RandomAccessFile file = new RandomAccessFile("xbin/a.out", "r")) {
-			load(file);
+			CpuLoader.loadElf(cpu, file);
 		}
 	}
 	
@@ -39,25 +39,4 @@ public class Test2 {
 		System.out.println("test end");
 	}
 	
-	private void load (RandomAccessFile file) throws Exception {
-		ELF32 elf = new ELF32(file);
-		System.out.println("elf=" + elf);
-		for (ELF32Program program : elf.programs) {
-			if (program.type == ELF32Program.PT_LOAD) {
-				file.seek(program.fileOffset);
-				final byte[] data = new byte[program.memorySize];
-				file.read(data, 0, program.fileSize);
-				cpu.getMemory().storeBytes(program.virtualAddress, data);
-			}
-		}
-		
-		for (ELF32Symbol symbol : elf.symbols) {
-			if (symbol.getBind() == ELF32Symbol.STB_GLOBAL) {
-				cpu.getMemory().getSymbols().put(symbol.valueAddress, symbol.name);
-			}
-		}
-		
-		System.out.println("entry=" + elf.header.entryAddress);
-		cpu.setPc(elf.header.entryAddress);
-	}
 }

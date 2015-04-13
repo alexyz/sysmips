@@ -7,23 +7,6 @@ public final class Memory {
 	/** 1mb page size (divided by 4) */
 	private static final int PAGELEN = 0x40000;
 	
-	public static int[] toInt (byte[] bytes) {
-		if ((bytes.length & 3) != 0) {
-			throw new RuntimeException();
-		}
-		final int[] words = new int[bytes.length >> 2];
-		int w = 0;
-		// a(0) b(1) c(2) d(3)
-		for (int n = 0; n < bytes.length; n += 4) {
-			final int b1 = bytes[n] & 0xff;
-			final int b2 = bytes[n + 1] & 0xff;
-			final int b3 = bytes[n + 2] & 0xff;
-			final int b4 = bytes[n + 3] & 0xff;
-			words[w++] = (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
-		}
-		return words;
-	}
-	
 	/** return index of 1mb page */
 	private static int pageIndex (int addr) {
 		return addr >>> 20;
@@ -68,10 +51,6 @@ public final class Memory {
 		} else {
 			throw new IllegalArgumentException("unaligned " + Integer.toHexString(addr));
 		}
-	}
-	
-	public final void storeBytes (final int addr, final byte[] data) {
-		storeWords(addr, toInt(data));
 	}
 	
 	public final int loadWord (final int addr) {
@@ -209,14 +188,6 @@ public final class Memory {
 			}
 		} else {
 			throw new IllegalArgumentException("store unaligned " + Integer.toHexString(addr));
-		}
-	}
-	
-	public final void storeWords (final int addr, final int[] data) {
-		System.out.println("int mem store ints " + data.length);
-		for (int n = 0; n < data.length; n++) {
-			final int a = addr + (n * 4);
-			storeWord(a, data[n]);
 		}
 	}
 	

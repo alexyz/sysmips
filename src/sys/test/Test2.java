@@ -5,6 +5,8 @@ import java.io.RandomAccessFile;
 import sys.elf.*;
 import sys.mips.*;
 
+import static sys.mips.MipsConstants.*;
+
 public class Test2 {
 	
 	private Cpu cpu = new Cpu();
@@ -17,8 +19,8 @@ public class Test2 {
 	
 	private void before() throws Exception {
 		cpu.getMemory().initPage(0x400000);
-		cpu.getRegisters()[29] = 0x4e0000;
-		cpu.getRegisters()[4] = 0x4f0000;
+		cpu.setRegister(REG_SP, 0x4e0000);
+		cpu.setRegister(REG_A0, 0x4f0000);
 		cpu.getMemory().getSymbols().put(0x4d0000, "STACK");
 		cpu.getMemory().getSymbols().put(0x4f0000, "RESULTS");
 		try (RandomAccessFile file = new RandomAccessFile("xbin/a.out", "r")) {

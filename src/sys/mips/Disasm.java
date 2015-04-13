@@ -1,28 +1,8 @@
 package sys.mips;
 
 import static sys.mips.MipsConstants.*;
-import static sys.mips.IsnSet.*;
 
 public final class Disasm {
-	
-	/**
-	 * gas names of general registers
-	 */
-	public static final String[] REG_NAMES = new String[] { 
-		"zero", "at", "v0", "v1", 
-		"a0", "a1", "a2", "a3",
-		// 8
-		"t0", "t1", "t2", "t3", 
-		"t4", "t5", "t6", "t7",
-		// 16
-		"s0", "s1", "s2", "s3", 
-		"s4", "s5", "s6", "s7", 
-		// 24
-		"t8", "t9", "k0", "k1", 
-		"gp", "sp", "s8", "ra", 
-		// 32 (!)
-		"hi", "lo" 
-	};
 	
 	public static final String[][] CP_REG_NAMES = new String[][] { 
 		new String[] { "Index", "MVPControl", "MVPConf0", "MVPConf1" },

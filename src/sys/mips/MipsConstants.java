@@ -254,6 +254,31 @@ public final class MipsConstants {
 	/** fp control and status register index */
 	public static final int FCSR_FCR = 31;
 	
+	/** first argument register */
+	public static final int REG_A0 = 4;
+	public static final int REG_A1 = 5;
+	public static final int REG_A2 = 6;
+	public static final int REG_A3 = 7;
+	/** stack pointer register */
+	public static final int REG_SP = 29;
+	
+	/** names of general registers */
+	public static final String[] REG_NAMES = new String[] { 
+		"zero", "at", "v0", "v1", 
+		"a0", "a1", "a2", "a3",
+		// 8
+		"t0", "t1", "t2", "t3", 
+		"t4", "t5", "t6", "t7",
+		// 16
+		"s0", "s1", "s2", "s3", 
+		"s4", "s5", "s6", "s7", 
+		// 24
+		"t8", "t9", "k0", "k1", 
+		"gp", "sp", "s8", "ra", 
+		// 32 (!)
+		"hi", "lo" 
+	};
+	
 	public static int base (final int isn) {
 		return rs(isn);
 	}

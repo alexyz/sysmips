@@ -66,6 +66,10 @@ public final class Cpu {
 		return reg;
 	}
 	
+	public void setRegister (int reg, int value) {
+		this.reg[reg] = value;
+	}
+	
 	public CpuLogger getLogger () {
 		return logger;
 	}

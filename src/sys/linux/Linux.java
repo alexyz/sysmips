@@ -1,36 +1,52 @@
 package sys.linux;
 
 import java.io.*;
+import java.util.*;
 
 import sys.mips.*;
+import static sys.mips.MipsConstants.*;
+import static sys.mips.MemoryUtil.*;
 
 public class Linux {
 	
 	public static void main (String[] args) throws Exception {
 		
-		Malta malta = new Malta();
+		final Malta malta = new Malta();
+		final Cpu cpu = malta.getCpu();
+		final Memory mem = cpu.getMemory();
 		
 		try (RandomAccessFile file = new RandomAccessFile(args[0], "r")) {
-			CpuLoader.loadElf(malta.getCpu(), file);
+			final int top = CpuLoader.loadElf(cpu, file);
+			// command line of console=ttyS0 initrd=? root=?
+			// environment keys: ethaddr, modetty0, memsize
+			
+			final List<String> argsList = Arrays.asList("console=ttyS0");
+			final List<Integer> argv = new ArrayList<>();
+			final List<String> envList = Arrays.asList("alex", "slack");
+			final List<Integer> env = new ArrayList<>();
+
+			int p = top + 0x100000;
+			p = storeStrings(mem, p, argv, argsList);
+			p = storeStrings(mem, p, env, envList);
+			final int argvAddr = nextWord(p);
+			p = storeWords(mem, argvAddr, argv);
+			final int envAddr = nextWord(p);
+			p = storeWords(mem, envAddr, env);
+			
+			cpu.setRegister(REG_A0, argsList.size());
+			cpu.setRegister(REG_A1, argvAddr);
+			cpu.setRegister(REG_A2, envAddr);
 		}
 		
-		System.out.println("memory=" + malta.getCpu().getMemory());
-		malta.getCpu().getMemory().print(System.out);
-		
-		// TODO cmdline of console=ttyS0 initrd=? root=?
-		// grub-2.00\grub-core\loader\mips\linux.c
-		// state.gpr[1] = entry_addr;
-		// state.gpr[4] = linux_argc;
-		// state.gpr[5] = target_addr + argv_off;
-		// where argv is phdr->p_paddr + phdr->p_memsz + 0x100000
+		System.out.println("memory=" + mem);
+		mem.print(System.out);
 		
 		MaltaJFrame frame = new MaltaJFrame();
 		frame.setVisible(true);
 		malta.getSupport().addPropertyChangeListener(frame);
 		try {
-			malta.getCpu().run();
+			cpu.run();
 		} catch (Exception e) {
-			malta.getCpu().getLogger().print(System.out);
 			e.printStackTrace(System.out);
 		}
 		Thread.sleep(60000);

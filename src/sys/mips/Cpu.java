@@ -12,7 +12,10 @@ public final class Cpu {
 	private final int[] reg = new int[34];
 	/** coprocessor 0 registers */
 	private final int[][] cpReg = new int[32][8];
-	/** coprocessor 1 registers */
+	/**
+	 * coprocessor 1 registers (longs/doubles in consecutive registers, least
+	 * significant word first!)
+	 */
 	private final int[] fpReg = new int[34];
 	private final int[] fpControlReg = new int[32];
 	private final Memory memory = new Memory();
@@ -76,6 +79,10 @@ public final class Cpu {
 	
 	public void setRegister (int n, int value) {
 		reg[n] = value;
+	}
+	
+	public int getFPRegister (int n) {
+		return fpReg[n];
 	}
 	
 	public double getFPRegister (int n, Access access) {
@@ -148,15 +155,17 @@ public final class Cpu {
 				fpReg[rt] = memory.loadWord(reg[rs] + simm);
 				return;
 			case OP_LDC1:
-				fpReg[rt] = memory.loadWord(reg[rs] + simm);
-				fpReg[rt + 1] = memory.loadWord(reg[rs] + simm + 4);
+				// least significant word first...
+				fpReg[rt + 1] = memory.loadWord(reg[rs] + simm);
+				fpReg[rt] = memory.loadWord(reg[rs] + simm + 4);
 				return;
 			case OP_SWC1:
 				memory.storeWord(reg[rs] + simm, fpReg[rt]);
 				return;
 			case OP_SDC1:
-				memory.storeWord(reg[rs] + simm, fpReg[rt]);
-				memory.storeWord(reg[rs] + simm + 4, fpReg[rt + 1]);
+				// least significant word first...
+				memory.storeWord(reg[rs] + simm, fpReg[rt + 1]);
+				memory.storeWord(reg[rs] + simm + 4, fpReg[rt]);
 				return;
 			case OP_J:
 				nextPc = jump(isn, pc);
@@ -586,7 +595,8 @@ public final class Cpu {
 				return;
 				
 			case FP_RS_BC1:
-				if (fpTrue(isn) == fccr) {
+				// FIXME must check cc...
+				if (fptf(isn) == fccr) {
 					nextPc = branch(isn, pc);
 				} else {
 					// don't execute delay slot

@@ -13,19 +13,23 @@ public class IsnSet {
 	public static final IsnSet ISNSET = new IsnSet();
 	
 	// interactive disassembly types
+	// official format: actual values
 	private static final String SF_LOAD = "{rt} <- [{base}+{offset}]: {membaseoffset} <- {baseoffset}";
 	private static final String SF_STORE = "[{base}+{offset}] <- {rt}: [{baseoffset}] <- {regrt}";
 	private static final String SF_JUMP = "{jump}";
-	private static final String SF_CONDBRA = "{rs} ~ {rt}: {regrs} ~ {regrt} => {branch}";
-	private static final String SF_OPIMM = "{rt} <- {rs} * {imm}";
-	private static final String SF_OP = "{rd} <- {rs} * {rt}";
+	private static final String SF_CONDBRA = "{rs} ~ {rt}, {branch}: {regrs} ~ {regrt}";
+	private static final String SF_IMM = "{rt} <- {rs} * {imm}";
+	private static final String SF_REG = "{rd} <- {rs} * {rt}";
 	private static final String SF_COND = "{rs} ~ {rt}";
 	private static final String SF_SHIFT = "{rd} <- {rt} * {sa}";
 	private static final String SF_SHIFTREG = "{rd} <- {rt} * {rs}";
-	private static final String SF_ZCONDBRA = "{rs} ~ 0: {regrs} => {branch}";
-	private static final String SF_CONDZMOV = "{rd} <- {rs} if {regrt} ~ 0";
-	private static final String SF_HLOP = "hi:lo <- {rs} * {rt}";
-
+	private static final String SF_ZCONDBRA = "{rs} ~ 0, {branch}: {regrs} ~ 0";
+	private static final String SF_ZCONDMOV = "{rd} <- {rs}, {rt} ~ 0: {regrs}, {regrt} ~ 0";
+	private static final String SF_HILO = "hi:lo <- {rs} * {rt}";
+	private static final String SF_FP_COND = "{fs} ~ {ft}: {regfs} ~ {regft}";
+	private static final String SF_FP_REG = "{fd} <- {fs} * {ft}: {regfs} * {regft}";
+	private static final String SF_FP_REG2 = "{fd} <- {fs}: {regfs}";
+	
 	private static final Isn NOP = new Isn("nop");
 	
 	public static Isn getIsn(int isn) {
@@ -55,11 +59,22 @@ public class IsnSet {
 				}
 				break;
 			case OP_COP1:
-				if (rs < FP_RS_S) {
-					isnObj = ISNSET.fpu[rs];
-				} else {
-					// XXX not always s...
-					isnObj = ISNSET.fpuFnSingle[fn];
+				switch (rs) {
+					case FP_RS_S:
+						isnObj = ISNSET.fpuFnSingle[fn];
+						break;
+					case FP_RS_D:
+						isnObj = ISNSET.fpuFnDouble[fn];
+						break;
+					case FP_RS_W:
+						isnObj = ISNSET.fpuFnWord[fn];
+						break;
+					case FP_RS_L:
+						isnObj = ISNSET.fpuFnLong[fn];
+						break;
+					default:
+						isnObj = ISNSET.fpu[rs];
+						break;
 				}
 				break;
 			case OP_SPECIAL2:
@@ -104,13 +119,13 @@ public class IsnSet {
 		add(newOp(OP_BNE, "bne", SF_CONDBRA));
 		add(newOp(OP_BLEZ, "blez", SF_ZCONDBRA));
 		add(newOp(OP_BGTZ, "bgtz", SF_ZCONDBRA));
-		add(newOp(OP_ADDI, "addi", SF_OPIMM));
-		add(newOp(OP_ADDIU, "addiu", SF_OPIMM));
-		add(newOp(OP_SLTI, "slti", SF_OPIMM));
-		add(newOp(OP_SLTIU, "sltiu", SF_OPIMM));
-		add(newOp(OP_ANDI, "andi", SF_OPIMM));
-		add(newOp(OP_ORI, "ori", SF_OPIMM));
-		add(newOp(OP_XORI, "xori", SF_OPIMM));
+		add(newOp(OP_ADDI, "addi", SF_IMM));
+		add(newOp(OP_ADDIU, "addiu", SF_IMM));
+		add(newOp(OP_SLTI, "slti", SF_IMM));
+		add(newOp(OP_SLTIU, "sltiu", SF_IMM));
+		add(newOp(OP_ANDI, "andi", SF_IMM));
+		add(newOp(OP_ORI, "ori", SF_IMM));
+		add(newOp(OP_XORI, "xori", SF_IMM));
 		add(newOp(OP_LUI, "lui", "{rt} <- {imm}"));
 		add(newOp(OP_BEQL, "beql", ""));
 		add(newOp(OP_LB, "lb", SF_LOAD));
@@ -127,10 +142,10 @@ public class IsnSet {
 		add(newOp(OP_SC, "sc", SF_STORE));
 		add(newOp(OP_SWR, "swr", SF_STORE));
 		add(newOp(OP_LL, "ll", SF_LOAD));
-		add(newOp(OP_LWC1, "lwc1", SF_LOAD));
-		add(newOp(OP_LDC1, "lwd1", SF_LOAD));
-		add(newOp(OP_SWC1, "swc1", SF_STORE));
-		add(newOp(OP_SDC1, "sdc1", SF_STORE));
+		add(newOp(OP_LWC1, "lwc1", "{ft} <- [{base}+{offset}]: {membaseoffsets} <- {baseoffset}"));
+		add(newOp(OP_LDC1, "ldc1",  "{ft} <- [{base}+{offset}]: {membaseoffsetd} <- {baseoffset}"));
+		add(newOp(OP_SWC1, "swc1", "[{base}+{offset}] <- {ft}: [{baseoffset}] <- {regfts}"));
+		add(newOp(OP_SDC1, "sdc1", "[{base}+{offset}] <- {ft}: [{baseoffset}] <- {regftd}"));
 		
 		add(newRegimm(RT_BLTZ, "bltz", SF_ZCONDBRA));
 		add(newRegimm(RT_BGEZ, "bgez", SF_ZCONDBRA));
@@ -143,32 +158,32 @@ public class IsnSet {
 		add(newFn(FN_SLLV, "sllv", SF_SHIFTREG));
 		add(newFn(FN_SRLV, "srlv", SF_SHIFTREG));
 		add(newFn(FN_SRAV, "srav", SF_SHIFTREG));
-		add(newFn(FN_JR, "jr", "{rs} -> {regrs}"));
-		add(newFn(FN_JALR, "jalr", "{rd} <- link, {rs} => {regrs}"));
-		add(newFn(FN_MOVZ, "movz", SF_CONDZMOV));
-		add(newFn(FN_MOVN, "movn", SF_CONDZMOV));
+		add(newFn(FN_JR, "jr", "{rs}: {regrs}"));
+		add(newFn(FN_JALR, "jalr", "{rd}, {rs}: {regrs}"));
+		add(newFn(FN_MOVZ, "movz", SF_ZCONDMOV));
+		add(newFn(FN_MOVN, "movn", SF_ZCONDMOV));
 		add(newFn(FN_SYSCALL, "syscall", "{syscall}"));
 		add(newFn(FN_BREAK, "break", "{syscall}"));
 		add(newFn(FN_MFHI, "mfhi", "{rd} <- hi : {hi}"));
 		add(newFn(FN_MFLO, "mflo", "{rd} <- lo : {lo}"));
 		add(newFn(FN_MTHI, "mthi", "hi <- {rs} : {regrs}"));
 		add(newFn(FN_MTLO, "mtlo", "lo <- {rs} : {regrs}"));
-		add(newFn(FN_MULT, "mult", SF_HLOP));
-		add(newFn(FN_MULTU, "multu", SF_HLOP));
-		add(newFn(FN_DIV, "div", SF_HLOP));
-		add(newFn(FN_DIVU, "divu", SF_HLOP));
-		add(newFn(FN_ADD, "add", SF_OP));
-		add(newFn(FN_ADDU, "addu", SF_OP));
-		add(newFn(FN_SUBU, "subu", SF_OP));
-		add(newFn(FN_AND, "and", SF_OP));
-		add(newFn(FN_OR, "or", SF_OP));
-		add(newFn(FN_XOR, "xor", SF_OP));
-		add(newFn(FN_NOR, "nor", SF_OP));
-		add(newFn(FN_SLT, "slt", SF_OP));
-		add(newFn(FN_SLTU, "sltu", SF_OP));
+		add(newFn(FN_MULT, "mult", SF_HILO));
+		add(newFn(FN_MULTU, "multu", SF_HILO));
+		add(newFn(FN_DIV, "div", SF_HILO));
+		add(newFn(FN_DIVU, "divu", SF_HILO));
+		add(newFn(FN_ADD, "add", SF_REG));
+		add(newFn(FN_ADDU, "addu", SF_REG));
+		add(newFn(FN_SUBU, "subu", SF_REG));
+		add(newFn(FN_AND, "and", SF_REG));
+		add(newFn(FN_OR, "or", SF_REG));
+		add(newFn(FN_XOR, "xor", SF_REG));
+		add(newFn(FN_NOR, "nor", SF_REG));
+		add(newFn(FN_SLT, "slt", SF_REG));
+		add(newFn(FN_SLTU, "sltu", SF_REG));
 		add(newFn(FN_TNE, "tne", SF_COND));
 		
-		add(newFn2(FN2_MUL, "mul", SF_OP));
+		add(newFn2(FN2_MUL, "mul", SF_REG));
 		
 		add(newCop0(CP_RS_MFC0, "mfc0", "{rt} <- {cprd}"));
 		add(newCop0(CP_RS_MFH, "mfh", ""));
@@ -184,29 +199,29 @@ public class IsnSet {
 		add(newCop0Fn(CP_FN_TLBWI, "tlbwi", ""));
 		add(newCop0Fn(CP_FN_TLBWR, "tlbiwr", ""));
 		
-		add(newCop1(FP_RS_MFC1, "mfc1", ""));
-		add(newCop1(FP_RS_CFC1, "cfc1", ""));
-		add(newCop1(FP_RS_MTC1, "mtc1", ""));
-		add(newCop1(FP_RS_CTC1, "ctc1", ""));
-		add(newCop1(FP_RS_BC1, "bc1", ""));
+		add(newCop1(FP_RS_MFC1, "mfc1", "{rt} <- {fs}: {regfsx}"));
+		add(newCop1(FP_RS_CFC1, "cfc1", "{rt} <- {fscw}"));
+		add(newCop1(FP_RS_MTC1, "mtc1", "{fs} <- {rt}: {regrtx}"));
+		add(newCop1(FP_RS_CTC1, "ctc1", "{fscw} <- {rt}"));
+		add(newCop1(FP_RS_BC1, "bc1", "{fptf} = {fpcc}, {branch} : {regfpcc}")); // f = cc0, xxxx<branch>: t
 		
 		for (int rs : new int[] { FP_RS_S, FP_RS_D, FP_RS_W, FP_RS_L }) {
 			String f = fpFormatString(rs);
 			// not all of these apply to all formats...
-			add(newCop1Fn(rs, FP_FN_ABS, "abs." + f, "abs.{fpfmt}"));
-			add(newCop1Fn(rs, FP_FN_ADD, "add." + f, "add.{fpfmt}"));
-			add(newCop1Fn(rs, FP_FN_SUB, "sub." + f, "sub.{fpfmt}"));
-			add(newCop1Fn(rs, FP_FN_MUL, "mul." + f, "mul.{fpfmt}"));
-			add(newCop1Fn(rs, FP_FN_DIV, "div." + f, "div.{fpfmt}"));
-			add(newCop1Fn(rs, FP_FN_MOV, "mov." + f, "mov.{fpfmt}"));
-			add(newCop1Fn(rs, FP_FN_NEG, "neg." + f, "neg.{fpfmt}"));
-			add(newCop1Fn(rs, FP_FN_CVT_S, "cvts." + f, "cvts.{fpfmt}"));
-			add(newCop1Fn(rs, FP_FN_CVT_D, "cvtd." + f, "cvtd.{fpfmt}"));
-			add(newCop1Fn(rs, FP_FN_CVT_W, "cvtw." + f, "cvtw.{fpfmt}"));
-			add(newCop1Fn(rs, FP_FN_C_ULT, "c.ult." + f, "ult.{fpc}"));
-			add(newCop1Fn(rs, FP_FN_C_EQ, "c.eq." + f, "eq.{fptf}"));
-			add(newCop1Fn(rs, FP_FN_C_LT, "c.lt." + f, "lt.{fptf}"));
-			add(newCop1Fn(rs, FP_FN_C_LE, "c.le." + f, "le.{fptf}"));
+			add(newCop1Fn(rs, FP_FN_ABS, "abs." + f, SF_FP_REG2));
+			add(newCop1Fn(rs, FP_FN_ADD, "add." + f, SF_FP_REG));
+			add(newCop1Fn(rs, FP_FN_SUB, "sub." + f, SF_FP_REG));
+			add(newCop1Fn(rs, FP_FN_MUL, "mul." + f, SF_FP_REG));
+			add(newCop1Fn(rs, FP_FN_DIV, "div." + f, SF_FP_REG));
+			add(newCop1Fn(rs, FP_FN_MOV, "mov." + f, SF_FP_REG2));
+			add(newCop1Fn(rs, FP_FN_NEG, "neg." + f, SF_FP_REG2));
+			add(newCop1Fn(rs, FP_FN_CVT_S, "cvts." + f, SF_FP_REG2));
+			add(newCop1Fn(rs, FP_FN_CVT_D, "cvtd." + f, SF_FP_REG2));
+			add(newCop1Fn(rs, FP_FN_CVT_W, "cvtw." + f, SF_FP_REG2));
+			add(newCop1Fn(rs, FP_FN_C_ULT, "c.ult." + f, SF_FP_COND));
+			add(newCop1Fn(rs, FP_FN_C_EQ, "c.eq." + f, SF_FP_COND));
+			add(newCop1Fn(rs, FP_FN_C_LT, "c.lt." + f, SF_FP_COND));
+			add(newCop1Fn(rs, FP_FN_C_LE, "c.le." + f, SF_FP_COND));
 		}
 	}
 	

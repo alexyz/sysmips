@@ -302,9 +302,15 @@ public final class MipsConstants {
 	}
 	
 	/** fp instruction true flag */
-	public static boolean fpTrue (final int isn) {
+	public static boolean fptf (final int isn) {
 		// see BC1F
 		return (isn & 0x10000) != 0;
+	}
+	
+	/** fp instruction condition code flag */
+	public static int fpcc (final int isn) {
+		// see BC1F
+		return (isn >> 18) & 7;
 	}
 	
 	/** same as rd */
@@ -335,7 +341,12 @@ public final class MipsConstants {
 		return (isn >>> 11) & 0x1f;
 	}
 	
-	/** same as base */
+	/** same as rs */
+	public static int fmt (final int isn) {
+		return rs(isn);
+	}
+	
+	/** same as base and fpu fmt */
 	public static int rs (final int isn) {
 		return (isn >>> 21) & 0x1f;
 	}
@@ -375,6 +386,7 @@ public final class MipsConstants {
 	public static void setDouble (final int[] fpReg, final int i, final double d) {
 		if ((i & 1) == 0) {
 			final long dl = Double.doubleToRawLongBits(d);
+			// the spec says...
 			fpReg[i] = (int) dl;
 			fpReg[i + 1] = (int) (dl >>> 32);
 		} else {

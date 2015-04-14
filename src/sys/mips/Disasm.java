@@ -1,6 +1,7 @@
 package sys.mips;
 
 import static sys.mips.MipsConstants.*;
+import static sys.mips.Access.*;
 
 public final class Disasm {
 	
@@ -124,29 +125,48 @@ public final class Disasm {
 		final int[] reg = cpu.getRegisters();
 		final int pc = cpu.getPc();
 		final Symbols syms = mem.getSymbols();
-		
+		fmt(isn);
 		switch (name) {
 			case "ft":
 				return fpRegName(ft(isn));
+			case "fd":
+				return fpRegName(fd(isn));
+			case "fs":
+				return fpRegName(fs(isn));
+			case "regft":
+				return "" + cpu.getFPRegister(ft(isn), access(fmt(isn)));
+			case "regfs":
+				return "" + cpu.getFPRegister(fs(isn), access(fmt(isn)));
+			case "regfd":
+				return "" + cpu.getFPRegister(fd(isn), access(fmt(isn)));
+			case "regfts":
+				return "" + cpu.getFPRegister(ft(isn), Access.SINGLE);
+			case "regftd":
+				return "" + cpu.getFPRegister(ft(isn), Access.DOUBLE);
+			case "regfsx": {
+				int v = cpu.getFPRegister(fs(isn));
+				return "0x" + Integer.toHexString(v) + "(" + Float.intBitsToFloat(v) + ")";
+			}
 			case "rs":
 				return gpRegName(rs(isn));
-			case "base":
-				return gpRegName(base(isn));
-			case "offset":
-				return Integer.toString(simm(isn));
 			case "rd":
 				return gpRegName(rd(isn));
 			case "rt":
 				return gpRegName(rt(isn));
-			case "regrs":
-				return syms.getName(reg[rs(isn)]);
-				// case "regrsimm": return mem.getName(reg[rs(isn)] + imm(isn));
+			case "regrtx": {
+				int v = reg[rt(isn)];
+				return "0x" + Integer.toHexString(v) + "(" + Float.intBitsToFloat(v) + ")";
+			}
+			case "base":
+				return gpRegName(base(isn));
 			case "regrd":
 				return syms.getName(reg[rd(isn)]);
 			case "regrt":
 				return syms.getName(reg[rt(isn)]);
-				// case "regrtb": return "0x" + Integer.toHexString(reg[rt(isn)]
-				// & 0xff);
+			case "regrs":
+				return syms.getName(reg[rs(isn)]);
+			case "offset":
+				return Integer.toString(simm(isn));
 			case "cprd":
 				return cpRegName(rd(isn), sel(isn));
 			case "imm":
@@ -165,14 +185,31 @@ public final class Disasm {
 				Integer w = mem.loadWordSafe((reg[base(isn)] + simm(isn)));
 				return w != null ? "0x" + Integer.toHexString(w) : null;
 			}
+			case "membaseoffsets": {
+				Integer w = mem.loadWordSafe((reg[base(isn)] + simm(isn)));
+				if (w != null) {
+					return String.format("%g", Float.intBitsToFloat(w));
+				}
+				return null;
+			}
+			case "membaseoffsetd": {
+				Long dw = mem.loadDoubleWordSafe((reg[base(isn)] + simm(isn)));
+				if (dw != null) {
+					return String.format("%g", Double.longBitsToDouble(dw));
+				}
+				return null;
+			}
 			case "jump":
 				return syms.getName(jump(isn, pc));
 			case "sa":
 				return String.valueOf(sa(isn));
-			case "fpfmt":
-				return fpFormatString(rs(isn));
 			case "fptf":
-				return fpTrue(isn) ? "t" : "f";
+				return fptf(isn) ? "t" : "f";
+			case "fpcc":
+				return "cc" + fpcc(isn);
+			case "regfpcc":
+				// FIXME
+				return "?";
 			default:
 				throw new RuntimeException("unknown name " + name);
 		}

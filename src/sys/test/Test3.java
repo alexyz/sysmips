@@ -9,9 +9,11 @@ public class Test3 {
 		// should gen this as well
 		double a = PI, b = -E, c = sqrt(2), d = -log(2);
 		
+		// TODO float/double
+		
 		try (PrintWriter pw = new PrintWriter(new FileWriter("xsrc/gen1.c"))) {
 			pw.println("{");
-			pw.println("  double a=" + a + ", b=" + b + ", c=" + c + ", d=" + d + ";");
+			pw.println("  float a=" + a + ", b=" + b + ", c=" + c + ", d=" + d + ";");
 			pw.println("  gen1(a,b,c,d);");
 			pw.println("}");
 		}
@@ -30,7 +32,7 @@ public class Test3 {
 		// asm("add.s %0, %1, %2" : "=f" (r) : "f" (x), "f" (y));
 		StringBuilder sb = new StringBuilder();
 		sb.append("{");
-		sb.append(" double r;");
+		sb.append(" float r;");
 		sb.append(" asm('" + asm + "':");
 		sb.append(" '=f' (r):");
 		for (int a = 0; a < args.length; a++) {

@@ -12,6 +12,9 @@ public class Test2 {
 	private Cpu cpu = new Cpu();
 	
 	public static void main (String[] args) throws Exception {
+		System.out.println("0x40490fdbbf317218L=" + Double.longBitsToDouble(0x40490fdbbf317218L));
+		System.out.println("0xbf31721840490fdbL=" + Double.longBitsToDouble(0xbf31721840490fdbL));
+		System.out.println("0x40490fdbL=" + Double.longBitsToDouble(0x40490fdbL));
 		Test2 t = new Test2();
 		t.before();
 		t.run();

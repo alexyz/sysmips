@@ -196,6 +196,18 @@ public final class Memory {
 		}
 	}
 	
+	/** load boxed word, null if unmapped */
+	public final Long loadDoubleWordSafe (final int addr) {
+			final int[] page = pages[pageIndex(addr)];
+			if (page != null) {
+				final long w1 = page[wordIndex(addr)] & 0xffff_ffffL;
+				final long w2 = page[wordIndex(addr + 4)] & 0xffff_ffffL;
+				return Long.valueOf((w1 << 32) | w2);
+			} else {
+				return null;
+			}
+		}
+	
 	public void print (PrintStream ps) {
 		ps.println("memory map");
 		for (int n = 0; n < pages.length; n++) {

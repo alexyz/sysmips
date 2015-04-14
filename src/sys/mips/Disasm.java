@@ -170,7 +170,7 @@ public final class Disasm {
 			case "sa":
 				return String.valueOf(sa(isn));
 			case "fpfmt":
-				return fpFormatName(rs(isn));
+				return fpFormatString(rs(isn));
 			case "fptf":
 				return fpTrue(isn) ? "t" : "f";
 			default:

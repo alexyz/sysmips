@@ -130,7 +130,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 			try {
 				malta.getCpu().run();
 			} catch (Exception e) {
-				e.printStackTrace();
+				e.printStackTrace(System.out);
 				SwingUtilities.invokeLater(() -> {
 					showErrorDialog("Cpu", e.toString());
 				});

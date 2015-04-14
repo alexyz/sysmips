@@ -127,8 +127,10 @@ public class IsnSet {
 		add(newOp(OP_SC, "sc", SF_STORE));
 		add(newOp(OP_SWR, "swr", SF_STORE));
 		add(newOp(OP_LL, "ll", SF_LOAD));
-		add(newOp(OP_LWC1, "lwc1", "{ft} <- [{base}+{offset}]: {membaseoffset} <- [{baseoffset}]"));
-		add(newOp(OP_SWC1, "swc1", ""));
+		add(newOp(OP_LWC1, "lwc1", SF_LOAD));
+		add(newOp(OP_LDC1, "lwd1", SF_LOAD));
+		add(newOp(OP_SWC1, "swc1", SF_STORE));
+		add(newOp(OP_SDC1, "sdc1", SF_STORE));
 		
 		add(newRegimm(RT_BLTZ, "bltz", SF_ZCONDBRA));
 		add(newRegimm(RT_BGEZ, "bgez", SF_ZCONDBRA));
@@ -189,7 +191,7 @@ public class IsnSet {
 		add(newCop1(FP_RS_BC1, "bc1", ""));
 		
 		for (int rs : new int[] { FP_RS_S, FP_RS_D, FP_RS_W, FP_RS_L }) {
-			String f = fpFormatName(rs);
+			String f = fpFormatString(rs);
 			// not all of these apply to all formats...
 			add(newCop1Fn(rs, FP_FN_ABS, "abs." + f, "abs.{fpfmt}"));
 			add(newCop1Fn(rs, FP_FN_ADD, "add." + f, "add.{fpfmt}"));

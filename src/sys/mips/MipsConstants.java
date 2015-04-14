@@ -71,11 +71,15 @@ public final class MipsConstants {
 	public static final byte OP_LL = 0x30;
 	/** load word from mem to coprocessor */
 	public static final byte OP_LWC1 = 0x31;
+	/** load double word to floating point */
+	public static final byte OP_LDC1 = 0x35;
 	/** store conditional word */
 	public static final byte OP_SC = 0x38;
 	
 	/** store word from coprocessor to memory */
 	public static final byte OP_SWC1 = 0x39;
+	/** store double word from coprocessor to memory */
+	public static final byte OP_SDC1 = 0x3d;
 	
 	/** shift word left logical. also nop if sa,rd,rt = 0 */
 	public static final byte FN_SLL = 0x00;
@@ -279,6 +283,7 @@ public final class MipsConstants {
 		"hi", "lo" 
 	};
 	
+	/** same as rs */
 	public static int base (final int isn) {
 		return rs(isn);
 	}
@@ -330,10 +335,12 @@ public final class MipsConstants {
 		return (isn >>> 11) & 0x1f;
 	}
 	
+	/** same as base */
 	public static int rs (final int isn) {
 		return (isn >>> 21) & 0x1f;
 	}
 	
+	/** same as ft */
 	public static int rt (final int isn) {
 		return (isn >>> 16) & 0x1f;
 	}
@@ -384,7 +391,7 @@ public final class MipsConstants {
 	}
 
 	/** convert rs meta instruction to d, s, w, or l */
-	public static String fpFormatName (final int rs) {
+	public static String fpFormatString (final int rs) {
 		switch (rs) {
 			case FP_RS_D:
 				return "d";
@@ -398,6 +405,7 @@ public final class MipsConstants {
 				throw new RuntimeException("unknown fp format " + rs);
 		}
 	}
+	
 	private MipsConstants () {
 		//
 	}

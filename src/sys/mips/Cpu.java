@@ -4,6 +4,10 @@ import static sys.mips.MipsConstants.*;
 
 public final class Cpu {
 	
+	private static String opString (final int op) {
+		return "hex=" + Integer.toHexString(op) + " dec=" + op + " oct=" + Integer.toOctalString(op);
+	}
+	
 	/** general purpose registers, and hi/lo */
 	private final int[] reg = new int[34];
 	/** coprocessor 0 registers */
@@ -66,8 +70,16 @@ public final class Cpu {
 		return reg;
 	}
 	
-	public void setRegister (int reg, int value) {
-		this.reg[reg] = value;
+	public int getRegister (int n) {
+		return reg[n];
+	}
+	
+	public void setRegister (int n, int value) {
+		reg[n] = value;
+	}
+	
+	public double getFPRegister (int n, Access access) {
+		return access.get(fpReg, n);
 	}
 	
 	public CpuLogger getLogger () {
@@ -135,8 +147,16 @@ public final class Cpu {
 			case OP_LWC1:
 				fpReg[rt] = memory.loadWord(reg[rs] + simm);
 				return;
+			case OP_LDC1:
+				fpReg[rt] = memory.loadWord(reg[rs] + simm);
+				fpReg[rt + 1] = memory.loadWord(reg[rs] + simm + 4);
+				return;
 			case OP_SWC1:
 				memory.storeWord(reg[rs] + simm, fpReg[rt]);
+				return;
+			case OP_SDC1:
+				memory.storeWord(reg[rs] + simm, fpReg[rt]);
+				memory.storeWord(reg[rs] + simm + 4, fpReg[rt + 1]);
 				return;
 			case OP_J:
 				nextPc = jump(isn, pc);
@@ -278,7 +298,7 @@ public final class Cpu {
 			}
 			
 			default:
-				throw new RuntimeException("invalid op " + op);
+				throw new RuntimeException("invalid op " + opString(op));
 		}
 	}
 	
@@ -304,7 +324,7 @@ public final class Cpu {
 				}
 				return;
 			default:
-				throw new RuntimeException("invalid regimm " + rt);
+				throw new RuntimeException("invalid regimm " + opString(rt));
 		}
 	}
 	
@@ -449,7 +469,7 @@ public final class Cpu {
 				}
 				return;
 			default:
-				throw new IllegalArgumentException("invalid fn " + fn);
+				throw new IllegalArgumentException("invalid fn " + opString(fn));
 		}
 	}
 	
@@ -468,15 +488,15 @@ public final class Cpu {
 				return;
 			}
 			default:
-				throw new RuntimeException("invalid fn2 " + fn);
+				throw new RuntimeException("invalid fn2 " + opString(fn));
 		}
 	}
 	
 	private void execCpRs (final int isn) {
-		final int rs = (isn >>> 21) & 0x1f;
-		final int rt = (isn >>> 16) & 0x1f;
-		final int rd = (isn >>> 11) & 0x1f;
-		final int sel = isn & 0x7;
+		final int rs = rs(isn);
+		final int rt = rt(isn);
+		final int rd = rd(isn);
+		final int sel = sel(isn);
 		
 		switch (rs) {
 			case CP_RS_MFC0: {
@@ -530,13 +550,13 @@ public final class Cpu {
 			}
 			
 			default:
-				throw new RuntimeException("invalid coprocessor rs " + rs);
+				throw new RuntimeException("invalid coprocessor rs " + opString(rs));
 		}
 	}
 	
 	private final void execCpFn (final int isn) {
-		final int fn = isn & 0x3f;
-		throw new RuntimeException("invalid coprocessor fn " + fn);
+		final int fn = fn(isn);
+		throw new RuntimeException("invalid coprocessor fn " + opString(fn));
 	}
 	
 	private void execFpuRs (final int isn) {
@@ -594,7 +614,7 @@ public final class Cpu {
 				return;
 				
 			default:
-				throw new RuntimeException("invalid fpu rs " + rs);
+				throw new RuntimeException("invalid fpu rs " + opString(rs));
 		}
 		
 	}
@@ -685,7 +705,7 @@ public final class Cpu {
 				return;
 			}
 			default:
-				throw new RuntimeException("invalid fpu fn " + fn);
+				throw new RuntimeException("invalid fpu fn " + opString(fn));
 		}
 	}
 	

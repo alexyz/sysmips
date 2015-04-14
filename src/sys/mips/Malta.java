@@ -99,28 +99,32 @@ public class Malta implements SystemListener {
 	
 	@Override
 	public void systemWrite (int addr, int value) {
-		System.out.println("system write " + cpu.getMemory().getSymbols().getName(SYSTEM + addr) + " <= " + Integer.toHexString(value));
 		switch (addr) {
 			case M_GT_PCI0_CMD:
 				System.out.println("ignore pci command " + value);
 				break;
 			case M_UART_TX:
-				if (value >= 32 && value < 127) {
-					consoleSb.append((char) value);
-				} else if (value == '\n') {
-					consoleSb.append("\n");
-					support.firePropertyChange("console", null, consoleSb.toString());
-					consoleSb.delete(0, consoleSb.length());
-				} else if (value != '\r') {
-					consoleSb.append("{" + Integer.toHexString(value) + "}");
-				}
+				consoleWrite(value);
 				break;
 			default:
 				if (addr >= M_DISPLAY && addr < M_DISPLAY + 0x100) {
 					support.firePropertyChange("display", null, displayText());
 				} else {
-					throw new RuntimeException("unknown malta write " + Integer.toHexString(addr) + ", " + Integer.toHexString(value));
+					System.out.println();
+					throw new RuntimeException("unknown system write " + cpu.getMemory().getSymbols().getName(SYSTEM + addr) + " <= " + Integer.toHexString(value));
 				}
+		}
+	}
+
+	private void consoleWrite (int value) {
+		if ((value >= 32 && value < 127) || value == '\n') {
+			consoleSb.append((char) value);
+		} else if (value != '\r') {
+			consoleSb.append("{" + Integer.toHexString(value) + "}");
+		}
+		if (value == '\n' || consoleSb.length() > 80) {
+			support.firePropertyChange("console", null, consoleSb.toString());
+			consoleSb.delete(0, consoleSb.length());
 		}
 	}
 	

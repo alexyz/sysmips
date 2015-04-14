@@ -74,6 +74,7 @@ public final class Cpu {
 		return logger;
 	}
 	
+	/** never returns, throws CpuException... */ 
 	public final void run () {
 		System.out.println("run");
 		try {

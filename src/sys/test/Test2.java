@@ -24,7 +24,7 @@ public class Test2 {
 		cpu.getMemory().getSymbols().put(0x4d0000, "STACK");
 		cpu.getMemory().getSymbols().put(0x4f0000, "RESULTS");
 		try (RandomAccessFile file = new RandomAccessFile("xbin/a.out", "r")) {
-			CpuLoader.loadElf(cpu, file);
+			CpuUtil.loadElf(cpu, file);
 		}
 	}
 	

@@ -105,16 +105,19 @@ public class Malta implements SystemListener {
 				System.out.println("ignore pci command " + value);
 				break;
 			case M_UART_TX:
-				if (value >= 32) {
+				if (value >= 32 && value < 127) {
 					consoleSb.append((char) value);
-				} else {
-					// TODO flush to ui...
-					throw new RuntimeException("console=" + consoleSb);
+				} else if (value == '\n') {
+					consoleSb.append("\n");
+					support.firePropertyChange("console", null, consoleSb.toString());
+					consoleSb.delete(0, consoleSb.length());
+				} else if (value != '\r') {
+					consoleSb.append("{" + Integer.toHexString(value) + "}");
 				}
 				break;
 			default:
 				if (addr >= M_DISPLAY && addr < M_DISPLAY + 0x100) {
-					support.firePropertyChange("display", "", displayText());
+					support.firePropertyChange("display", null, displayText());
 				} else {
 					throw new RuntimeException("unknown malta write " + Integer.toHexString(addr) + ", " + Integer.toHexString(value));
 				}
@@ -128,12 +131,14 @@ public class Malta implements SystemListener {
 	public String displayText() {
 		final Memory mem = cpu.getMemory();
 		final StringBuilder sb = new StringBuilder();
-		// should display leds
+		final int leds = mem.loadWordSystem(M_DISPLAY_LEDBAR) & 0xff;
+		sb.append(Integer.toBinaryString(leds)).append(" ");
+		final int word = mem.loadWordSystem(M_DISPLAY_ASCIIWORD);
+		sb.append(Integer.toHexString(word)).append(" ");
 		for (int n = 0; n < 8; n++) {
 			int w = mem.loadWordSystem(M_DISPLAY_ASCIIPOS + (n * 8)) & 0xff;
 			sb.append(w != 0 ? (char) w : ' ');
 		}
-		
 		return sb.toString();
 	}
 	

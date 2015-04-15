@@ -1,49 +1,36 @@
 package sys.test;
 
-import static java.lang.Math.*;
-
 import java.io.*;
 
 public class Test3 {
 	public static void main (String[] args) throws Exception {
-		// should gen this as well
-		double a = PI, b = -E, c = sqrt(2), d = -log(2);
+		double a = Math.PI, b = -Math.E, c = Math.sqrt(2), d = -Math.log(2);
 		
 		// TODO float/double
 		
 		try (PrintWriter pw = new PrintWriter(new FileWriter("xsrc/gen1.c"))) {
-			pw.println("{");
-			pw.println("  float a=" + a + ", b=" + b + ", c=" + c + ", d=" + d + ";");
-			pw.println("  gen1(a,b,c,d);");
-			pw.println("}");
-		}
-		
-		try (PrintWriter pw = new PrintWriter(new FileWriter("xsrc/gen1def.c"))) {
+			pw.println("#define GEN1 gen1(" + a + ", " + b + ", " + c + ", " + d + ")");
 			pw.println("__attribute__((noinline)) void gen1(float a, float b, float c, float d) {");
-			pw.println("  " + testString(1, abs(a), "abs.s %0, %1", "a"));
-			pw.println("  " + testString(2, a + b, "add.s %0, %1, %2", "a", "b"));
+			pw.println("  " + ftest(1, "abs.s %0, %1", "'f' (a)", Math.abs(a)));
+			pw.println("  " + ftest(2, "add.s %0, %1, %2", "'f' (a), 'f' (b)", a + b));
 			pw.println("}");
 		}
 		
 		System.out.println("done");
 	}
 	
-	private static String testString (int testId, double value, String asm, String... args) {
+	private static String ftest (int testId, String asm, String in, double value) {
 		// asm("add.s %0, %1, %2" : "=f" (r) : "f" (x), "f" (y));
 		StringBuilder sb = new StringBuilder();
 		sb.append("{");
 		sb.append(" float r;");
-		sb.append(" asm('" + asm + "':");
-		sb.append(" '=f' (r):");
-		for (int a = 0; a < args.length; a++) {
-			if (a > 0) {
-				sb.append(",");
-			}
-			sb.append(" 'f' (" + args[a] + ")");
-		}
-		sb.append(");");
+		sb.append(" " + asm(asm, "'=f' (r)", in));
 		sb.append(" assertdeq(" + testId + ", r, " + value + ");");
 		sb.append(" }");
 		return sb.toString().replace("'", "\"");
+	}
+	
+	private static String asm (String asm, String in, String out) {
+		return ("asm('" + asm + "': " + in + ": " + out + ");").replace("'", "\"");
 	}
 }

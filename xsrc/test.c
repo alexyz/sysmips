@@ -11,6 +11,6 @@ __attribute__((noinline)) void assertdeq (int testid, double d1, double d2) {
 #include "gen1.c"
 
 void __start () {
-  GEN1;
+  GEN1();
   asm("break 0");
 }

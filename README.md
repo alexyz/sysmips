@@ -1,6 +1,6 @@
 # sysmips
 
-MIPS Malta system emulator (NOT officially associated with Imagination Technologies)
+MIPS32r2/Malta system emulator (NOT officially associated with Imagination Technologies)
 
 Intended to run the Debian Stable Linux 3.2 for MIPS Malta kernel
 

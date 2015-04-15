@@ -30,8 +30,6 @@ public class IsnSet {
 	private static final String SF_FP_REG = "{fd} <- {fs} * {ft}: {regfs} * {regft}";
 	private static final String SF_FP_REG2 = "{fd} <- {fs}: {regfs}";
 	
-	private static final Isn NOP = new Isn("nop");
-	
 	public static Isn getIsn(int isn) {
 		final int op = op(isn);
 		final int rs = rs(isn);
@@ -42,11 +40,7 @@ public class IsnSet {
 		final Isn isnObj;
 		switch (op) {
 			case OP_SPECIAL:
-				if (fn == FN_SLL && rd == 0) {
-					isnObj = NOP;
-				} else {
-					isnObj = ISNSET.fn[fn];
-				}
+				isnObj = ISNSET.fn[fn];
 				break;
 			case OP_REGIMM:
 				isnObj = ISNSET.regimm[rt];
@@ -203,7 +197,7 @@ public class IsnSet {
 		add(newCop1(FP_RS_CFC1, "cfc1", "{rt} <- {fscw}"));
 		add(newCop1(FP_RS_MTC1, "mtc1", "{fs} <- {rt}: {regrtx}"));
 		add(newCop1(FP_RS_CTC1, "ctc1", "{fscw} <- {rt}"));
-		add(newCop1(FP_RS_BC1, "bc1", "{fptf} = {fpcc}, {branch} : {regfpcc}")); // f = cc0, xxxx<branch>: t
+		add(newCop1(FP_RS_BC1, "bc1", "{fptf}, {fpcc}, {branch} : {regfpcc}"));
 		
 		for (int rs : new int[] { FP_RS_S, FP_RS_D, FP_RS_W, FP_RS_L }) {
 			String f = fpFormatString(rs);
@@ -223,6 +217,8 @@ public class IsnSet {
 			add(newCop1Fn(rs, FP_FN_C_LT, "c.lt." + f, SF_FP_COND));
 			add(newCop1Fn(rs, FP_FN_C_LE, "c.le." + f, SF_FP_COND));
 		}
+		
+		add(newCop1FnX(FP_FNX_MADDS, "madd.s", "{fd} <- {fs} * {ft} + {fr}: {regfss} * {regfts} + {regfrs}"));
 	}
 	
 	private void add (Isn isn) {

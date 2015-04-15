@@ -28,7 +28,6 @@ public final class Cpu {
 	private int cycle;
 	private int rmwAddress;
 	private Round round = Round.NONE;
-	private boolean fccr;
 	
 	public Cpu () {
 		// linux_3.2.65\arch\mips\include\asm\cpu-features.h
@@ -41,7 +40,7 @@ public final class Cpu {
 		cpReg[PRID_CPR][PRID_SEL] = 0x0110;
 		// support S, D, W, L
 		int fcr = (1 << 16) | (1 << 17) | (1 << 20) | (1 << 21) | (1 << 8);
-		fpControlReg[FIR_FCR] = fcr;
+		fpControlReg[FPCREG_FIR] = fcr;
 	}
 	
 	public int[][] getCpRegisters () {
@@ -81,11 +80,11 @@ public final class Cpu {
 		reg[n] = value;
 	}
 	
-	public int getFPRegister (int n) {
+	public int getFpRegister (int n) {
 		return fpReg[n];
 	}
 	
-	public double getFPRegister (int n, Access access) {
+	public double getFpRegister (int n, FpAccess access) {
 		return access.get(fpReg, n);
 	}
 	
@@ -93,7 +92,7 @@ public final class Cpu {
 		return logger;
 	}
 	
-	/** never returns, throws CpuException... */ 
+	/** never returns, throws CpuException... */
 	public final void run () {
 		System.out.println("run");
 		try {
@@ -147,6 +146,9 @@ public final class Cpu {
 				return;
 			case OP_COP1:
 				execFpuRs(isn);
+				return;
+			case OP_COP1X:
+				execFpuFnX(isn);
 				return;
 			case OP_SPECIAL2:
 				execFn2(isn);
@@ -289,7 +291,7 @@ public final class Cpu {
 				// unaligned addr
 				final int a = reg[rs] + simm;
 				// aligned address
-				final int aa = a & ~3; 
+				final int aa = a & ~3;
 				final int s = (a & 3) << 3;
 				final int w = memory.loadWord(aa);
 				memory.storeWord(aa, (reg[rt] >>> s) | (w & (0xffffffff << (32 - s))));
@@ -583,20 +585,19 @@ public final class Cpu {
 				return;
 				
 			case FP_RS_S:
-				execFpuFn(isn, Access.SINGLE);
+				execFpuFn(isn, FpAccess.SINGLE);
 				return;
 				
 			case FP_RS_D:
-				execFpuFn(isn, Access.DOUBLE);
+				execFpuFn(isn, FpAccess.DOUBLE);
 				return;
 				
 			case FP_RS_W:
-				execFpuFn(isn, Access.WORD);
+				execFpuFn(isn, FpAccess.WORD);
 				return;
 				
 			case FP_RS_BC1:
-				// FIXME must check cc...
-				if (fptf(isn) == fccr) {
+				if (fptf(isn) == getFpCondition(fpcc(isn))) {
 					nextPc = branch(isn, pc);
 				} else {
 					// don't execute delay slot
@@ -606,8 +607,9 @@ public final class Cpu {
 				
 			case FP_RS_CFC1:
 				cfc1: switch (fs) {
-					case FCSR_FCR:
-					case FIR_FCR:
+					case FPCREG_FCSR:
+					case FPCREG_FCCR:
+					case FPCREG_FIR:
 						break cfc1;
 					default:
 						throw new RuntimeException("read unimplemented fp control register " + fs);
@@ -616,12 +618,14 @@ public final class Cpu {
 				return;
 				
 			case FP_RS_CTC1:
-				// move control word to floating point. 31=fcsr
-				if ((reg[rt] > 1) || (fs != 31)) {
-					throw new RuntimeException("write unimplemented fp control register " + fs);
+				// move control word to floating point
+				switch (fs) {
+					case FPCREG_FCSR:
+						setFcsr(reg[rt]);
+						return;
+					default:
+						throw new RuntimeException("write unimplemented fp control register " + fs + ", " + Integer.toHexString(reg[rt]));
 				}
-				setfcsr(reg[rt]);
-				return;
 				
 			default:
 				throw new RuntimeException("invalid fpu rs " + opString(rs));
@@ -629,7 +633,7 @@ public final class Cpu {
 		
 	}
 	
-	private void execFpuFn (final int isn, final Access access) {
+	private void execFpuFn (final int isn, final FpAccess access) {
 		final int fs = fs(isn);
 		final int ft = ft(isn);
 		final int fd = fd(isn);
@@ -693,25 +697,25 @@ public final class Cpu {
 			case FP_FN_C_ULT: {
 				final double fsValue = access.get(fpReg, fs);
 				final double ftValue = access.get(fpReg, ft);
-				fccr = Double.isNaN(fsValue) || Double.isNaN(ftValue) || fsValue < ftValue;
+				setFPCondition(fpcc(isn), Double.isNaN(fsValue) || Double.isNaN(ftValue) || fsValue < ftValue);
 				return;
 			}
 			case FP_FN_C_EQ: {
 				final double fsValue = access.get(fpReg, fs);
 				final double ftValue = access.get(fpReg, ft);
-				fccr = fsValue == ftValue;
+				setFPCondition(fpcc(isn), fsValue == ftValue);
 				return;
 			}
 			case FP_FN_C_LT: {
 				final double fsValue = access.get(fpReg, fs);
 				final double ftValue = access.get(fpReg, ft);
-				fccr = fsValue < ftValue;
+				setFPCondition(fpcc(isn), fsValue < ftValue);
 				return;
 			}
 			case FP_FN_C_LE: {
 				final double fsValue = access.get(fpReg, fs);
 				final double ftValue = access.get(fpReg, ft);
-				fccr = fsValue <= ftValue;
+				setFPCondition(fpcc(isn), fsValue <= ftValue);
 				return;
 			}
 			default:
@@ -719,14 +723,53 @@ public final class Cpu {
 		}
 	}
 	
+	private void execFpuFnX (final int isn) {
+		final int fn = fn(isn);
+		final int fr = fr(isn);
+		final int ft = ft(isn);
+		final int fs = fs(isn);
+		final int fd = fd(isn);
+		
+		switch (fn) {
+			case FP_FNX_MADDS:
+				setSingle(fpReg, fd, getSingle(fpReg, fs) * getSingle(fpReg, ft) + getSingle(fpReg, fr));
+				return;
+			default:
+				throw new RuntimeException("invalid fpu fnx " + opString(fn));
+		}
+	}
+	
+	public boolean getFpCondition (final int cc) {
+		return (fpControlReg[FPCREG_FCCR] & (1 << cc)) != 0;
+	}
+	
+	private void setFPCondition (final int cc, final boolean cond) {
+		// oh my god
+		final int ccMask = 1 << cc;
+		final int csMask = 1 << (cc == 0 ? cc + 23 : cc + 25);
+		int fccr = fpControlReg[FPCREG_FCCR];
+		int fcsr = fpControlReg[FPCREG_FCSR];
+		if (cond) {
+			// set the bits
+			fccr = fccr | ccMask;
+			fcsr = fcsr | csMask;
+		} else {
+			// clear the bits
+			fccr = fccr & ~ccMask;
+			fcsr = fcsr & ~csMask;
+		}
+		fpControlReg[FPCREG_FCCR] = fccr;
+		fpControlReg[FPCREG_FCSR] = fcsr;
+	}
+	
 	/**
 	 * Set the value and associated values of the condition and status register
 	 */
-	private void setfcsr (int fcsr) {
-		fpControlReg[31] = fcsr;
+	private void setFcsr (int fcsr) {
 		if ((fcsr & ~0x3) != 0) {
 			throw new RuntimeException("setfcsr: unknown mode %x\n");
 		}
+		fpControlReg[FPCREG_FCSR] = fcsr;
 		final int rm = fcsr & 0x3;
 		if (rm == FCSR_RM_RN) {
 			round = Round.NONE;

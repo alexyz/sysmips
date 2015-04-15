@@ -33,8 +33,11 @@ public class Isn {
 	}
 	
 	public static Isn newCop1Fn (int rs, int fn, String name, String format) {
-		// only add these for S, though they apply to D, W and L as well
 		return new Isn(OP_COP1, rs, 0, fn, name, format);
+	}
+	
+	public static Isn newCop1FnX (int fn, String name, String format) {
+		return new Isn(OP_COP1X, 0, 0, fn, name, format);
 	}
 	
 	/** the code at bit position 26 */
@@ -49,7 +52,7 @@ public class Isn {
 	public final String format;
 	
 	public Isn (String name) {
-		this(0, 0, 0, 0, name, null);
+		this(0, 0, 0, 0, name, "");
 	}
 	
 	private Isn (int op, int rs, int rt, int fn, String name, String format) {

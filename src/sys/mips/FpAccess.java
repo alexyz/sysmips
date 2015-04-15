@@ -2,10 +2,10 @@ package sys.mips;
 
 import static sys.mips.MipsConstants.*;
 
-public abstract class Access {
+public abstract class FpAccess {
 	
 	/** get access for fmt (same as rs) */
-	public static Access access (int fmt) {
+	public static FpAccess access (int fmt) {
 		switch (fmt) {
 			case FP_RS_S: return SINGLE;
 			case FP_RS_D: return DOUBLE;
@@ -14,7 +14,7 @@ public abstract class Access {
 		}
 	}
 	
-	public static final Access SINGLE = new Access() {
+	public static final FpAccess SINGLE = new FpAccess() {
 		@Override
 		public void set (int[] fpReg, int reg, double d) {
 			setSingle(fpReg, reg, (float) d);
@@ -26,7 +26,7 @@ public abstract class Access {
 		}
 	};
 	
-	public static final Access DOUBLE = new Access() {
+	public static final FpAccess DOUBLE = new FpAccess() {
 		
 		@Override
 		public void set (int[] fpReg, int reg, double d) {
@@ -39,7 +39,7 @@ public abstract class Access {
 		}
 	};
 	
-	public static final Access WORD = new Access() {
+	public static final FpAccess WORD = new FpAccess() {
 		
 		@Override
 		public void set (int[] fpReg, int reg, double d) {

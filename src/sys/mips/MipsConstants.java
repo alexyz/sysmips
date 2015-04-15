@@ -35,10 +35,12 @@ public final class MipsConstants {
 	public static final byte OP_XORI = 0x0e;
 	/** load upper immediate */
 	public static final byte OP_LUI = 0x0f;
-	/** coprocessor 0 meta instruction selected by RS then by FN */
+	/** coprocessor 0 (system) meta instruction selected by RS then by FN */
 	public static final byte OP_COP0 = 0x10;
-	/** coprocessor 1 meta instruction selected by RS then by RT/FN */
+	/** coprocessor 1 (fpu) meta instruction selected by RS then by RT/FN */
 	public static final byte OP_COP1 = 0x11;
+	/** coprocessor 1 (fpu) extension meta instruction (selected by fn) */
+	public static final byte OP_COP1X = 0x13;
 	/** branch if equal likely, execute delay slot only if taken */
 	public static final byte OP_BEQL = 0x14;
 	/** meta instruction selected by fn */
@@ -228,6 +230,9 @@ public final class MipsConstants {
 	/** less then or equal */
 	public static final byte FP_FN_C_LE = 0x3e;
 	
+	/** multiply add */
+	public static final byte FP_FNX_MADDS = 0x20;
+	
 	/** coproc round to nearest */
 	public static final int FCSR_RM_RN = 0x0;
 	
@@ -252,11 +257,12 @@ public final class MipsConstants {
 	
 	public static final int PRID_SEL = 0;
 	
-	/** fp control register index */
-	public static final int FIR_FCR = 0;
-	
-	/** fp control and status register index */
-	public static final int FCSR_FCR = 31;
+	/** fp control implementation register */
+	public static final int FPCREG_FIR = 0;
+	/** floating point condition codes register */
+	public static final int FPCREG_FCCR = 25;
+	/** fp control and status register */
+	public static final int FPCREG_FCSR = 31;
 	
 	/** first argument register */
 	public static final int REG_A0 = 4;
@@ -281,6 +287,25 @@ public final class MipsConstants {
 		"gp", "sp", "s8", "ra", 
 		// 32 (!)
 		"hi", "lo" 
+	};
+
+	public static final String[][] CP_REG_NAMES = new String[][] { 
+		new String[] { "Index", "MVPControl", "MVPConf0", "MVPConf1" },
+		new String[] { "Random", "VPEControl", "VPEConf0", "VPEConf1", "YQMask", "VPESchedule", "VPEScheFBack", "VPEOpt" },
+		new String[] { "EntryLo0", "TCStatus", "TCBind", "TCRestart", "TCHalt", "TCContext", "TCSchedule", "TCScheFBack" },
+		new String[] { "EntryLo1", null, null, null, null, null, null, "TCOpt", },
+		new String[] { "Context", "ContentConfig", "UserLocal" },
+		new String[] { "PageMask", "PageGrain", "SegCtl0", "SegCtl1", "SegCtl2", "PWBase", "PWField", "PWSize" },
+		new String[] { "Wired", "SRSConf0", "SRSConf1", "SRSConf2", "SRSConf3", "SRSConf4", "PWCtl" }, new String[] { "HWREna" },
+		new String[] { "BadVaddr", "BadInstr", "BadInstrP", }, 
+		new String[] { "Count" },
+		new String[] { "EntryHi", null, null, null, "GuestCtl1", "GuestCtl2", "GuestCtl3" }, 
+		new String[] { "Compare", null, null, null, "GuestCtl0Ext" },
+		new String[] { "Status", "IntCtl", "SRSCtl", "SRSMap", "View_IPL", "SRSMap2", "GuestCtl0", "GTOffset" },
+		new String[] { "Cause", null, null, null, "View_RIPL", "NestedExc", }, 
+		new String[] { "EPC", null, "NestedEPC" },
+		new String[] { "PRId", "EBase", "CDMMBase", "CMGCRBase" },
+		new String[] { "Config", "Config1", "Config2", "Config3", "Config4", "Config5" }, 
 	};
 	
 	/** same as rs */
@@ -307,7 +332,7 @@ public final class MipsConstants {
 		return (isn & 0x10000) != 0;
 	}
 	
-	/** fp instruction condition code flag */
+	/** fp instruction condition code flag (0-7) */
 	public static int fpcc (final int isn) {
 		// see BC1F
 		return (isn >> 18) & 7;
@@ -346,7 +371,12 @@ public final class MipsConstants {
 		return rs(isn);
 	}
 	
-	/** same as base and fpu fmt */
+	/** same as rs */
+	public static int fr (final int isn) {
+		return rs(isn);
+	}
+	
+	/** same as base, fpu fmt and fr */
 	public static int rs (final int isn) {
 		return (isn >>> 21) & 0x1f;
 	}
@@ -416,6 +446,25 @@ public final class MipsConstants {
 			default:
 				throw new RuntimeException("unknown fp format " + rs);
 		}
+	}
+
+	public static String cpRegName (int rd, int sel) {
+		String name = "unknown";
+		if (rd < CP_REG_NAMES.length) {
+			final String[] rdnames = CP_REG_NAMES[rd];
+			if (rdnames != null && sel < rdnames.length) {
+				name = rdnames[sel];
+			}
+		}
+		return rd + "." + sel + ":" + name;
+	}
+	
+	public static String gpRegName (int reg) {
+		return REG_NAMES[reg];
+	}
+	
+	public static String fpRegName (int reg) {
+		return "f" + reg;
 	}
 	
 	private MipsConstants () {

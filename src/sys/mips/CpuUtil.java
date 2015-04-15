@@ -59,4 +59,39 @@ public class CpuUtil {
 		cpu.setRegister(REG_A1, argvAddr);
 		cpu.setRegister(REG_A2, envAddr);
 	}
+	
+	private static String gpRegString (final Cpu cpu) {
+		final int pc = cpu.getPc();
+		final int[] reg = cpu.getRegisters();
+		final Memory mem = cpu.getMemory();
+		final Symbols syms = mem.getSymbols();
+		
+		final StringBuilder sb = new StringBuilder(256);
+		sb.append("pc=").append(syms.getName(pc));
+		for (int n = 0; n < reg.length; n++) {
+			if (reg[n] != 0) {
+				sb.append(" ").append(gpRegName(n)).append("=").append(syms.getName(reg[n]));
+			}
+		}
+		return sb.toString();
+	}
+	
+	private static String cpRegString (Cpu cpu) {
+		final int[][] reg = cpu.getCpRegisters();
+		final Memory mem = cpu.getMemory();
+		final Symbols syms = mem.getSymbols();
+		
+		final StringBuilder sb = new StringBuilder(256);
+		sb.append("cycle=").append(cpu.getCycle());
+		for (int n = 0; n < reg.length; n++) {
+			for (int m = 0; m < reg[n].length; m++) {
+				final int v = reg[n][m];
+				if (v != 0) {
+					sb.append(" ").append(cpRegName(n, m)).append("=").append(syms.getName(v));
+				}
+			}
+		}
+		return sb.toString();
+	}
+	
 }

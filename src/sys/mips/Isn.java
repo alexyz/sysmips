@@ -48,6 +48,7 @@ public class Isn {
 	public final int rt;
 	/** the code at bit position 0 */
 	public final int fn;
+	/** isn name, unique for all instructions */
 	public final String name;
 	public final String format;
 	

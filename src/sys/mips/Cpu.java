@@ -2,6 +2,9 @@ package sys.mips;
 
 import static sys.mips.MipsConstants.*;
 
+import java.util.*;
+import java.util.stream.Collectors;
+
 public final class Cpu {
 	
 	private static String opString (final int op) {
@@ -95,6 +98,11 @@ public final class Cpu {
 	/** never returns, throws CpuException... */
 	public final void run () {
 		System.out.println("run");
+		final TreeMap<String,int[]> isnCount = new TreeMap<>();
+		for (String name : IsnSet.INSTANCE.nameMap.keySet()) {
+			isnCount.put(name, new int[1]);
+		}
+		
 		try {
 			while (true) {
 				if ((cycle & 0xffff) == 0) {
@@ -118,9 +126,20 @@ public final class Cpu {
 					execFn(isn);
 				}
 				
+				final Isn isnObj = IsnSet.INSTANCE.getIsn(isn);
+				if (isnObj != null) {
+					isnCount.get(isnObj.name)[0]++;
+				}
 				cycle++;
 			}
 		} catch (Exception e) {
+			final List<String> l = isnCount.entrySet()
+					.stream()
+					.filter(x -> x.getValue()[0] > 0)
+					.sorted((x,y) -> y.getValue()[0] - x.getValue()[0])
+					.map(x -> x.getKey() + "=" + x.getValue()[0])
+					.collect(Collectors.toList());
+			System.out.println("isncount=" + l);
 			logger.print(System.out);
 			throw e;
 		}

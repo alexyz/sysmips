@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project default="jar">
+
+	<property name="jarfile" value="sysmips.jar" />
+
+	<target name="jar">
+		<jar destfile="dist/${jarfile}">
+			<manifest>
+				<attribute name="Main-Class" value="sys.mips.MaltaJFrame" />
+			</manifest>
+			<fileset dir="bin" />
+		</jar>
+	</target>
+
+	<target name="deploy" depends="jar">
+		<copy file="dist/${jarfile}" tofile="${user.home}/Dropbox/Public/${jarfile}" />
+	</target>
+
+</project>

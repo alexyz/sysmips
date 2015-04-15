@@ -27,6 +27,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	private final JLabel displayLabel = new JLabel(" ");
 	private final JTextArea consoleArea = new JTextArea();
 	private final JButton startButton = new JButton("Start");
+	private final JButton fileButton = new JButton("...");
 	
 	private Malta malta;
 	
@@ -37,6 +38,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		// command line of console=ttyS0 initrd=? root=?
 		// environment keys: ethaddr, modetty0, memsize (defaults to 32MB)
 		fileField.setText("images/vmlinux-3.2.0-4-4kc-malta");
+		fileButton.addActionListener(ae -> selectFile());
 		argsField.setText("console=ttyS0");
 		envField.setText("key=value");
 		
@@ -52,6 +54,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		JPanel topPanel1 = new JPanel();
 		topPanel1.add(new JLabel("File"));
 		topPanel1.add(fileField);
+		topPanel1.add(fileButton);
 		topPanel1.add(new JLabel("Args"));
 		topPanel1.add(argsField);
 		topPanel1.add(new JLabel("Env"));
@@ -78,6 +81,14 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		pack();
 	}
 	
+	private void selectFile () {
+		File dir = new File(System.getProperty("user.dir"));
+		JFileChooser fc = new JFileChooser(dir);
+		if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+			fileField.setText(fc.getSelectedFile().toString());
+		}
+	}
+
 	public void setFile(String file) {
 		fileField.setText(file);
 	}

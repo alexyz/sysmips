@@ -24,7 +24,7 @@ public final class Disasm {
 		if (fn == FN_SLL && rd == 0) {
 			isnObj = NOP;
 		} else {
-			isnObj = IsnSet.getIsn(isn);
+			isnObj = IsnSet.INSTANCE.getIsn(isn);
 		}
 		
 		final String isnValue;

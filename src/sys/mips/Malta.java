@@ -11,9 +11,13 @@ public class Malta implements SystemListener {
 	public static final int M_PCI1 = 0x0800_0000;
 	public static final int M_PCI2 = 0x1800_0000;
 	public static final int M_GTBASE = 0x1be0_0000;
-	public static final int M_GT_PCI0_CMD = M_GTBASE + 0xc00;
-	public static final int M_GT_PCI0IOLD = M_GTBASE + 0x048;
-	public static final int M_GT_PCI0IOREMAP = M_GTBASE + 0x0f0;
+	public static final int GT_PCI0_CMD = M_GTBASE + 0xc00;
+	public static final int GT_PCI0IOLD = M_GTBASE + 0x048;
+	public static final int GT_PCI0IOREMAP = M_GTBASE + 0x0f0;
+	public static final int GT_PCI1_CFGADDR = M_GTBASE + 0xcf0;
+	public static final int GT_PCI1_CFGDATA = M_GTBASE + 0xcf4;
+	public static final int GT_PCI0_CFGADDR = M_GTBASE + 0xcf8;
+	public static final int GT_PCI0_CFGDATA = M_GTBASE + 0xcfc;
 	public static final int M_UNUSED = 0x1c00_0000;
 	public static final int M_FLASH1 = 0x1e00_0000;
 	public static final int M_RESERVED = 0x1e40_0000;
@@ -36,6 +40,7 @@ public class Malta implements SystemListener {
 	private final Cpu cpu = new Cpu();
 	private final PropertyChangeSupport support = new PropertyChangeSupport(this);
 	private final StringBuilder consoleSb = new StringBuilder();
+	private final CpuLogger log = cpu.getLog();
 	
 	public Malta () {
 		// initialise the memory for linux and malta
@@ -57,17 +62,21 @@ public class Malta implements SystemListener {
 		sym.put(SYSTEM + M_PCI2, "M_PCI2");
 		sym.put(SYSTEM + M_RESERVED, "M_RESERVED");
 		sym.put(SYSTEM + M_GTBASE, "M_GTBASE");
-		sym.put(SYSTEM + M_GT_PCI0_CMD, "M_GT_PCI0_CMD", 8);
-		sym.put(SYSTEM + M_GT_PCI0IOLD, "M_GT_PCI0IOLD", 8);
+		sym.put(SYSTEM + GT_PCI0_CMD, "GT_PCI0_CMD", 8);
+		sym.put(SYSTEM + GT_PCI0IOLD, "GT_PCI0IOLD", 8);
 		sym.put(SYSTEM + M_SCSPEC1, "M_SCSPEC1");
 		sym.put(SYSTEM + M_SCSPEC2, "M_SCSPEC2");
 		sym.put(SYSTEM + M_SCSPEC2_BONITO, "M_SCSPEC2_BONITO");
 		sym.put(SYSTEM + M_SDRAM, "M_SDRAM");
 		sym.put(SYSTEM + M_UNUSED, "M_UNUSED");
 		sym.put(SYSTEM + M_REVISION, "M_REVISION", 8);
-		sym.put(SYSTEM + M_GT_PCI0IOREMAP, "M_GT_PCI0IOREMAP", 8);
+		sym.put(SYSTEM + GT_PCI0IOREMAP, "GT_PCI0IOREMAP", 8);
 		sym.put(SYSTEM + M_PORT, "M_PORT", 65536);
 		sym.put(SYSTEM + M_UART_LSR, "M_UART_LSR", 1);
+		sym.put(SYSTEM + GT_PCI0_CFGADDR, "GT_PCI0_CFGADDR", 4);
+		sym.put(SYSTEM + GT_PCI0_CFGDATA, "GT_PCI0_CFGDATA", 4);
+		sym.put(SYSTEM + GT_PCI1_CFGADDR, "GT_PCI1_CFGADDR", 4);
+		sym.put(SYSTEM + GT_PCI1_CFGDATA, "GT_PCI1_CFGDATA", 4);
 		
 		mem.setSystem(SYSTEM);
 		// set the system controller revision
@@ -84,13 +93,13 @@ public class Malta implements SystemListener {
 	
 	@Override
 	public void systemRead (int addr, int value) {
-		System.out.println("system read " + cpu.getMemory().getSymbols().getName(SYSTEM + addr) + " => " + Integer.toHexString(value));
+		log.debug("system read " + cpu.getMemory().getSymbols().getName(SYSTEM + addr) + " => " + Integer.toHexString(value));
 		switch (addr) {
 			case M_REVISION:
-			case M_GT_PCI0IOLD:
-			case M_GT_PCI0_CMD:
-			case M_GT_PCI0IOREMAP:
 			case M_UART_LSR:
+			case GT_PCI0IOLD:
+			case GT_PCI0_CMD:
+			case GT_PCI0IOREMAP:
 				break;
 			default:
 				throw new RuntimeException("unknown malta read " + Integer.toHexString(addr));
@@ -100,9 +109,25 @@ public class Malta implements SystemListener {
 	@Override
 	public void systemWrite (int addr, int value) {
 		switch (addr) {
-			case M_GT_PCI0_CMD:
-				System.out.println("ignore pci command " + value);
+			case GT_PCI0_CMD:
+				value = MemoryUtil.byteswap(value);
+				log.info("ignore PCI0 command " + value);
 				break;
+			case GT_PCI0_CFGADDR: {
+				value = MemoryUtil.byteswap(value);
+				int en = (value >>> 31) & 0x1;
+				int bus = (value >>> 16) & 0xff;
+				int dev = (value >>> 11) & 0x1f;
+				int func = (value >>> 8) & 0x7;
+				int reg = (value >>> 2) & 0x3f;
+				log.info("select PCI0 config value %x en %x bus %x dev %x func %x reg %x", value, en, bus, dev, func, reg);
+				// should populate data with something?
+				return;
+			}
+			case GT_PCI0_CFGDATA:
+				value = MemoryUtil.byteswap(value);
+				log.info("write PCI0 config data %x", value);
+				return;
 			case M_UART_TX:
 				consoleWrite(value);
 				break;
@@ -110,7 +135,6 @@ public class Malta implements SystemListener {
 				if (addr >= M_DISPLAY && addr < M_DISPLAY + 0x100) {
 					support.firePropertyChange("display", null, displayText());
 				} else {
-					System.out.println();
 					throw new RuntimeException("unknown system write " + cpu.getMemory().getSymbols().getName(SYSTEM + addr) + " <= " + Integer.toHexString(value));
 				}
 		}

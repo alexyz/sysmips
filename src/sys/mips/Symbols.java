@@ -40,7 +40,7 @@ public final class Symbols {
 			final long key = entry.getKey();
 			final Symbol value = entry.getValue();
 			final int offset = (int) (longAddr - key);
-			if (offset <= value.size) {
+			if (offset < value.size) {
 				// found suitable symbol
 				if (includeAddr) {
 					if (offset != 0) {
@@ -56,6 +56,7 @@ public final class Symbols {
 					}
 				}
 			} else {
+				// should warn if doing too many of these
 				entry = map.lowerEntry(key);
 			}
 		}

@@ -22,7 +22,7 @@ public final class Cpu {
 	private final int[] fpReg = new int[34];
 	private final int[] fpControlReg = new int[32];
 	private final Memory memory = new Memory();
-	private final CpuLogger logger = new CpuLogger(this);
+	private final CpuLogger log = new CpuLogger(this);
 	
 	/** address of current instruction */
 	private int pc;
@@ -91,13 +91,13 @@ public final class Cpu {
 		return access.get(fpReg, n);
 	}
 	
-	public CpuLogger getLogger () {
-		return logger;
+	public CpuLogger getLog () {
+		return log;
 	}
 	
 	/** never returns, throws CpuException... */
 	public final void run () {
-		System.out.println("run");
+		log.info("run");
 		final TreeMap<String,int[]> isnCount = new TreeMap<>();
 		for (String name : IsnSet.INSTANCE.nameMap.keySet()) {
 			isnCount.put(name, new int[1]);
@@ -106,15 +106,15 @@ public final class Cpu {
 		try {
 			while (true) {
 				if ((cycle & 0xffff) == 0) {
-					System.out.println("cpu cycle " + cycle);
+					log.info("cpu cycle " + cycle);
 				}
 				
 				// log.add(cpRegString(this));
 				// log.add(gpRegString(this));
-				logger.info(Disasm.isnString(this));
+				log.debug(Disasm.isnString(this));
 				
 				if (reg[0] != 0) {
-					System.out.println("cpu cycle " + cycle + ": reg 0 not 0");
+					log.info("reg 0 not 0");
 					reg[0] = 0;
 				}
 				final int isn = memory.loadWord(pc);
@@ -133,14 +133,16 @@ public final class Cpu {
 				cycle++;
 			}
 		} catch (Exception e) {
+			log.info("stop due to " + e);
 			final List<String> l = isnCount.entrySet()
 					.stream()
 					.filter(x -> x.getValue()[0] > 0)
 					.sorted((x,y) -> y.getValue()[0] - x.getValue()[0])
 					.map(x -> x.getKey() + "=" + x.getValue()[0])
 					.collect(Collectors.toList());
-			System.out.println("isncount=" + l);
-			logger.print(System.out);
+			log.debug("isn count " + l);
+			System.out.println();
+			log.print(System.out);
 			throw e;
 		}
 	}
@@ -194,7 +196,7 @@ public final class Cpu {
 			case OP_JAL:
 				reg[31] = nextPc;
 				nextPc = jump(isn, pc);
-				logger.call(nextPc);
+				log.call(nextPc);
 				return;
 			case OP_BLEZ:
 				if (reg[rs] <= 0) {
@@ -387,13 +389,13 @@ public final class Cpu {
 			case FN_JR:
 				nextPc = reg[rs];
 				if (rs == 31) {
-					logger.ret();
+					log.ret();
 				}
 				return;
 			case FN_JALR:
 				reg[rd] = nextPc;
 				nextPc = reg[rs];
-				logger.call(nextPc);
+				log.call(nextPc);
 				return;
 			case FN_MOVZ:
 				if (reg[rt] == 0) {
@@ -570,7 +572,7 @@ public final class Cpu {
 						break;
 				}
 				if (val != newVal) {
-					System.out.println("mtc0 " + rd + "." + sel + " 0x" + Integer.toHexString(val) + " -> 0x" + Integer.toHexString(newVal));
+					log.info("mtc0 " + rd + "." + sel + " 0x" + Integer.toHexString(val) + " -> 0x" + Integer.toHexString(newVal));
 					if (!ok) {
 						throw new RuntimeException("move to unknown cp reg " + rd + ", " + sel);
 					}

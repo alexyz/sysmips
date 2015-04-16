@@ -84,6 +84,11 @@ public class MemoryUtil {
 		}
 	}
 	
+	public static int byteswap(final int x) {
+		// abcd -> dcba
+		return (x & 0xff) << 24 | (x & 0xff00) << 8 | (x & 0xff0000) >>> 8 | (x & 0xff000000) >>> 24;
+	}
+	
 	private MemoryUtil () {
 		//
 	}

@@ -19,11 +19,23 @@ public class CpuLogger {
 		}
 	}
 	
-	public void info (String msg) {
+	public void debug(String msg, Object... args) {
+		log(String.format(msg, args), false);
+	}
+	
+	public void info(String msg, Object... args) {
+		log(String.format(msg, args), true);
+	}
+	
+	private void log (String msg, boolean print) {
 		while (log.size() > 50) {
 			log.removeFirst();
 		}
-		log.add(cpu.getCycle() + ": " + msg);
+		final String s = "[" + cpu.getCycle() + "] " + msg;
+		log.add(s);
+		if (print) {
+			System.out.println(s);
+		}
 	}
 	
 	public void call (int addr) {
@@ -32,7 +44,7 @@ public class CpuLogger {
 		for (String call : calls) {
 			sb.append("/").append(call);
 		}
-		System.out.println(sb);
+		info("call " + sb.toString());
 	}
 	
 	public void ret () {
@@ -40,4 +52,5 @@ public class CpuLogger {
 			calls.remove(calls.size() - 1);
 		}
 	}
+	
 }

@@ -13,7 +13,11 @@ Suggested Reading
 
 * [LinuxMIPS Wiki](http://www.linux-mips.org/wiki/MIPS_Malta)
 * [MIPS Architecture For Programmers Volumes I-III](http://www.imgtec.com/mips/architectures/mips32.asp)
-* TIS ELF Specification (PDF)
+* TIS ELF Specification
 * MIPS Malta User's Manual
-* Linux source code
+* MIPS YAMON User's Manual, Reference Manual and source code
+* Linux source code:
+** [arch/mips/mti-malta](http://lxr.linux.no/linux+v3.2.65/arch/mips/mti-malta/)
 * GRUB source code
+* Galileo GT-64120 System Controller Datasheet
+* System V Application Binary Interface for MIPS

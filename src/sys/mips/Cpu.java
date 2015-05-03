@@ -96,6 +96,7 @@ public final class Cpu {
 	/** never returns, throws CpuException... */
 	public final void run () {
 		log.info("run");
+		memory.print(System.out);
 		final TreeMap<String,int[]> isnCount = new TreeMap<>();
 		for (String name : IsnSet.INSTANCE.nameMap.keySet()) {
 			isnCount.put(name, new int[1]);
@@ -103,7 +104,7 @@ public final class Cpu {
 		
 		try {
 			while (true) {
-				if ((cycle & 0xffff) == 0) {
+				if ((cycle % 50000) == 0) {
 					log.info("cpu cycle " + cycle);
 				}
 				

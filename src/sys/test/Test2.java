@@ -4,7 +4,7 @@ import java.io.RandomAccessFile;
 
 import sys.mips.*;
 
-import static sys.mips.MipsConstants.*;
+import static sys.mips.Constants.*;
 
 public class Test2 {
 	
@@ -33,8 +33,8 @@ public class Test2 {
 		} catch (CpuException e) {
 			System.out.println("exit reason: " + e);
 			System.out.println("A0: " + cpu.getRegister(REG_A0));
-			System.out.println("F0(d): " + cpu.getFpRegister(0, FpAccess.DOUBLE));
-			System.out.println("F2(d): " + cpu.getFpRegister(2, FpAccess.DOUBLE));
+			System.out.println("F0(d): " + cpu.getFpRegister(0, FpFormat.DOUBLE));
+			System.out.println("F2(d): " + cpu.getFpRegister(2, FpFormat.DOUBLE));
 		}
 		
 		System.out.println("test end");

@@ -6,8 +6,12 @@ import java.util.*;
 import sys.elf.*;
 
 import static sys.mips.MemoryUtil.*;
-import static sys.mips.MipsConstants.*;
+import static sys.mips.Constants.*;
+import static sys.mips.IsnUtil.*;
 
+/**
+ * Cpu helper functions
+ */
 public class CpuUtil {
 
 	/** load elf file, set entry point, return max address */

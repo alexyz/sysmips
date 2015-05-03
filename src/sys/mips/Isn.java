@@ -1,6 +1,6 @@
 package sys.mips;
 
-import static sys.mips.MipsConstants.*;
+import static sys.mips.Constants.*;
 
 public class Isn {
 	

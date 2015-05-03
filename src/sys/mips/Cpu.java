@@ -1,15 +1,13 @@
 package sys.mips;
 
-import static sys.mips.MipsConstants.*;
-
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static sys.mips.Constants.*;
+import static sys.mips.Decoder.*;
+import static sys.mips.IsnUtil.*;
+
 public final class Cpu {
-	
-	private static String opString (final int op) {
-		return "hex=" + Integer.toHexString(op) + " dec=" + op + " oct=" + Integer.toOctalString(op);
-	}
 	
 	/** general purpose registers, and hi/lo */
 	private final int[] reg = new int[34];
@@ -19,7 +17,7 @@ public final class Cpu {
 	 * coprocessor 1 registers (longs/doubles in consecutive registers, least
 	 * significant word first!)
 	 */
-	private final int[] fpReg = new int[34];
+	private final int[] fpReg = new int[32];
 	private final int[] fpControlReg = new int[32];
 	private final Memory memory = new Memory();
 	private final CpuLogger log = new CpuLogger(this);
@@ -30,7 +28,7 @@ public final class Cpu {
 	private int nextPc;
 	private int cycle;
 	private int rmwAddress;
-	private Round round = Round.NONE;
+	private FpRound roundingMode = FpRound.NONE;
 	
 	public Cpu () {
 		// linux_3.2.65\arch\mips\include\asm\cpu-features.h
@@ -87,8 +85,8 @@ public final class Cpu {
 		return fpReg[n];
 	}
 	
-	public double getFpRegister (int n, FpAccess access) {
-		return access.get(fpReg, n);
+	public double getFpRegister (int n, FpFormat fmt) {
+		return fmt.load(fpReg, n);
 	}
 	
 	public CpuLogger getLog () {
@@ -111,7 +109,7 @@ public final class Cpu {
 				
 				// log.add(cpRegString(this));
 				// log.add(gpRegString(this));
-				log.debug(Disasm.isnString(this));
+				log.debug(IsnUtil.isnString(this));
 				
 				if (reg[0] != 0) {
 					log.info("reg 0 not 0");
@@ -376,132 +374,132 @@ public final class Cpu {
 			case FN_SRA:
 				reg[rd] = reg[rt] >> sa(isn);
 				return;
-			case FN_SRLV:
-				reg[rd] = reg[rt] >>> (reg[rs] & 0x1f);
+				case FN_SRLV:
+					reg[rd] = reg[rt] >>> (reg[rs] & 0x1f);
 				return;
 			case FN_SRAV:
 				reg[rd] = reg[rt] >> (reg[rs] & 0x1f);
 				return;
 				
-			case FN_SLLV:
-				reg[rd] = reg[rt] << (reg[rs] & 0x1f);
-				return;
-			case FN_JR:
-				nextPc = reg[rs];
-				if (rs == 31) {
-					log.ret();
+				case FN_SLLV:
+					reg[rd] = reg[rt] << (reg[rs] & 0x1f);
+					return;
+				case FN_JR:
+					nextPc = reg[rs];
+					if (rs == 31) {
+						log.ret();
+					}
+					return;
+				case FN_JALR:
+					reg[rd] = nextPc;
+					nextPc = reg[rs];
+					log.call(nextPc);
+					return;
+				case FN_MOVZ:
+					if (reg[rt] == 0) {
+						reg[rd] = reg[rs];
+					}
+					return;
+				case FN_MOVN:
+					if (reg[rt] != 0) {
+						reg[rd] = reg[rs];
+					}
+					return;
+				case FN_SYSCALL: {
+					int n = syscall(isn);
+					throw new CpuException(CpuException.Type.SystemCall, "" + n);
 				}
-				return;
-			case FN_JALR:
-				reg[rd] = nextPc;
-				nextPc = reg[rs];
-				log.call(nextPc);
-				return;
-			case FN_MOVZ:
-				if (reg[rt] == 0) {
-					reg[rd] = reg[rs];
+				case FN_BREAK: {
+					int n = syscall(isn);
+					throw new CpuException(CpuException.Type.Breakpoint, "" + n);
 				}
-				return;
-			case FN_MOVN:
-				if (reg[rt] != 0) {
-					reg[rd] = reg[rs];
+				case FN_MFHI:
+					reg[rd] = reg[HI_GPR];
+					return;
+				case FN_MTHI:
+					reg[HI_GPR] = reg[rs];
+					return;
+				case FN_MFLO:
+					reg[rd] = reg[LO_GPR];
+					return;
+				case FN_MTLO:
+					reg[LO_GPR] = reg[rd];
+					return;
+				case FN_MULT: {
+					// sign extend
+					final long rsValue = reg[rs];
+					final long rtValue = reg[rt];
+					final long result = rsValue * rtValue;
+					reg[LO_GPR] = (int) result;
+					reg[HI_GPR] = (int) (result >>> 32);
+					return;
 				}
-				return;
-			case FN_SYSCALL: {
-				int n = syscall(isn);
-				throw new CpuException(CpuException.Type.SystemCall, "" + n);
-			}
-			case FN_BREAK: {
-				int n = syscall(isn);
-				throw new CpuException(CpuException.Type.Breakpoint, "" + n);
-			}
-			case FN_MFHI:
-				reg[rd] = reg[HI_GPR];
-				return;
-			case FN_MTHI:
-				reg[HI_GPR] = reg[rs];
-				return;
-			case FN_MFLO:
-				reg[rd] = reg[LO_GPR];
-				return;
-			case FN_MTLO:
-				reg[LO_GPR] = reg[rd];
-				return;
-			case FN_MULT: {
-				// sign extend
-				final long rsValue = reg[rs];
-				final long rtValue = reg[rt];
-				final long result = rsValue * rtValue;
-				reg[LO_GPR] = (int) result;
-				reg[HI_GPR] = (int) (result >>> 32);
-				return;
-			}
-			case FN_MULTU: {
-				// zero extend
-				final long rsValue = reg[rs] & 0xffffffffL;
-				final long rtValue = reg[rt] & 0xffffffffL;
-				final long result = rsValue * rtValue;
-				reg[LO_GPR] = (int) result;
-				reg[HI_GPR] = (int) (result >>> 32);
-				return;
-			}
-			case FN_DIV: {
-				// divide as signed
-				// result is unpredictable for zero, no exceptions thrown
-				int rsValue = reg[rs];
-				int rtValue = reg[rt];
-				if (rt != 0) {
-					reg[LO_GPR] = rsValue / rtValue;
-					reg[HI_GPR] = rsValue % rtValue;
+				case FN_MULTU: {
+					// zero extend
+					final long rsValue = reg[rs] & 0xffffffffL;
+					final long rtValue = reg[rt] & 0xffffffffL;
+					final long result = rsValue * rtValue;
+					reg[LO_GPR] = (int) result;
+					reg[HI_GPR] = (int) (result >>> 32);
+					return;
 				}
-				return;
-			}
-			case FN_DIVU: {
-				// unpredictable result and no exception for zero
-				// zero extend
-				final long rsValue = reg[rs] & 0xffffffffL;
-				final long rtValue = reg[rt] & 0xffffffffL;
-				if (rtValue != 0) {
-					reg[LO_GPR] = (int) (rsValue / rtValue);
-					reg[HI_GPR] = (int) (rsValue % rtValue);
+				case FN_DIV: {
+					// divide as signed
+					// result is unpredictable for zero, no exceptions thrown
+					int rsValue = reg[rs];
+					int rtValue = reg[rt];
+					if (rt != 0) {
+						reg[LO_GPR] = rsValue / rtValue;
+						reg[HI_GPR] = rsValue % rtValue;
+					}
+					return;
 				}
-				return;
-			}
-			case FN_ADDU:
-				reg[rd] = reg[rs] + reg[rt];
-				return;
-			case FN_SUBU:
-				reg[rd] = reg[rs] - reg[rt];
-				return;
-			case FN_AND:
-				reg[rd] = reg[rs] & reg[rt];
-				return;
-			case FN_OR:
-				reg[rd] = reg[rs] | reg[rt];
-				return;
-			case FN_XOR:
-				reg[rd] = reg[rs] ^ reg[rt];
-				return;
-			case FN_NOR:
-				reg[rd] = ~(reg[rs] | reg[rt]);
-				return;
-			case FN_SLT:
-				reg[rd] = (reg[rs] < reg[rt]) ? 1 : 0;
-				return;
-			case FN_SLTU: {
-				// zero extend
-				long rsValue = reg[rs] & 0xffffffffL;
-				long rtValue = reg[rt] & 0xffffffffL;
-				reg[rd] = rsValue < rtValue ? 1 : 0;
-				return;
-			}
-			case FN_TNE:
-				if (reg[rs] != reg[rt]) {
-					throw new CpuException(CpuException.Type.Trap);
+				case FN_DIVU: {
+					// unpredictable result and no exception for zero
+					// zero extend
+					final long rsValue = reg[rs] & 0xffffffffL;
+					final long rtValue = reg[rt] & 0xffffffffL;
+					if (rtValue != 0) {
+						reg[LO_GPR] = (int) (rsValue / rtValue);
+						reg[HI_GPR] = (int) (rsValue % rtValue);
+					}
+					return;
 				}
-				return;
-			default:
-				throw new IllegalArgumentException("invalid fn " + opString(fn));
+				case FN_ADDU:
+					reg[rd] = reg[rs] + reg[rt];
+					return;
+				case FN_SUBU:
+					reg[rd] = reg[rs] - reg[rt];
+					return;
+				case FN_AND:
+					reg[rd] = reg[rs] & reg[rt];
+					return;
+				case FN_OR:
+					reg[rd] = reg[rs] | reg[rt];
+					return;
+				case FN_XOR:
+					reg[rd] = reg[rs] ^ reg[rt];
+					return;
+				case FN_NOR:
+					reg[rd] = ~(reg[rs] | reg[rt]);
+					return;
+				case FN_SLT:
+					reg[rd] = (reg[rs] < reg[rt]) ? 1 : 0;
+					return;
+				case FN_SLTU: {
+					// zero extend
+					long rsValue = reg[rs] & 0xffffffffL;
+					long rtValue = reg[rt] & 0xffffffffL;
+					reg[rd] = rsValue < rtValue ? 1 : 0;
+					return;
+				}
+				case FN_TNE:
+					if (reg[rs] != reg[rt]) {
+						throw new CpuException(CpuException.Type.Trap);
+					}
+					return;
+				default:
+					throw new IllegalArgumentException("invalid fn " + opString(fn));
 		}
 	}
 	
@@ -606,15 +604,15 @@ public final class Cpu {
 				return;
 				
 			case FP_RS_S:
-				execFpuFn(isn, FpAccess.SINGLE);
+				execFpuFn(isn, FpFormat.SINGLE);
 				return;
 				
 			case FP_RS_D:
-				execFpuFn(isn, FpAccess.DOUBLE);
+				execFpuFn(isn, FpFormat.DOUBLE);
 				return;
 				
 			case FP_RS_W:
-				execFpuFn(isn, FpAccess.WORD);
+				execFpuFnWord(isn);
 				return;
 				
 			case FP_RS_BC1:
@@ -627,26 +625,12 @@ public final class Cpu {
 				return;
 				
 			case FP_RS_CFC1:
-				cfc1: switch (fs) {
-					case FPCREG_FCSR:
-					case FPCREG_FCCR:
-					case FPCREG_FIR:
-						break cfc1;
-					default:
-						throw new RuntimeException("read unimplemented fp control register " + fs);
-				}
-				reg[rt] = fpControlReg[fs];
+				execFpuCfc1(isn);
 				return;
 				
 			case FP_RS_CTC1:
-				// move control word to floating point
-				switch (fs) {
-					case FPCREG_FCSR:
-						setFcsr(reg[rt]);
-						return;
-					default:
-						throw new RuntimeException("write unimplemented fp control register " + fs + ", " + Integer.toHexString(reg[rt]));
-				}
+				execFpuCtc1(isn);
+				return;
 				
 			default:
 				throw new RuntimeException("invalid fpu rs " + opString(rs));
@@ -654,93 +638,112 @@ public final class Cpu {
 		
 	}
 	
-	private void execFpuFn (final int isn, final FpAccess access) {
+	private void execFpuCfc1 (final int isn) {
+		final int rt = rt(isn);
+		final int fs = fs(isn);
+		
+		switch (fs) {
+			case FPCREG_FCSR:
+			case FPCREG_FCCR:
+			case FPCREG_FIR:
+				reg[rt] = fpControlReg[fs];
+				return;
+				
+			default:
+				throw new RuntimeException("read unimplemented fp control register " + fs);
+		}
+	}
+	
+	private void execFpuCtc1 (final int isn) {
+		final int rtValue = reg[rt(isn)];
+		final int fs = fs(isn);
+		
+		switch (fs) {
+			case FPCREG_FCSR:
+				if ((rtValue & ~0x3) != 0) {
+					throw new RuntimeException("unknown fcsr %x\n");
+				}
+				break;
+				
+			default:
+				throw new RuntimeException("write unimplemented fp control register " + fs + ", " + Integer.toHexString(rtValue));
+		}
+		
+		fpControlReg[fs] = rtValue;
+		roundingMode = FpRound.getInstance(fpControlReg[FPCREG_FCSR]);
+	}
+	
+	private void execFpuFn (final int isn, final FpFormat fmt) {
 		final int fs = fs(isn);
 		final int ft = ft(isn);
 		final int fd = fd(isn);
 		final int fn = fn(isn);
 		
 		switch (fn) {
-			case FP_FN_ADD: {
-				final double fsValue = access.get(fpReg, fs);
-				final double ftValue = access.get(fpReg, ft);
-				access.set(fpReg, fd, round.round(fsValue + ftValue));
+			case FP_FN_ADD:
+				fmt.store(fpReg, fd, roundingMode.round(fmt.load(fpReg, fs) + fmt.load(fpReg, ft)));
 				return;
-			}
-			case FP_FN_SUB: {
-				final double fsValue = access.get(fpReg, fs);
-				final double ftValue = access.get(fpReg, ft);
-				access.set(fpReg, fd, round.round(fsValue - ftValue));
+			case FP_FN_SUB:
+				fmt.store(fpReg, fd, roundingMode.round(fmt.load(fpReg, fs) - fmt.load(fpReg, ft)));
 				return;
-			}
-			case FP_FN_MUL: {
-				final double fsValue = access.get(fpReg, fs);
-				final double ftValue = access.get(fpReg, ft);
-				access.set(fpReg, fd, round.round(fsValue * ftValue));
+			case FP_FN_MUL:
+				fmt.store(fpReg, fd, roundingMode.round(fmt.load(fpReg, fs) * fmt.load(fpReg, ft)));
 				return;
-			}
-			case FP_FN_DIV: {
-				final double fsValue = access.get(fpReg, fs);
-				final double ftValue = access.get(fpReg, ft);
-				access.set(fpReg, fd, round.round(fsValue / ftValue));
+			case FP_FN_DIV:
+				fmt.store(fpReg, fd, roundingMode.round(fmt.load(fpReg, fs) / fmt.load(fpReg, ft)));
 				return;
-			}
-			case FP_FN_ABS: {
-				final double fsValue = access.get(fpReg, fs);
-				access.set(fpReg, fd, StrictMath.abs(fsValue));
+			case FP_FN_ABS:
+				fmt.store(fpReg, fd, StrictMath.abs(fmt.load(fpReg, fs)));
 				return;
-			}
-			case FP_FN_MOV: {
-				final double fsValue = access.get(fpReg, fs);
-				access.set(fpReg, fd, fsValue);
+			case FP_FN_MOV:
+				fmt.store(fpReg, fd, fmt.load(fpReg, fs));
 				return;
-			}
-			case FP_FN_NEG: {
-				final double fsValue = access.get(fpReg, fs);
-				access.set(fpReg, fd, -fsValue);
+			case FP_FN_NEG:
+				fmt.store(fpReg, fd, 0.0 - fmt.load(fpReg, fs));
 				return;
-			}
-			case FP_FN_CVT_S: {
-				final double fsValue = access.get(fpReg, fs);
-				setSingle(fpReg, fd, (float) round.round(fsValue));
+			case FP_FN_CVT_S:
+				storeSingle(fpReg, fd, (float) roundingMode.round(fmt.load(fpReg, fs)));
 				return;
-			}
-			case FP_FN_CVT_D: {
-				final double fsValue = access.get(fpReg, fs);
-				setDouble(fpReg, fd, round.round(fsValue));
+			case FP_FN_CVT_D:
+				storeDouble(fpReg, fd, roundingMode.round(fmt.load(fpReg, fs)));
 				return;
-			}
-			case FP_FN_CVT_W: {
-				final double fsValue = access.get(fpReg, fs);
-				fpReg[fd] = (int) round.round(fsValue);
+			case FP_FN_CVT_W:
+				fpReg[fd] = (int) roundingMode.round(fmt.load(fpReg, fs));
 				return;
-			}
 			case FP_FN_C_ULT: {
-				final double fsValue = access.get(fpReg, fs);
-				final double ftValue = access.get(fpReg, ft);
-				setFPCondition(fpcc(isn), Double.isNaN(fsValue) || Double.isNaN(ftValue) || fsValue < ftValue);
+				final double fsValue = fmt.load(fpReg, fs);
+				final double ftValue = fmt.load(fpReg, ft);
+				setFpCondition(fpcc(isn), Double.isNaN(fsValue) || Double.isNaN(ftValue) || fsValue < ftValue);
 				return;
 			}
-			case FP_FN_C_EQ: {
-				final double fsValue = access.get(fpReg, fs);
-				final double ftValue = access.get(fpReg, ft);
-				setFPCondition(fpcc(isn), fsValue == ftValue);
+			case FP_FN_C_EQ:
+				setFpCondition(fpcc(isn), fmt.load(fpReg, fs) == fmt.load(fpReg, ft));
 				return;
-			}
-			case FP_FN_C_LT: {
-				final double fsValue = access.get(fpReg, fs);
-				final double ftValue = access.get(fpReg, ft);
-				setFPCondition(fpcc(isn), fsValue < ftValue);
+			case FP_FN_C_LT:
+				setFpCondition(fpcc(isn), fmt.load(fpReg, fs) < fmt.load(fpReg, ft));
 				return;
-			}
-			case FP_FN_C_LE: {
-				final double fsValue = access.get(fpReg, fs);
-				final double ftValue = access.get(fpReg, ft);
-				setFPCondition(fpcc(isn), fsValue <= ftValue);
+			case FP_FN_C_LE:
+				setFpCondition(fpcc(isn), fmt.load(fpReg, fs) <= fmt.load(fpReg, ft));
 				return;
-			}
 			default:
 				throw new RuntimeException("invalid fpu fn " + opString(fn));
+		}
+	}
+	
+	private void execFpuFnWord (final int isn) {
+		final int fn = fn(isn);
+		final int fs = fs(isn);
+		final int fd = fd(isn);
+		
+		switch (fn) {
+			case FP_FN_CVT_D:
+				storeDouble(fpReg, fd, fpReg[fs]);
+				return;
+			case FP_FN_CVT_S:
+				storeSingle(fpReg, fd, fpReg[fs]);
+				return;
+			default: 
+				throw new RuntimeException("invalid fpu fn word " + opString(fn));
 		}
 	}
 	
@@ -753,7 +756,7 @@ public final class Cpu {
 		
 		switch (fn) {
 			case FP_FNX_MADDS:
-				setSingle(fpReg, fd, getSingle(fpReg, fs) * getSingle(fpReg, ft) + getSingle(fpReg, fr));
+				storeSingle(fpReg, fd, loadSingle(fpReg, fs) * loadSingle(fpReg, ft) + loadSingle(fpReg, fr));
 				return;
 			default:
 				throw new RuntimeException("invalid fpu fnx " + opString(fn));
@@ -764,42 +767,27 @@ public final class Cpu {
 		return (fpControlReg[FPCREG_FCCR] & (1 << cc)) != 0;
 	}
 	
-	private void setFPCondition (final int cc, final boolean cond) {
-		// oh my god
-		final int ccMask = 1 << cc;
-		final int csMask = 1 << (cc == 0 ? cc + 23 : cc + 25);
-		int fccr = fpControlReg[FPCREG_FCCR];
-		int fcsr = fpControlReg[FPCREG_FCSR];
-		if (cond) {
-			// set the bits
-			fccr = fccr | ccMask;
-			fcsr = fcsr | csMask;
+	private void setFpCondition (final int cc, final boolean cond) {
+		if (cc >= 0 && cc <= 8) {
+			// oh my god
+			final int ccMask = 1 << cc;
+			final int csMask = 1 << (cc == 0 ? 23 : cc + 25);
+			int fccr = fpControlReg[FPCREG_FCCR];
+			int fcsr = fpControlReg[FPCREG_FCSR];
+			if (cond) {
+				// set the bits
+				fccr = fccr | ccMask;
+				fcsr = fcsr | csMask;
+			} else {
+				// clear the bits
+				fccr = fccr & ~ccMask;
+				fcsr = fcsr & ~csMask;
+			}
+			fpControlReg[FPCREG_FCCR] = fccr;
+			fpControlReg[FPCREG_FCSR] = fcsr;
+			
 		} else {
-			// clear the bits
-			fccr = fccr & ~ccMask;
-			fcsr = fcsr & ~csMask;
-		}
-		fpControlReg[FPCREG_FCCR] = fccr;
-		fpControlReg[FPCREG_FCSR] = fcsr;
-	}
-	
-	/**
-	 * Set the value and associated values of the condition and status register
-	 */
-	private void setFcsr (int fcsr) {
-		if ((fcsr & ~0x3) != 0) {
-			throw new RuntimeException("setfcsr: unknown mode %x\n");
-		}
-		fpControlReg[FPCREG_FCSR] = fcsr;
-		final int rm = fcsr & 0x3;
-		if (rm == FCSR_RM_RN) {
-			round = Round.NONE;
-		} else if (rm == FCSR_RM_RZ) {
-			round = Round.ZERO;
-		} else if (rm == FCSR_RM_RP) {
-			round = Round.POSINF;
-		} else if (rm == FCSR_RM_RM) {
-			round = Round.NEGINF;
+			throw new IllegalArgumentException("invalid fpu cc " + cc);
 		}
 	}
 	

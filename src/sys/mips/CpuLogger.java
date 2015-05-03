@@ -14,6 +14,7 @@ public class CpuLogger {
 	}
 	
 	public void print (PrintStream ps) {
+		System.out.println("log buffer is");
 		for (String line : log) {
 			ps.println(line);
 		}

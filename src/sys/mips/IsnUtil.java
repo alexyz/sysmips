@@ -200,9 +200,9 @@ public class IsnUtil {
 			case "branch":
 				return syms.getName(branch(isn, pc));
 			case "hi":
-				return "0x" + Integer.toHexString(reg[HI_GPR]);
+				return "0x" + Integer.toHexString(reg[REG_HI]);
 			case "lo":
-				return "0x" + Integer.toHexString(reg[LO_GPR]);
+				return "0x" + Integer.toHexString(reg[REG_LO]);
 			case "baseoffset":
 				return syms.getName(reg[base(isn)] + simm(isn));
 			case "syscall":

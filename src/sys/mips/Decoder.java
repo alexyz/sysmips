@@ -87,6 +87,7 @@ public class Decoder {
 		return (isn >>> 6) & 0x1f;
 	}
 	
+	/** coprocessor 0 register selection (0-7) */
 	public static int sel (final int isn) {
 		return isn & 0x7;
 	}

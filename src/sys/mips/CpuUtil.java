@@ -13,7 +13,7 @@ import static sys.mips.IsnUtil.*;
  * Cpu helper functions
  */
 public class CpuUtil {
-
+	
 	/** load elf file, set entry point, return max address */
 	public static int loadElf (Cpu cpu, RandomAccessFile file) throws Exception {
 		ELF32 elf = new ELF32(file);
@@ -49,7 +49,7 @@ public class CpuUtil {
 	public static void setMainArgs (final Cpu cpu, final int addr, final List<String> argsList, final List<String> envList) {
 		final Memory mem = cpu.getMemory();
 		int p = addr;
-
+		
 		final List<Integer> argv = new ArrayList<>();
 		p = storeStrings(mem, p, argv, argsList);
 		final List<Integer> env = new ArrayList<>();
@@ -81,18 +81,16 @@ public class CpuUtil {
 	}
 	
 	private static String cpRegString (Cpu cpu) {
-		final int[][] reg = cpu.getCpRegisters();
+		final int[] reg = cpu.getCpRegisters();
 		final Memory mem = cpu.getMemory();
 		final Symbols syms = mem.getSymbols();
 		
 		final StringBuilder sb = new StringBuilder(256);
 		sb.append("cycle=").append(cpu.getCycle());
 		for (int n = 0; n < reg.length; n++) {
-			for (int m = 0; m < reg[n].length; m++) {
-				final int v = reg[n][m];
-				if (v != 0) {
-					sb.append(" ").append(cpRegName(n, m)).append("=").append(syms.getName(v));
-				}
+			final int v = reg[n];
+			if (v != 0) {
+				sb.append(" ").append(cpRegName(n / 8, n % 8)).append("=").append(syms.getName(v));
 			}
 		}
 		return sb.toString();

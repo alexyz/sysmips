@@ -66,7 +66,7 @@ public abstract class FpRound {
 	}
 	
 	/**
-	 * Round this double to a double
+	 * apply the rounding
 	 */
 	public abstract double round (double d);
 	

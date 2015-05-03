@@ -248,24 +248,19 @@ public final class Constants {
 	/** coproc round towards minus infinity */
 	public static final int FCSR_RM_RM = 0x3;
 	
-	public static final int HI_GPR = 32;
-	
-	public static final int LO_GPR = 33;
-	
-	public static final int STATUS_CPR = 12;
-	
-	public static final int STATUS_SEL = 0;
-	
-	public static final int PRID_CPR = 15;
-	
-	public static final int PRID_SEL = 0;
+	/** system coprocessor context register (4,0) */
+	public static final int CPR_CONTEXT = 4 * 8 + 0;
+	/** system coprocessor status register (12,0) */
+	public static final int CPR_STATUS = 12 * 8 + 0;
+	/** system coprocessor processor id register (15,0) */
+	public static final int CPR_PRID = 15 * 8 + 0;
 	
 	/** fp control implementation register */
-	public static final int FPCREG_FIR = 0;
+	public static final int FPCR_FIR = 0;
 	/** floating point condition codes register */
-	public static final int FPCREG_FCCR = 25;
+	public static final int FPCR_FCCR = 25;
 	/** fp control and status register */
-	public static final int FPCREG_FCSR = 31;
+	public static final int FPCR_FCSR = 31;
 	
 	/** first argument register */
 	public static final int REG_A0 = 4;
@@ -274,6 +269,8 @@ public final class Constants {
 	public static final int REG_A3 = 7;
 	/** stack pointer register */
 	public static final int REG_SP = 29;
+	public static final int REG_HI = 32;
+	public static final int REG_LO = 33;
 	
 	private Constants () {
 		//

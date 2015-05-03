@@ -152,9 +152,8 @@ public class IsnSet {
 		addIsn(newCop1(FP_RS_CTC1, "ctc1", "{fscw} <- {rt}"));
 		addIsn(newCop1(FP_RS_BC1, "bc1", "{fptf}, {fpcc}, {branch} : {regfpcc}"));
 		
-		for (int rs : new int[] { FP_RS_S, FP_RS_D, FP_RS_W, FP_RS_L }) {
+		for (int rs : new int[] { FP_RS_S, FP_RS_D }) {
 			String f = fpFormatString(rs);
-			// not all of these apply to all formats...
 			addIsn(newCop1Fn(rs, FP_FN_ABS, "abs." + f, SF_FP_REG2));
 			addIsn(newCop1Fn(rs, FP_FN_ADD, "add." + f, SF_FP_REG));
 			addIsn(newCop1Fn(rs, FP_FN_SUB, "sub." + f, SF_FP_REG));
@@ -162,13 +161,17 @@ public class IsnSet {
 			addIsn(newCop1Fn(rs, FP_FN_DIV, "div." + f, SF_FP_REG));
 			addIsn(newCop1Fn(rs, FP_FN_MOV, "mov." + f, SF_FP_REG2));
 			addIsn(newCop1Fn(rs, FP_FN_NEG, "neg." + f, SF_FP_REG2));
-			addIsn(newCop1Fn(rs, FP_FN_CVT_S, "cvts." + f, SF_FP_REG2));
-			addIsn(newCop1Fn(rs, FP_FN_CVT_D, "cvtd." + f, SF_FP_REG2));
-			addIsn(newCop1Fn(rs, FP_FN_CVT_W, "cvtw." + f, SF_FP_REG2));
 			addIsn(newCop1Fn(rs, FP_FN_C_ULT, "c.ult." + f, SF_FP_COND));
 			addIsn(newCop1Fn(rs, FP_FN_C_EQ, "c.eq." + f, SF_FP_COND));
 			addIsn(newCop1Fn(rs, FP_FN_C_LT, "c.lt." + f, SF_FP_COND));
 			addIsn(newCop1Fn(rs, FP_FN_C_LE, "c.le." + f, SF_FP_COND));
+		}
+		
+		for (int rs : new int[] { FP_RS_S, FP_RS_D, FP_RS_W, FP_RS_L }) {
+			String f = fpFormatString(rs);
+			addIsn(newCop1Fn(rs, FP_FN_CVT_S, "cvt.s." + f, SF_FP_REG2));
+			addIsn(newCop1Fn(rs, FP_FN_CVT_D, "cvt.d." + f, SF_FP_REG2));
+			addIsn(newCop1Fn(rs, FP_FN_CVT_W, "cvt.w." + f, SF_FP_REG2));
 		}
 		
 		addIsn(newCop1FnX(FP_FNX_MADDS, "madd.s", "{fd} <- {fs} * {ft} + {fr}: {regfss} * {regfts} + {regfrs}"));

@@ -11,8 +11,8 @@ public final class Cpu {
 	
 	/** general purpose registers, and hi/lo */
 	private final int[] reg = new int[34];
-	/** coprocessor 0 registers */
-	private final int[][] cpReg = new int[32][8];
+	/** coprocessor 0 registers (32*8) */
+	private final int[] cpReg = new int[256];
 	/**
 	 * coprocessor 1 registers (longs/doubles in consecutive registers, least
 	 * significant word first!)
@@ -36,15 +36,15 @@ public final class Cpu {
 		// linux_3.2.65\arch\mips\include\asm\mipsregs.h
 		// default values on reboot
 		int st = (3 << 28) | (1 << 22) | (1 << 2);
-		cpReg[STATUS_CPR][STATUS_SEL] = st;
+		cpReg[CPR_STATUS] = st;
 		// R2000A
-		cpReg[PRID_CPR][PRID_SEL] = 0x0110;
+		cpReg[CPR_PRID] = 0x0110;
 		// support S, D, W, L
 		int fcr = (1 << 16) | (1 << 17) | (1 << 20) | (1 << 21) | (1 << 8);
-		fpControlReg[FPCREG_FIR] = fcr;
+		fpControlReg[FPCR_FIR] = fcr;
 	}
 	
-	public int[][] getCpRegisters () {
+	public int[] getCpRegisters () {
 		return cpReg;
 	}
 	
@@ -414,24 +414,24 @@ public final class Cpu {
 					throw new CpuException(CpuException.Type.Breakpoint, "" + n);
 				}
 				case FN_MFHI:
-					reg[rd] = reg[HI_GPR];
+					reg[rd] = reg[REG_HI];
 					return;
 				case FN_MTHI:
-					reg[HI_GPR] = reg[rs];
+					reg[REG_HI] = reg[rs];
 					return;
 				case FN_MFLO:
-					reg[rd] = reg[LO_GPR];
+					reg[rd] = reg[REG_LO];
 					return;
 				case FN_MTLO:
-					reg[LO_GPR] = reg[rd];
+					reg[REG_LO] = reg[rd];
 					return;
 				case FN_MULT: {
 					// sign extend
 					final long rsValue = reg[rs];
 					final long rtValue = reg[rt];
 					final long result = rsValue * rtValue;
-					reg[LO_GPR] = (int) result;
-					reg[HI_GPR] = (int) (result >>> 32);
+					reg[REG_LO] = (int) result;
+					reg[REG_HI] = (int) (result >>> 32);
 					return;
 				}
 				case FN_MULTU: {
@@ -439,8 +439,8 @@ public final class Cpu {
 					final long rsValue = reg[rs] & 0xffffffffL;
 					final long rtValue = reg[rt] & 0xffffffffL;
 					final long result = rsValue * rtValue;
-					reg[LO_GPR] = (int) result;
-					reg[HI_GPR] = (int) (result >>> 32);
+					reg[REG_LO] = (int) result;
+					reg[REG_HI] = (int) (result >>> 32);
 					return;
 				}
 				case FN_DIV: {
@@ -449,8 +449,8 @@ public final class Cpu {
 					int rsValue = reg[rs];
 					int rtValue = reg[rt];
 					if (rt != 0) {
-						reg[LO_GPR] = rsValue / rtValue;
-						reg[HI_GPR] = rsValue % rtValue;
+						reg[REG_LO] = rsValue / rtValue;
+						reg[REG_HI] = rsValue % rtValue;
 					}
 					return;
 				}
@@ -460,8 +460,8 @@ public final class Cpu {
 					final long rsValue = reg[rs] & 0xffffffffL;
 					final long rtValue = reg[rt] & 0xffffffffL;
 					if (rtValue != 0) {
-						reg[LO_GPR] = (int) (rsValue / rtValue);
-						reg[HI_GPR] = (int) (rsValue % rtValue);
+						reg[REG_LO] = (int) (rsValue / rtValue);
+						reg[REG_HI] = (int) (rsValue % rtValue);
 					}
 					return;
 				}
@@ -522,70 +522,71 @@ public final class Cpu {
 		}
 	}
 	
+	/** execute system coprocessor instruction */
 	private void execCpRs (final int isn) {
 		final int rs = rs(isn);
-		final int rt = rt(isn);
-		final int rd = rd(isn);
-		final int sel = sel(isn);
 		
 		switch (rs) {
-			case CP_RS_MFC0: {
-				boolean ok = false;
-				switch (rd) {
-					case STATUS_CPR:
-						switch (sel) {
-							case STATUS_SEL:
-								ok = true;
-								break;
-						}
-						break;
-					case PRID_CPR:
-						switch (sel) {
-							case PRID_SEL:
-								ok = true;
-								break;
-						}
-						break;
-				}
-				if (!ok) {
-					throw new RuntimeException("move from unknown cp reg " + rd + ", " + sel);
-				}
-				final int val = cpReg[rd][sel];
-				reg[rt] = val;
-				// System.out.println("mfc0 " + rd + "." + sel + " -> 0x" +
-				// Integer.toHexString(val));
+			case CP_RS_MFC0:
+				execCpMfc0(isn);
 				return;
-			}
-			case CP_RS_MTC0: {
-				final int val = cpReg[rd][sel];
-				final int newVal = reg[rt];
-				boolean ok = false;
-				switch (rd) {
-					case STATUS_CPR:
-						switch (sel) {
-							case STATUS_SEL:
-								ok = true;
-								break;
-						}
-						break;
-				}
-				if (val != newVal) {
-					log.info("mtc0 " + rd + "." + sel + " 0x" + Integer.toHexString(val) + " -> 0x" + Integer.toHexString(newVal));
-					if (!ok) {
-						throw new RuntimeException("move to unknown cp reg " + rd + ", " + sel);
-					}
-					cpReg[rd][sel] = newVal;
-				}
+			case CP_RS_MTC0:
+				execCpMtc0(isn);
 				return;
-			}
-			
 			default:
 				throw new RuntimeException("invalid coprocessor rs " + opString(rs));
 		}
 	}
 	
+	private final void execCpMfc0 (final int isn) {
+		final int rt = rt(isn);
+		final int rd = rd(isn);
+		final int sel = sel(isn);
+		
+		switch (rd * 8 + sel) {
+			case CPR_STATUS:
+			case CPR_PRID:
+				break;
+			
+			default:
+				throw new RuntimeException("move from unknown cp reg " + rd + ", " + sel);
+		}
+		
+		final int val = cpReg[rd * 8 + sel];
+		reg[rt] = val;
+		// System.out.println("mfc0 " + rd + "." + sel + " -> 0x" +
+		// Integer.toHexString(val));
+		return;
+	}
+	
+	private final void execCpMtc0 (final int isn) {
+		final int rt = rt(isn);
+		final int rd = rd(isn);
+		final int sel = sel(isn);
+		final int oldVal = cpReg[rd * 8 + sel];
+		final int newVal = reg[rt];
+		
+		switch (rd * 8 + sel) {
+			case CPR_CONTEXT:
+				if (newVal != 0) {
+					throw new RuntimeException("unknown ctx reg value " + Integer.toHexString(newVal));
+				}
+				break;
+			case CPR_STATUS:
+				break;
+			default:
+				throw new RuntimeException("move to unknown cp reg " + rd + ", " + sel);
+		}
+		
+		if (oldVal != newVal) {
+			log.info("mtc0 " + rd + "." + sel + " 0x" + Integer.toHexString(oldVal) + " -> 0x" + Integer.toHexString(newVal));
+			cpReg[rd * 8 + sel] = newVal;
+		}
+	}
+	
 	private final void execCpFn (final int isn) {
 		final int fn = fn(isn);
+		// ...
 		throw new RuntimeException("invalid coprocessor fn " + opString(fn));
 	}
 	
@@ -643,9 +644,9 @@ public final class Cpu {
 		final int fs = fs(isn);
 		
 		switch (fs) {
-			case FPCREG_FCSR:
-			case FPCREG_FCCR:
-			case FPCREG_FIR:
+			case FPCR_FCSR:
+			case FPCR_FCCR:
+			case FPCR_FIR:
 				reg[rt] = fpControlReg[fs];
 				return;
 				
@@ -659,7 +660,7 @@ public final class Cpu {
 		final int fs = fs(isn);
 		
 		switch (fs) {
-			case FPCREG_FCSR:
+			case FPCR_FCSR:
 				if ((rtValue & ~0x3) != 0) {
 					throw new RuntimeException("unknown fcsr %x\n");
 				}
@@ -670,7 +671,7 @@ public final class Cpu {
 		}
 		
 		fpControlReg[fs] = rtValue;
-		roundingMode = FpRound.getInstance(fpControlReg[FPCREG_FCSR]);
+		roundingMode = FpRound.getInstance(fpControlReg[FPCR_FCSR]);
 	}
 	
 	private void execFpuFn (final int isn, final FpFormat fmt) {
@@ -764,16 +765,21 @@ public final class Cpu {
 	}
 	
 	public boolean getFpCondition (final int cc) {
-		return (fpControlReg[FPCREG_FCCR] & (1 << cc)) != 0;
+		if (cc >= 0 && cc < 8) {
+			return (fpControlReg[FPCR_FCCR] & (1 << cc)) != 0;
+			
+		} else {
+			throw new IllegalArgumentException("invalid fpu cc " + cc);
+		}
 	}
 	
 	private void setFpCondition (final int cc, final boolean cond) {
-		if (cc >= 0 && cc <= 8) {
+		if (cc >= 0 && cc < 8) {
 			// oh my god
 			final int ccMask = 1 << cc;
 			final int csMask = 1 << (cc == 0 ? 23 : cc + 25);
-			int fccr = fpControlReg[FPCREG_FCCR];
-			int fcsr = fpControlReg[FPCREG_FCSR];
+			int fccr = fpControlReg[FPCR_FCCR];
+			int fcsr = fpControlReg[FPCR_FCSR];
 			if (cond) {
 				// set the bits
 				fccr = fccr | ccMask;
@@ -783,8 +789,8 @@ public final class Cpu {
 				fccr = fccr & ~ccMask;
 				fcsr = fcsr & ~csMask;
 			}
-			fpControlReg[FPCREG_FCCR] = fccr;
-			fpControlReg[FPCREG_FCSR] = fcsr;
+			fpControlReg[FPCR_FCCR] = fccr;
+			fpControlReg[FPCR_FCSR] = fcsr;
 			
 		} else {
 			throw new IllegalArgumentException("invalid fpu cc " + cc);

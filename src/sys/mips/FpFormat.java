@@ -42,8 +42,10 @@ public abstract class FpFormat {
 		}
 	}
 	
+	/** load value from floating point register */
 	public abstract double load (int[] fpReg, int reg);
 	
+	/** store value to floating point register */
 	public abstract void store (int[] fpReg, int reg, double d);
 	
 }

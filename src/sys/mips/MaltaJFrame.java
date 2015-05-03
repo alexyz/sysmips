@@ -131,7 +131,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 			
 		} catch (Exception e) {
 			e.printStackTrace();
-			showErrorDialog("Title", e.toString());
+			showErrorDialog("Start", e.toString());
 			return;
 		}
 		
@@ -143,7 +143,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 			} catch (Exception e) {
 				e.printStackTrace(System.out);
 				SwingUtilities.invokeLater(() -> {
-					showErrorDialog("Cpu", e.toString());
+					showErrorDialog("Start", e.toString());
 				});
 			} finally {
 				malta = null;

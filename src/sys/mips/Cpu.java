@@ -542,8 +542,9 @@ public final class Cpu {
 		final int rt = rt(isn);
 		final int rd = rd(isn);
 		final int sel = sel(isn);
+		final int cpr = rd * 8 + sel;
 		
-		switch (rd * 8 + sel) {
+		switch (cpr) {
 			case CPR_STATUS:
 			case CPR_PRID:
 				break;
@@ -552,7 +553,7 @@ public final class Cpu {
 				throw new RuntimeException("move from unknown cp reg " + rd + ", " + sel);
 		}
 		
-		final int val = cpReg[rd * 8 + sel];
+		final int val = cpReg[cpr];
 		reg[rt] = val;
 		// System.out.println("mfc0 " + rd + "." + sel + " -> 0x" +
 		// Integer.toHexString(val));
@@ -563,10 +564,11 @@ public final class Cpu {
 		final int rt = rt(isn);
 		final int rd = rd(isn);
 		final int sel = sel(isn);
-		final int oldVal = cpReg[rd * 8 + sel];
+		final int cpr = rd * 8 + sel;
+		final int oldVal = cpReg[cpr];
 		final int newVal = reg[rt];
 		
-		switch (rd * 8 + sel) {
+		switch (cpr) {
 			case CPR_CONTEXT:
 				if (newVal != 0) {
 					throw new RuntimeException("unknown ctx reg value " + Integer.toHexString(newVal));
@@ -580,7 +582,7 @@ public final class Cpu {
 		
 		if (oldVal != newVal) {
 			log.info("mtc0 " + rd + "." + sel + " 0x" + Integer.toHexString(oldVal) + " -> 0x" + Integer.toHexString(newVal));
-			cpReg[rd * 8 + sel] = newVal;
+			cpReg[cpr] = newVal;
 		}
 	}
 	
@@ -675,6 +677,7 @@ public final class Cpu {
 	}
 	
 	private void execFpuFn (final int isn, final FpFormat fmt) {
+		final int[] fpReg = this.fpReg;
 		final int fs = fs(isn);
 		final int ft = ft(isn);
 		final int fd = fd(isn);

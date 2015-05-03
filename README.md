@@ -16,8 +16,7 @@ Suggested Reading
 * TIS ELF Specification
 * MIPS Malta User's Manual
 * MIPS YAMON User's Manual, Reference Manual and source code
-* Linux source code:
-** [arch/mips/mti-malta](http://lxr.linux.no/linux+v3.2.65/arch/mips/mti-malta/)
+* Linux source code, [arch/mips/mti-malta](http://lxr.linux.no/linux+v3.2.65/arch/mips/mti-malta/)
 * GRUB source code
 * Galileo GT-64120 System Controller Datasheet
 * System V Application Binary Interface for MIPS

@@ -31,6 +31,10 @@ public final class Memory {
 		return symbols;
 	}
 	
+	public int getSystem () {
+		return system;
+	}
+	
 	public void setSystem (int system) {
 		this.system = system;
 	}

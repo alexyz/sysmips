@@ -45,7 +45,7 @@ public class CpuLogger {
 		for (String call : calls) {
 			sb.append("/").append(call);
 		}
-		info("call " + sb.toString());
+		debug("call " + sb.toString());
 	}
 	
 	public void ret () {

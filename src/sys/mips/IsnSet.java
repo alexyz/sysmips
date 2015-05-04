@@ -22,6 +22,7 @@ public class IsnSet {
 	private static final String SF_CONDBRA = "{rs} ~ {rt}, {branch}: {regrs} ~ {regrt}";
 	private static final String SF_IMM = "{rt} <- {rs} * {imm}";
 	private static final String SF_REG = "{rd} <- {rs} * {rt}";
+	private static final String SF_REG2 = "{rd} <- {rs}";
 	private static final String SF_COND = "{rs} ~ {rt}";
 	private static final String SF_SHIFT = "{rd} <- {rt} * {sa}";
 	private static final String SF_SHIFTREG = "{rd} <- {rt} * {rs}";
@@ -131,6 +132,7 @@ public class IsnSet {
 		addIsn(newFn(FN_TNE, "tne", SF_COND));
 		
 		addIsn(newFn2(FN2_MUL, "mul", SF_REG));
+		addIsn(newFn2(FN2_CLZ, "clz", SF_REG2));
 		
 		addIsn(newCop0(CP_RS_MFC0, "mfc0", "{rt} <- {cprd}"));
 		addIsn(newCop0(CP_RS_MFH, "mfh", ""));

@@ -5,6 +5,12 @@ package sys.mips;
  */
 public final class Constants {
 	
+	// any instructions added here must also be added to IsnSet!
+	
+	//
+	// instructions
+	//
+	
 	/** special meta instruction selected by FN */
 	public static final byte OP_SPECIAL = 0x00;
 	/** register-immediate meta instruction (selected by RT) */
@@ -13,7 +19,6 @@ public final class Constants {
 	public static final byte OP_J = 0x02;
 	/** jump and link */
 	public static final byte OP_JAL = 0x03;
-	
 	/** branch on equal */
 	public static final byte OP_BEQ = 0x04;
 	/** branch on not equal */
@@ -80,11 +85,14 @@ public final class Constants {
 	public static final byte OP_LDC1 = 0x35;
 	/** store conditional word */
 	public static final byte OP_SC = 0x38;
-	
 	/** store word from coprocessor to memory */
 	public static final byte OP_SWC1 = 0x39;
 	/** store double word from coprocessor to memory */
 	public static final byte OP_SDC1 = 0x3d;
+	
+	//
+	// SPECIAL instructions
+	//
 	
 	/** shift word left logical. also nop if sa,rd,rt = 0 */
 	public static final byte FN_SLL = 0x00;
@@ -133,7 +141,6 @@ public final class Constants {
 	public static final byte FN_OR = 0x25;
 	/** exclusive or */
 	public static final byte FN_XOR = 0x26;
-	
 	/** not or */
 	public static final byte FN_NOR = 0x27;
 	/** set on less than signed */
@@ -142,8 +149,20 @@ public final class Constants {
 	public static final byte FN_SLTU = 0x2b;
 	/** trap if not equal */
 	public static final byte FN_TNE = 0x36;
+	
+	//
+	// SPECIAL2 instructions
+	//
+	
 	/** multiply word to gpr */
 	public static final byte FN2_MUL = 0x02;
+	/** count leading zeros in word */
+	public static final byte FN2_CLZ = 0x20;
+	
+	//
+	// REGIMM instructions
+	//
+	
 	/** branch on less than zero */
 	public static final byte RT_BLTZ = 0x00;
 	/** branch if greater than or equal to zero */
@@ -152,6 +171,11 @@ public final class Constants {
 	public static final byte RT_BLTZAL = 0x10;
 	/** branch on greater than or equal to zero and link */
 	public static final byte RT_BGEZAL = 0x11;
+	
+	//
+	// System coprocessor instructions
+	//
+	
 	/** move from coprocessor 0 */
 	public static final byte CP_RS_MFC0 = 0x00;
 	public static final byte CP_RS_MFH = 0x02;
@@ -164,11 +188,25 @@ public final class Constants {
 	/** meta instruction, when rs >= CP_RS_CO, isn is selected by fn */
 	public static final byte CP_RS_CO = 0x10;
 	
+	//
+	// system coprocessor functions
+	//
+
+	public static final byte CP_FN_TLBR = 0x01;
+	public static final byte CP_FN_TLBWI = 0x02;
+	public static final byte CP_FN_TLBINV = 0x03;
+	public static final byte CP_FN_TLBINVF = 0x04;
+	public static final byte CP_FN_TLBWR = 0x06;
+	public static final byte CP_FN_TLBP = 0x08;
+	
+	//
+	// floating point (coprocessor 1) instructions
+	//
+	
 	/** move word from floating point reg to gpr */
 	public static final byte FP_RS_MFC1 = 0x00;
 	/** move control word from floating point */
 	public static final byte FP_RS_CFC1 = 0x02;
-	
 	/** move word to floating point from gpr */
 	public static final byte FP_RS_MTC1 = 0x04;
 	/** move control word to floating point */
@@ -187,81 +225,43 @@ public final class Constants {
 	/** long precision meta instruction */
 	public static final byte FP_RS_L = 0x15;
 	
-	public static final byte CP_FN_TLBR = 0x01;
-	public static final byte CP_FN_TLBWI = 0x02;
-	
-	public static final byte CP_FN_TLBINV = 0x03;
-	
-	public static final byte CP_FN_TLBINVF = 0x04;
-	
-	public static final byte CP_FN_TLBWR = 0x06;
-	
-	public static final byte CP_FN_TLBP = 0x08;
+	//
+	// floating point functions
+	//
 	
 	public static final byte FP_FN_ADD = 0x00;
-	
 	public static final byte FP_FN_SUB = 0x01;
-	
 	public static final byte FP_FN_MUL = 0x02;
-	
 	public static final byte FP_FN_DIV = 0x03;
-	
 	public static final byte FP_FN_ABS = 0x05;
-	
 	public static final byte FP_FN_MOV = 0x06;
-	
 	public static final byte FP_FN_NEG = 0x07;
-	
 	/** convert to single */
 	public static final byte FP_FN_CVT_S = 0x20;
-	
 	/** convert to double */
 	public static final byte FP_FN_CVT_D = 0x21;
-	
 	/** convert to word */
 	public static final byte FP_FN_CVT_W = 0x24;
-	
 	/** compare for equal */
 	public static final byte FP_FN_C_EQ = 0x32;
-	
 	/** unordered or less than */
 	public static final byte FP_FN_C_ULT = 0x35;
-	
 	/** compare for less than */
 	public static final byte FP_FN_C_LT = 0x3c;
-	
 	/** less then or equal */
 	public static final byte FP_FN_C_LE = 0x3e;
+	
+	//
+	// floating point extension instructions
+	//
 	
 	/** multiply add */
 	public static final byte FP_FNX_MADDS = 0x20;
 	
-	/** coproc round to nearest */
-	public static final int FCSR_RM_RN = 0x0;
-	
-	/** coproc round towards zero */
-	public static final int FCSR_RM_RZ = 0x1;
-	
-	/** coproc round towards plus infinity */
-	public static final int FCSR_RM_RP = 0x2;
-	
-	/** coproc round towards minus infinity */
-	public static final int FCSR_RM_RM = 0x3;
-	
-	/** system coprocessor context register (4,0) */
-	public static final int CPR_CONTEXT = 4 * 8 + 0;
-	/** system coprocessor status register (12,0) */
-	public static final int CPR_STATUS = 12 * 8 + 0;
-	/** system coprocessor processor id register (15,0) */
-	public static final int CPR_PRID = 15 * 8 + 0;
-	
-	/** fp control implementation register */
-	public static final int FPCR_FIR = 0;
-	/** floating point condition codes register */
-	public static final int FPCR_FCCR = 25;
-	/** fp control and status register */
-	public static final int FPCR_FCSR = 31;
-	
+	//
+	// general registers
+	//
+
 	/** first argument register */
 	public static final int REG_A0 = 4;
 	public static final int REG_A1 = 5;
@@ -269,8 +269,41 @@ public final class Constants {
 	public static final int REG_A3 = 7;
 	/** stack pointer register */
 	public static final int REG_SP = 29;
+	/** multiply high result meta-register */
 	public static final int REG_HI = 32;
+	/** multiply low result meta-register */
 	public static final int REG_LO = 33;
+	
+	//
+	// floating point control registers and constants
+	//
+
+	/** fp control implementation register */
+	public static final int FPCR_FIR = 0;
+	/** floating point condition codes register */
+	public static final int FPCR_FCCR = 25;
+	/** fp control and status register */
+	public static final int FPCR_FCSR = 31;
+	
+	/** coproc round to nearest */
+	public static final int FCSR_RM_RN = 0x0;
+	/** coproc round towards zero */
+	public static final int FCSR_RM_RZ = 0x1;
+	/** coproc round towards plus infinity */
+	public static final int FCSR_RM_RP = 0x2;
+	/** coproc round towards minus infinity */
+	public static final int FCSR_RM_RM = 0x3;
+	
+	//
+	// system coprocessor control registers (as register*8+selection)
+	//
+	
+	/** system coprocessor context register (4,0) */
+	public static final int CPR_CONTEXT = 4 * 8 + 0;
+	/** system coprocessor status register (12,0) */
+	public static final int CPR_STATUS = 12 * 8 + 0;
+	/** system coprocessor processor id register (15,0) */
+	public static final int CPR_PRID = 15 * 8 + 0;
 	
 	private Constants () {
 		//

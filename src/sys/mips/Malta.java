@@ -42,7 +42,7 @@ public class Malta implements SystemListener {
 		// initialise the memory for linux and malta
 		final Memory mem = cpu.getMemory();
 		mem.setSystem(SYSTEM);
-		for (int n = 0; n < 16; n++) {
+		for (int n = 0; n < 32; n++) {
 			mem.initPage(LINUX + 0x100000 * n);
 		}
 		mem.initPage(SYSTEM + M_SDRAM);

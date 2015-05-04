@@ -518,6 +518,15 @@ public final class Cpu {
 				reg[rd] = (int) (rsValue * rtValue);
 				return;
 			}
+			case FN2_CLZ: {
+				int value = reg[rs];
+				int n = 0;
+				while (n < 32 && (value & (1 << (31 - n))) == 0) {
+					n++;
+				}
+				reg[rd] = n;
+				return;
+			}
 			default:
 				throw new RuntimeException("invalid fn2 " + opString(fn));
 		}

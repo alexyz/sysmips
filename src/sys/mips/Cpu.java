@@ -35,7 +35,11 @@ public final class Cpu {
 		// linux_3.2.65\arch\mips\include\asm\cpu.h
 		// linux_3.2.65\arch\mips\include\asm\mipsregs.h
 		// default values on reboot
-		int st = (3 << 28) | (1 << 22) | (1 << 2);
+		// 3<<28: access to coprocessor 0 and 1
+		// 1<<22: bootstrap exception vectors
+		// 1<<2: reset error level
+		// 1<<1: exception level
+		int st = (3 << 28) | (1 << 22) | (1 << 2) | (1 << 1);
 		cpReg[CPR_STATUS] = st;
 		// R2000A
 		cpReg[CPR_PRID] = 0x0110;
@@ -104,10 +108,6 @@ public final class Cpu {
 		
 		try {
 			while (true) {
-				if ((cycle % 50000) == 0) {
-					log.info("cpu cycle " + cycle);
-				}
-				
 				// log.add(cpRegString(this));
 				// log.add(gpRegString(this));
 				log.debug(IsnUtil.isnString(this));
@@ -576,7 +576,7 @@ public final class Cpu {
 		final int sel = sel(isn);
 		final int cpr = rd * 8 + sel;
 		final int oldVal = cpReg[cpr];
-		final int newVal = reg[rt];
+		int newVal = reg[rt];
 		
 		switch (cpr) {
 			case CPR_CONTEXT:
@@ -584,14 +584,30 @@ public final class Cpu {
 					throw new RuntimeException("unknown ctx reg value " + Integer.toHexString(newVal));
 				}
 				break;
-			case CPR_STATUS:
+			case CPR_STATUS: {
+				// allow only cp0/1, bev, im7-0, um, erl, exl, ie
+				int mask = 0b0011_0000_0100_0000_1111_1111_0001_0111;
+				newVal = newVal & mask;
+				int cp = (newVal >> 28) & 0x3;
+				int bev = (newVal >> 22) & 0x1;
+				int im = (newVal >> 8) & 0xff;
+				int um = (newVal >> 4) & 0x1;
+				int erl = (newVal >> 2) & 0x1;
+				int exl = (newVal >> 1) & 0x1;
+				int ie = (newVal >> 0) & 0x1;
+				log.debug("set status cp=%x bev=%x im=%x um=%x erl=%x exl=%x ie=%x",
+						cp, bev, im, um, erl, exl, ie);
+				if (ie == 1) {
+					throw new RuntimeException("interrupts enabled");
+				}
 				break;
+			}
 			default:
 				throw new RuntimeException("move to unknown cp reg " + rd + ", " + sel);
 		}
 		
 		if (oldVal != newVal) {
-			log.info("mtc0 " + rd + "." + sel + " 0x" + Integer.toHexString(oldVal) + " -> 0x" + Integer.toHexString(newVal));
+			log.info("mtc0 " + rd + "." + sel + " was 0x" + Integer.toHexString(oldVal) + " now 0x" + Integer.toHexString(newVal));
 			cpReg[cpr] = newVal;
 		}
 	}

@@ -4,11 +4,13 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.awt.event.*;
 import java.beans.*;
 import java.io.*;
 import java.util.*;
 
 import javax.swing.*;
+import javax.swing.Timer;
 import javax.swing.border.*;
 import javax.swing.text.*;
 
@@ -25,14 +27,27 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	private final JTextField argsField = new JTextField(10);
 	private final JTextField envField = new JTextField(10);
 	private final JLabel displayLabel = new JLabel(" ");
+	private final JLabel cycleLabel = new JLabel("");
 	private final JTextArea consoleArea = new JTextArea();
 	private final JButton startButton = new JButton("Start");
 	private final JButton fileButton = new JButton("...");
+	private final Timer timer;
 	
 	private Malta malta;
 	
 	public MaltaJFrame () {
 		super("Sysmips");
+		
+		timer = new Timer(100, new ActionListener() {
+			@Override
+			public void actionPerformed (ActionEvent e) {
+				final Malta m = malta;
+				if (m != null) {
+					cycleLabel.setText("Cycle " + m.getCpu().getCycle());
+				}
+			}
+		});
+		timer.start();
 		
 		// should load these from prefs
 		// command line of console=ttyS0 initrd=? root=?
@@ -63,6 +78,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		
 		JPanel topPanel2 = new JPanel();
 		topPanel2.add(displayLabel);
+		topPanel2.add(cycleLabel);
 		
 		JPanel topPanel = new JPanel(new GridLayout(2, 1));
 		topPanel.add(topPanel1);

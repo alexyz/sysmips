@@ -2,15 +2,13 @@ package sys.mips;
 
 import java.beans.PropertyChangeSupport;
 
-import static sys.mips.MemoryUtil.*;
-
 public class Malta implements SystemListener {
 	
 	public static final int M_SDRAM = 0x0;
 	public static final int M_PCI1 = 0x0800_0000;
 	// TODO not sure about this, connected with value of GT_PCI0IOLD
 	public static final int M_IOBASE = 0x1000_0000;
-	// hard coded in malta-console.c
+	public static final int M_DMA2_MASK_REG = M_IOBASE + 0xD4;
 	public static final int M_PORT = M_IOBASE + 0x03f8;
 	public static final int M_UART_TX = M_PORT;
 	public static final int M_UART_LSR = M_PORT + 5;
@@ -54,23 +52,24 @@ public class Malta implements SystemListener {
 		mem.initPage(SYSTEM + M_GTBASE);
 		
 		final Symbols sym = mem.getSymbols();
-		sym.put(SYSTEM + M_DEVICES, "M_DEVICES");
-		sym.put(SYSTEM + M_DISPLAY, "M_DISPLAY");
-		sym.put(SYSTEM + M_FLASH1, "M_FLASH1");
-		sym.put(SYSTEM + M_FLASH2, "M_FLASH2");
+		sym.put(SYSTEM + M_SDRAM, "M_SDRAM");
 		sym.put(SYSTEM + M_PCI1, "M_PCI1");
 		sym.put(SYSTEM + M_IOBASE, "M_IOBASE");
+		sym.put(SYSTEM + M_DMA2_MASK_REG, "M_DMA2_MASK_REG");
+		sym.put(SYSTEM + M_PORT, "M_PORT", 65536);
+		sym.put(SYSTEM + M_UART_LSR, "M_UART_LSR", 1);
 		sym.put(SYSTEM + M_PCI2, "M_PCI2");
-		sym.put(SYSTEM + M_RESERVED, "M_RESERVED");
 		sym.put(SYSTEM + M_GTBASE, "M_GTBASE");
+		sym.put(SYSTEM + M_FLASH1, "M_FLASH1");
+		sym.put(SYSTEM + M_RESERVED, "M_RESERVED");
+		sym.put(SYSTEM + M_DEVICES, "M_DEVICES");
+		sym.put(SYSTEM + M_DISPLAY, "M_DISPLAY");
 		sym.put(SYSTEM + M_SCSPEC1, "M_SCSPEC1");
 		sym.put(SYSTEM + M_SCSPEC2, "M_SCSPEC2");
 		sym.put(SYSTEM + M_SCSPEC2_BONITO, "M_SCSPEC2_BONITO");
-		sym.put(SYSTEM + M_SDRAM, "M_SDRAM");
 		sym.put(SYSTEM + M_UNUSED, "M_UNUSED");
+		sym.put(SYSTEM + M_FLASH2, "M_FLASH2");
 		sym.put(SYSTEM + M_REVISION, "M_REVISION", 8);
-		sym.put(SYSTEM + M_PORT, "M_PORT", 65536);
-		sym.put(SYSTEM + M_UART_LSR, "M_UART_LSR", 1);
 		                 
 		mem.storeWordSystem(M_REVISION, 1);
 		mem.storeByteSystem(M_UART_LSR, (byte) 0x20);
@@ -102,6 +101,10 @@ public class Malta implements SystemListener {
 	@Override
 	public void systemWrite (int addr, int value) {
 		switch (addr) {
+			case M_DMA2_MASK_REG:
+				// information in asm/dma.h
+				log.info("enable dma channel 4+" + value);
+				break;
 			case M_UART_TX:
 				consoleWrite(value);
 				break;

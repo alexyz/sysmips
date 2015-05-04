@@ -158,7 +158,9 @@ public class GT {
 			case GT_PCI0M1HD:
 			case GT_PCI0IOREMAP:
 			case GT_PCI0M0REMAP:
+			case GT_PCI0M1REMAP:
 			case GT_PCI0_CMD:
+			case GT_PCI0IOHD:
 				return true;
 				
 			default:

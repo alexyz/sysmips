@@ -14,6 +14,11 @@ class LinuxUserCpu extends Cpu {
 	}
 	
 	@Override
+	protected int lookup (int addr) {
+		return addr;
+	}
+	
+	@Override
 	public void handleException (String type, int value) {
 		if (type.equals(SYSCALL_EX)) {
 			syscall(getRegister(REG_V0) - 4000);

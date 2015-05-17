@@ -30,7 +30,7 @@ public class Cpu {
 	/** address of current instruction + 4 (unless changed by branch) */
 	private int nextPc;
 	private int cycle;
-	private int rmwAddress;
+	private int rmwPhysicalAddress;
 	private FpRound roundingMode = FpRound.NONE;
 	private boolean kernelMode;
 	
@@ -123,7 +123,7 @@ public class Cpu {
 					log.info("reg 0 not 0");
 					reg[0] = 0;
 				}
-				final int isn = memory.loadWord(pc);
+				final int isn = loadWord(pc);
 				pc = nextPc;
 				nextPc += 4;
 				if (op(isn) != 0) {
@@ -153,17 +153,52 @@ public class Cpu {
 		}
 	}
 	
-	// TODO use this...
+	public int loadWord (final int addr) {
+		return memory.loadWord(translate(addr));
+	}
+	
+	public void storeWord (final int addr, final int value) {
+		memory.storeWord(translate(addr), value);
+	}
+	
+	public short loadHalfWord (final int addr) {
+		return memory.loadHalfWord(translate(addr));
+	}
+	
+	public void storeHalfWord (final int addr, final short value) {
+		memory.storeHalfWord(translate(addr), value);
+	}
+	
+	public byte loadByte (final int addr) {
+		return memory.loadByte(translate(addr));
+	}
+	
+	public void storeByte (final int addr, final byte value) {
+		memory.storeByte(translate(addr), value);
+	}
+	
+	/**
+	 * translate virtual address to physical
+	 */
 	private final int translate (int addr) {
-		if (addr < KSEG0) {
-			// addr = tlbLookup(...)
-			throw new CpuException("unimplemented tlb " + Integer.toHexString(addr));
-		} else if (kernelMode && addr >= KSEG0 && addr < KSSEG) {
-			// unmapped
-			return addr;
+		// can only do signed compare...
+		if (addr >= 0) {
+			// from 0 to KSEG0 (2GB mark)
+			return lookup(addr);
+		} else if (kernelMode) {
+			if (addr < 0xc000_000) {
+				// from KSEG0 (2GB mark) to KSSEG (3GB mark)
+				return addr;
+			} else {
+				throw new CpuException("unimplemented kernel translate " + Integer.toHexString(addr));
+			}
 		} else {
-			throw new CpuException("invalid translate " + Integer.toHexString(addr));
+			throw new CpuException("invalid user translate " + Integer.toHexString(addr));
 		}
+	}
+	
+	protected int lookup (int addr) {
+		throw new CpuException("unimplemented tlb " + Integer.toHexString(addr));
 	}
 	
 	private final void execOp (final int isn) {
@@ -194,20 +229,20 @@ public class Cpu {
 				execFn2(isn);
 				return;
 			case OP_LWC1:
-				fpReg[rt] = memory.loadWord(reg[rs] + simm);
+				fpReg[rt] = loadWord(reg[rs] + simm);
 				return;
 			case OP_LDC1:
 				// least significant word first...
-				fpReg[rt + 1] = memory.loadWord(reg[rs] + simm);
-				fpReg[rt] = memory.loadWord(reg[rs] + simm + 4);
+				fpReg[rt + 1] = loadWord(reg[rs] + simm);
+				fpReg[rt] = loadWord(reg[rs] + simm + 4);
 				return;
 			case OP_SWC1:
-				memory.storeWord(reg[rs] + simm, fpReg[rt]);
+				storeWord(reg[rs] + simm, fpReg[rt]);
 				return;
 			case OP_SDC1:
 				// least significant word first...
-				memory.storeWord(reg[rs] + simm, fpReg[rt + 1]);
-				memory.storeWord(reg[rs] + simm + 4, fpReg[rt]);
+				storeWord(reg[rs] + simm, fpReg[rt + 1]);
+				storeWord(reg[rs] + simm + 4, fpReg[rt]);
 				return;
 			case OP_J:
 				nextPc = jump(isn, pc);
@@ -262,60 +297,60 @@ public class Cpu {
 				reg[rt] = reg[rs] | (simm & 0xffff);
 				return;
 			case OP_SW:
-				memory.storeWord(reg[rs] + simm, reg[rt]);
+				storeWord(reg[rs] + simm, reg[rt]);
 				return;
 			case OP_SH:
-				memory.storeHalfWord(reg[rs] + simm, (short) reg[rt]);
+				storeHalfWord(reg[rs] + simm, (short) reg[rt]);
 				return;
 			case OP_SB:
-				memory.storeByte(reg[rs] + simm, (byte) reg[rt]);
+				storeByte(reg[rs] + simm, (byte) reg[rt]);
 				return;
 			case OP_LUI:
 				reg[rt] = simm << 16;
 				return;
 			case OP_LL: {
 				// begin rmw
-				final int a = reg[rs] + simm;
-				rmwAddress = a;
-				reg[rt] = memory.loadWord(a);
+				final int pa = translate(reg[rs] + simm);
+				rmwPhysicalAddress = pa;
+				reg[rt] = memory.loadWord(pa);
 				return;
 			}
 			case OP_SC: {
-				final int a = reg[rs] + simm;
+				final int pa = translate(reg[rs] + simm);
 				// should also fail if another cpu does a store to the same
 				// block of memory in same page
 				// or the same processor if Config5LLB=1
-				if (a == rmwAddress) {
-					memory.storeWord(a, reg[rt]);
+				if (pa == rmwPhysicalAddress) {
+					memory.storeWord(pa, reg[rt]);
 					reg[rt] = 1;
-					rmwAddress = 0;
+					rmwPhysicalAddress = 0;
 				} else {
-					System.out.println("sc fail: a=" + a + " rmwAddress=" + rmwAddress);
+					System.out.println("sc fail: a=" + pa + " rmwAddress=" + rmwPhysicalAddress);
 					reg[rt] = 0;
 				}
 				return;
 			}
 			case OP_LW:
-				reg[rt] = memory.loadWord(translate(reg[rs] + simm));
+				reg[rt] = loadWord(reg[rs] + simm);
 				return;
 			case OP_LB:
-				reg[rt] = memory.loadByte(reg[rs] + simm);
+				reg[rt] = loadByte(reg[rs] + simm);
 				return;
 			case OP_LBU:
-				reg[rt] = memory.loadByte(reg[rs] + simm) & 0xff;
+				reg[rt] = loadByte(reg[rs] + simm) & 0xff;
 				return;
 			case OP_LHU:
-				reg[rt] = (memory.loadHalfWord(reg[rs] + simm) & 0xffff);
+				reg[rt] = loadHalfWord(reg[rs] + simm) & 0xffff;
 				return;
 			case OP_LH:
-				reg[rt] = memory.loadHalfWord(reg[rs] + simm);
+				reg[rt] = loadHalfWord(reg[rs] + simm);
 				return;
 			case OP_LWL: {
 				// unaligned address
 				final int a = reg[rs] + simm;
 				// 0,1,2,3 -> 0,8,16,24
 				final int s = (a & 3) << 3;
-				final int w = memory.loadWord(a & ~3);
+				final int w = loadWord(a & ~3);
 				reg[rt] = (w << s) | (reg[rt] & (0xffffffff >>> (32 - s)));
 				return;
 			}
@@ -323,7 +358,7 @@ public class Cpu {
 				final int a = reg[rs] + simm;
 				// 0,1,2,3 -> 8,16,24,32
 				final int s = ((a & 3) + 1) << 3;
-				final int w = memory.loadWord(a & ~3);
+				final int w = loadWord(a & ~3);
 				reg[rt] = (w >>> (32 - s)) | (reg[rt] & (0xffffffff << s));
 				return;
 			}
@@ -333,8 +368,8 @@ public class Cpu {
 				// aligned address
 				final int aa = a & ~3;
 				final int s = (a & 3) << 3;
-				final int w = memory.loadWord(aa);
-				memory.storeWord(aa, (reg[rt] >>> s) | (w & (0xffffffff << (32 - s))));
+				final int w = loadWord(aa);
+				storeWord(aa, (reg[rt] >>> s) | (w & (0xffffffff << (32 - s))));
 				return;
 			}
 			case OP_SWR: {
@@ -343,8 +378,8 @@ public class Cpu {
 				// aligned addr
 				final int aa = a & ~3;
 				final int s = ((a & 3) + 1) << 3;
-				final int w = memory.loadWord(aa);
-				memory.storeWord(aa, (reg[rt] << (32 - s)) | (w & (0xffffffff >>> s)));
+				final int w = loadWord(aa);
+				storeWord(aa, (reg[rt] << (32 - s)) | (w & (0xffffffff >>> s)));
 				return;
 			}
 			

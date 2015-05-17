@@ -54,17 +54,17 @@ public class ELF32Section {
 	/**
 	 * Read section header from given DataInput
 	 */
-	public ELF32Section (DataInput f) throws IOException {
-		nameIndex = f.readInt();
-		type = f.readInt();
-		flags = f.readInt();
-		address = f.readInt();
-		fileOffset = f.readInt();
-		fileSize = f.readInt();
-		linkedSection = f.readInt();
-		info = f.readInt();
-		addressAlign = f.readInt();
-		entrySize = f.readInt();
+	public ELF32Section (ELF32Header header, DataInput f) throws IOException {
+		nameIndex = header.decode(f.readInt());
+		type = header.decode(f.readInt());
+		flags = header.decode(f.readInt());
+		address = header.decode(f.readInt());
+		fileOffset = header.decode(f.readInt());
+		fileSize = header.decode(f.readInt());
+		linkedSection = header.decode(f.readInt());
+		info = header.decode(f.readInt());
+		addressAlign = header.decode(f.readInt());
+		entrySize = header.decode(f.readInt());
 	}
 	
 	private String typeString () {

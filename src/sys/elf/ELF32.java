@@ -4,15 +4,7 @@ import java.io.*;
 import java.util.*;
 
 public class ELF32 {
-	
-	public static void main (String[] args) throws Exception {
-		try (RandomAccessFile file = new RandomAccessFile(args[0], "r")) {
-			ELF32 elf = new ELF32(file);
-			System.out.println("elf=" + elf);
-			elf.print(System.out);
-		}
-	}
-	
+		
 	/**
 	 * Load a string from a string table byte array
 	 */
@@ -32,11 +24,12 @@ public class ELF32 {
 	
 	public ELF32 (RandomAccessFile file) throws Exception {
 		header = new ELF32Header(file);
+		System.out.println(header);
 		
 		// load section headers
 		file.seek(header.sectionHeaderOffset);
 		for (int n = 0; n < header.sectionHeaders; n++) {
-			sections.add(new ELF32Section(file));
+			sections.add(new ELF32Section(header, file));
 		}
 		
 		// load section names
@@ -53,7 +46,7 @@ public class ELF32 {
 		// load program headers
 		file.seek(header.programHeaderOffset);
 		for (int n = 0; n < header.programHeaders; n++) {
-			programs.add(new ELF32Program(file));
+			programs.add(new ELF32Program(header, file));
 		}
 		
 		// load symbols and relocations
@@ -71,7 +64,7 @@ public class ELF32 {
 					file.seek(section.fileOffset);
 					int length = section.fileSize / section.entrySize;
 					for (int s = 0; s < length; s++) {
-						symbols.add(new ELF32Symbol(file, strings));
+						symbols.add(new ELF32Symbol(header, file, strings));
 					}
 					break;
 				}
@@ -85,7 +78,7 @@ public class ELF32 {
 					int length = section.fileSize / section.entrySize;
 					file.seek(section.fileOffset);
 					for (int r = 0; r < length; r++) {
-						relocations.add(new ELF32Relocation(file, addend));
+						relocations.add(new ELF32Relocation(header, file, addend));
 					}
 					break;
 				}

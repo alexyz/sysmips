@@ -38,15 +38,15 @@ public class ELF32Program {
 	public final int flags;
 	public final int align;
 	
-	public ELF32Program (DataInput in) throws IOException {
-		type = in.readInt();
-		fileOffset = in.readInt();
-		virtualAddress = in.readInt();
-		physicalAddress = in.readInt();
-		fileSize = in.readInt();
-		memorySize = in.readInt();
-		flags = in.readInt();
-		align = in.readInt();
+	public ELF32Program (ELF32Header header, DataInput in) throws IOException {
+		type = header.decode(in.readInt());
+		fileOffset = header.decode(in.readInt());
+		virtualAddress = header.decode(in.readInt());
+		physicalAddress = header.decode(in.readInt());
+		fileSize = header.decode(in.readInt());
+		memorySize = header.decode(in.readInt());
+		flags = header.decode(in.readInt());
+		align = header.decode(in.readInt());
 	}
 	
 	public String typeString () {

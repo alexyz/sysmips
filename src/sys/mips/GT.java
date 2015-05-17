@@ -2,7 +2,7 @@ package sys.mips;
 
 import java.lang.reflect.*;
 
-import static sys.mips.MemoryUtil.*;
+import static sys.ByteOrder.*;
 
 public class GT {
 	
@@ -91,11 +91,11 @@ public class GT {
 	}
 
 	private int loadWord (int offset) {
-		return byteswap(cpu.getMemory().loadWordSystem(gtbase + offset));
+		return swap(cpu.getMemory().loadWordSystem(gtbase + offset));
 	}
 	
 	private void storeWord (int offset, int value) {
-		cpu.getMemory().storeWordSystem(gtbase + offset, byteswap(value));
+		cpu.getMemory().storeWordSystem(gtbase + offset, swap(value));
 	}
 	
 	public void init () {

@@ -2,6 +2,9 @@ package sys.elf;
 
 import java.io.*;
 
+import sys.ByteOrder;
+import sys.mips.MemoryUtil;
+
 /**
  * ELF header file
  */
@@ -24,6 +27,8 @@ public class ELF32Header {
 	public static final int SHN_UNDEF = 0;
 	public static final int EV_CURRENT = 1;
 	
+	public final byte class_;
+	public final byte data;
 	/** type (2 = executable) */
 	public final short type;
 	/** machine type */
@@ -49,24 +54,70 @@ public class ELF32Header {
 	
 	/** load elf header from file */
 	public ELF32Header (DataInput f) throws IOException {
-		int e_ident = f.readInt();
-		if (e_ident != ELF_MAGIC) {
+		byte[] i = new byte[16];
+		f.readFully(i);
+		if (!(i[0] == 0x7f && i[1] == 'E' && i[2] == 'L' && i[3] == 'F')) {
 			throw new IOException("Not an ELF file");
 		}
-		f.skipBytes(12);
-		type = f.readShort();
-		machine = f.readShort();
-		version = f.readInt();
-		entryAddress = f.readInt();
-		programHeaderOffset = f.readInt();
-		sectionHeaderOffset = f.readInt();
-		flags = f.readInt();
-		headerSize = f.readShort();
-		programHeaderSize = f.readShort();
-		programHeaders = f.readShort();
-		sectionHeaderSize = f.readShort();
-		sectionHeaders = f.readShort();
-		stringTableSection = f.readShort();
+		class_ = i[4];
+		data = i[5];
+		type = decode(f.readShort());
+		machine = decode(f.readShort());
+		version = decode(f.readInt());
+		entryAddress = decode(f.readInt());
+		programHeaderOffset = decode(f.readInt());
+		sectionHeaderOffset = decode(f.readInt());
+		flags = decode(f.readInt());
+		headerSize = decode(f.readShort());
+		programHeaderSize = decode(f.readShort());
+		programHeaders = decode(f.readShort());
+		sectionHeaderSize = decode(f.readShort());
+		sectionHeaders = decode(f.readShort());
+		stringTableSection = decode(f.readShort());
+	}
+	
+	public short decode (short s) {
+		switch (data) {
+			case 1:
+				return ByteOrder.swap(s);
+			case 2:
+				return s;
+			default:
+				throw new RuntimeException();
+		}
+	}
+	
+	public int decode (int i) {
+		switch (data) {
+			case 1:
+				return ByteOrder.swap(i);
+			case 2:
+				return i;
+			default:
+				throw new RuntimeException();
+		}
+	}
+	
+	public String classString () {
+		switch (class_) {
+			case 1:
+				return "32bit";
+			case 2:
+				return "64bit";
+			default:
+				return Integer.toHexString(class_);
+		}
+	}
+	
+	public String dataString () {
+		switch (data) {
+			case 1:
+				return "littleendian";
+			case 2:
+				return "bigendian";
+			default:
+				return Integer.toHexString(data);
+		}
 	}
 	
 	public String typeString () {
@@ -80,7 +131,7 @@ public class ELF32Header {
 			case ET_REL:
 				return "relocatable";
 			default:
-				return Integer.toString(type);
+				return Integer.toHexString(type);
 		}
 	}
 	
@@ -89,16 +140,17 @@ public class ELF32Header {
 			case EM_MIPS:
 				return "mips";
 			default:
-				return Integer.toString(machine);
+				return Integer.toHexString(machine);
 		}
 	}
 	
 	@Override
 	public String toString () {
-		return "ELF32Header [type=" + typeString() + ", machine=" + machineString() + ", version=" + version + ", entryAddress=0x"
-				+ Integer.toHexString(entryAddress) + ", programHeaderOffset=" + programHeaderOffset + ", sectionHeaderOffset=" + sectionHeaderOffset
-				+ ", flags=" + flags + ", headerSize=" + headerSize + ", programHeaderSize=" + programHeaderSize + ", programHeaders=" + programHeaders
-				+ ", sectionHeaderSize=" + sectionHeaderSize + ", sectionHeaders=" + sectionHeaders + ", stringTableSection=" + stringTableSection + "]";
+		return "ELF32Header [class=" + classString() + " data=" + dataString() + " type=" + typeString() + ", machine=" + machineString() + ", version="
+				+ version + ", entryAddress=0x" + Integer.toHexString(entryAddress) + ", programHeaderOffset=" + programHeaderOffset + ", sectionHeaderOffset="
+				+ sectionHeaderOffset + ", flags=" + flags + ", headerSize=" + headerSize + ", programHeaderSize=" + programHeaderSize + ", programHeaders="
+				+ programHeaders + ", sectionHeaderSize=" + sectionHeaderSize + ", sectionHeaders=" + sectionHeaders + ", stringTableSection="
+				+ stringTableSection + "]";
 	}
 	
 }

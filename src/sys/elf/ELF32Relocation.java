@@ -11,10 +11,10 @@ public class ELF32Relocation {
 	public final int r_info;
 	public final int r_addend;
 	
-	public ELF32Relocation (DataInput in, boolean addend) throws IOException {
-		r_offset = in.readInt();
-		r_info = in.readInt();
-		r_addend = addend ? in.readInt() : 0;
+	public ELF32Relocation (ELF32Header header, DataInput in, boolean addend) throws IOException {
+		r_offset = header.decode(in.readInt());
+		r_info = header.decode(in.readInt());
+		r_addend = addend ? header.decode(in.readInt()) : 0;
 	}
 	
 	@Override

@@ -35,13 +35,13 @@ public class ELF32Symbol implements Comparable<ELF32Symbol> {
 	 * Load a symbol from the given DataInput with reference to the given string
 	 * table.
 	 */
-	public ELF32Symbol (DataInput file, byte[] strings) throws IOException {
-		nameIndex = file.readInt();
-		value = file.readInt();
-		size = file.readInt();
+	public ELF32Symbol (ELF32Header header, DataInput file, byte[] strings) throws IOException {
+		nameIndex = header.decode(file.readInt());
+		value = header.decode(file.readInt());
+		size = header.decode(file.readInt());
 		info = file.readByte();
 		other = file.readByte();
-		section = file.readShort();
+		section = header.decode(file.readShort());
 		name = ELF32.readString(strings, nameIndex);
 	}
 	

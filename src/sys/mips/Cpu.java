@@ -9,6 +9,9 @@ import static sys.mips.IsnUtil.*;
 
 public class Cpu {
 	
+	private static final int KSSEG = 0xc000_0000;
+	private static final int KSEG0 = 0x8000_0000;
+	
 	/** general purpose registers, and hi/lo */
 	private final int[] reg = new int[34];
 	/** coprocessor 0 registers (32*8) */
@@ -29,6 +32,7 @@ public class Cpu {
 	private int cycle;
 	private int rmwAddress;
 	private FpRound roundingMode = FpRound.NONE;
+	private boolean kernelMode;
 	
 	public Cpu (boolean littleEndian) {
 		memory = new Memory(littleEndian);
@@ -36,13 +40,15 @@ public class Cpu {
 		// linux_3.2.65\arch\mips\include\asm\cpu.h
 		// linux_3.2.65\arch\mips\include\asm\mipsregs.h
 		// default values on reboot
-		// 3<<28: access to coprocessor 0 and 1
-		// 1<<22: bootstrap exception vectors
-		// 1<<2: reset error level
-		// 1<<1: exception level
+		// 3<<28: CU1/CU0: access to coprocessor 0 and 1
+		// 1<<22: BEV: bootstrap exception vectors
+		// 1<<2: ERL: reset error level
+		// 1<<1: EXL: exception level
 		int st = (3 << 28) | (1 << 22) | (1 << 2) | (1 << 1);
 		cpReg[CPR_STATUS] = st;
-		// R2000A
+		// kernel mode if EXL or ERL
+		kernelMode = (st & 0x6) != 0;
+		// TODO MIPS 4KC = 0x18000
 		cpReg[CPR_PRID] = 0x0110;
 		// support S, D, W, L
 		int fcr = (1 << 16) | (1 << 17) | (1 << 20) | (1 << 21) | (1 << 8);
@@ -144,6 +150,19 @@ public class Cpu {
 			System.out.println();
 			log.print(System.out);
 			throw e;
+		}
+	}
+	
+	// TODO use this...
+	private final int translate (int addr) {
+		if (addr < KSEG0) {
+			// addr = tlbLookup(...)
+			throw new CpuException("unimplemented tlb " + Integer.toHexString(addr));
+		} else if (kernelMode && addr >= KSEG0 && addr < KSSEG) {
+			// unmapped
+			return addr;
+		} else {
+			throw new CpuException("invalid translate " + Integer.toHexString(addr));
 		}
 	}
 	
@@ -277,7 +296,7 @@ public class Cpu {
 				return;
 			}
 			case OP_LW:
-				reg[rt] = memory.loadWord(reg[rs] + simm);
+				reg[rt] = memory.loadWord(translate(reg[rs] + simm));
 				return;
 			case OP_LB:
 				reg[rt] = memory.loadByte(reg[rs] + simm);

@@ -9,6 +9,10 @@ class LinuxUserCpu extends Cpu {
 	
 	private static final int SYS_UNAME = 122;
 	
+	public LinuxUserCpu () {
+		super(true);
+	}
+	
 	@Override
 	public void handleException (String type, int value) {
 		if (type.equals(SYSCALL_EX)) {

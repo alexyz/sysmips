@@ -8,7 +8,7 @@ import static sys.mips.MipsConstants.*;
 
 public class Test2 {
 	
-	private Cpu cpu = new Cpu();
+	private Cpu cpu = new Cpu(false);
 	
 	public static void main (String[] args) throws Exception {
 		Test2 t = new Test2();

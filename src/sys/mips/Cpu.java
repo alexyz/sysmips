@@ -19,8 +19,8 @@ public class Cpu {
 	 */
 	private final int[] fpReg = new int[32];
 	private final int[] fpControlReg = new int[32];
-	private final Memory memory = new Memory();
 	private final CpuLogger log = new CpuLogger(this);
+	private final Memory memory;
 	
 	/** address of current instruction */
 	private int pc;
@@ -30,7 +30,8 @@ public class Cpu {
 	private int rmwAddress;
 	private FpRound roundingMode = FpRound.NONE;
 	
-	public Cpu () {
+	public Cpu (boolean littleEndian) {
+		memory = new Memory(littleEndian);
 		// linux_3.2.65\arch\mips\include\asm\cpu-features.h
 		// linux_3.2.65\arch\mips\include\asm\cpu.h
 		// linux_3.2.65\arch\mips\include\asm\mipsregs.h

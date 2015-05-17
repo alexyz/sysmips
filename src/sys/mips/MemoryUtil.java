@@ -71,15 +71,19 @@ public class MemoryUtil {
 	
 	private static void storeBytesAsWords (final Memory mem, final int addr, byte[] data, int offset, int len) {
 		System.out.println("memory store bytes as words " + len);
-		// store as little or big endian...
-		int x = mem.getWordAddrXor();
 		if ((addr & 3) == 0 && (len & 3) == 0) {
 			for (int n = offset; n < (offset + len); n += 4) {
-				final int b1 = data[n ^ x] & 0xff;
-				final int b2 = data[(n + 1) ^ x] & 0xff;
-				final int b3 = data[(n + 2) ^ x] & 0xff;
-				final int b4 = data[(n + 3) ^ x] & 0xff;
-				mem.storeWord(addr + n, (b1 << 24) | (b2 << 16) | (b3 << 8) | b4);
+				final int b1 = data[n] & 0xff;
+				final int b2 = data[n + 1] & 0xff;
+				final int b3 = data[n + 2] & 0xff;
+				final int b4 = data[n + 3] & 0xff;
+				int w;
+				if (mem.isLittleEndian()) {
+					w = (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
+				} else {
+					w = (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
+				}
+				mem.storeWord(addr + n, w);
 			}
 		} else {
 			throw new IllegalArgumentException("unaligned");

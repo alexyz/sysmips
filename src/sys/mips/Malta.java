@@ -32,7 +32,7 @@ public class Malta implements SystemListener {
 	public static final int LINUX = 0x8000_0000;
 	public static final int SYSTEM = 0xa000_0000;
 	
-	private final Cpu cpu = new Cpu();
+	private final Cpu cpu = new Cpu(false);
 	private final PropertyChangeSupport support = new PropertyChangeSupport(this);
 	private final StringBuilder consoleSb = new StringBuilder();
 	private final CpuLogger log = cpu.getLog();

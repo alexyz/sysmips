@@ -24,21 +24,19 @@ public final class Memory {
 	private final Symbols symbols = new Symbols();
 	private final int wordAddrXor;
 	private final int halfWordAddrXor;
+	private final boolean littleEndian;
 	
 	private int system;
 	private SystemListener systemListener;
-	
-	public Memory () {
-		this(false);
-	}
-	
+
 	public Memory (boolean littleEndian) {
+		this.littleEndian = littleEndian;
 		this.wordAddrXor = littleEndian ? 0 : 3;
 		this.halfWordAddrXor = littleEndian ? 0 : 2;
 	}
 	
-	public int getWordAddrXor () {
-		return wordAddrXor;
+	public boolean isLittleEndian () {
+		return littleEndian;
 	}
 	
 	public Symbols getSymbols () {
@@ -101,10 +99,11 @@ public final class Memory {
 	}
 	
 	private final void storeByteImpl (final int addr, final byte b) {
-		// 0,1,2,3 -> 3,2,1,0 -> 24,16,8,0
 		final int[] page = pages[pageIndex(addr)];
 		if (page != null) {
 			final int i = wordIndex(addr);
+			// if xor=0: 0,1,2,3 -> 0,8,16,24
+			// if xor=3: 0,1,2,3 -> 3,2,1,0 -> 24,16,8,0
 			final int s = ((addr & 3) ^ wordAddrXor) << 3;
 			final int andm = ~(0xff << s);
 			final int orm = (b & 0xff) << s;

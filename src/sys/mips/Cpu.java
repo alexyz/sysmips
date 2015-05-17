@@ -3,11 +3,11 @@ package sys.mips;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static sys.mips.Constants.*;
+import static sys.mips.MipsConstants.*;
 import static sys.mips.Decoder.*;
 import static sys.mips.IsnUtil.*;
 
-public final class Cpu {
+public class Cpu {
 	
 	/** general purpose registers, and hi/lo */
 	private final int[] reg = new int[34];
@@ -101,7 +101,7 @@ public final class Cpu {
 	public final void run () {
 		log.info("run");
 		memory.print(System.out);
-		final TreeMap<String,int[]> isnCount = new TreeMap<>();
+		final TreeMap<String, int[]> isnCount = new TreeMap<>();
 		for (String name : IsnSet.INSTANCE.nameMap.keySet()) {
 			isnCount.put(name, new int[1]);
 		}
@@ -375,133 +375,134 @@ public final class Cpu {
 			case FN_SRA:
 				reg[rd] = reg[rt] >> sa(isn);
 				return;
-				case FN_SRLV:
-					reg[rd] = reg[rt] >>> (reg[rs] & 0x1f);
+			case FN_SRLV:
+				reg[rd] = reg[rt] >>> (reg[rs] & 0x1f);
 				return;
 			case FN_SRAV:
 				reg[rd] = reg[rt] >> (reg[rs] & 0x1f);
 				return;
-				
-				case FN_SLLV:
-					reg[rd] = reg[rt] << (reg[rs] & 0x1f);
-					return;
-				case FN_JR:
-					nextPc = reg[rs];
-					if (rs == 31) {
-						log.ret();
-					}
-					return;
-				case FN_JALR:
-					reg[rd] = nextPc;
-					nextPc = reg[rs];
-					log.call(nextPc);
-					return;
-				case FN_MOVZ:
-					if (reg[rt] == 0) {
-						reg[rd] = reg[rs];
-					}
-					return;
-				case FN_MOVN:
-					if (reg[rt] != 0) {
-						reg[rd] = reg[rs];
-					}
-					return;
-				case FN_SYSCALL: {
-					int n = syscall(isn);
-					throw new CpuException(CpuException.Type.SystemCall, "" + n);
+			case FN_SLLV:
+				reg[rd] = reg[rt] << (reg[rs] & 0x1f);
+				return;
+			case FN_JR:
+				nextPc = reg[rs];
+				if (rs == 31) {
+					log.ret();
 				}
-				case FN_BREAK: {
-					int n = syscall(isn);
-					throw new CpuException(CpuException.Type.Breakpoint, "" + n);
+				return;
+			case FN_JALR:
+				reg[rd] = nextPc;
+				nextPc = reg[rs];
+				log.call(nextPc);
+				return;
+			case FN_MOVZ:
+				if (reg[rt] == 0) {
+					reg[rd] = reg[rs];
 				}
-				case FN_MFHI:
-					reg[rd] = reg[REG_HI];
-					return;
-				case FN_MTHI:
-					reg[REG_HI] = reg[rs];
-					return;
-				case FN_MFLO:
-					reg[rd] = reg[REG_LO];
-					return;
-				case FN_MTLO:
-					reg[REG_LO] = reg[rd];
-					return;
-				case FN_MULT: {
-					// sign extend
-					final long rsValue = reg[rs];
-					final long rtValue = reg[rt];
-					final long result = rsValue * rtValue;
-					reg[REG_LO] = (int) result;
-					reg[REG_HI] = (int) (result >>> 32);
-					return;
+				return;
+			case FN_MOVN:
+				if (reg[rt] != 0) {
+					reg[rd] = reg[rs];
 				}
-				case FN_MULTU: {
-					// zero extend
-					final long rsValue = reg[rs] & 0xffffffffL;
-					final long rtValue = reg[rt] & 0xffffffffL;
-					final long result = rsValue * rtValue;
-					reg[REG_LO] = (int) result;
-					reg[REG_HI] = (int) (result >>> 32);
-					return;
+				return;
+			case FN_SYSCALL:
+				handleException(SYSCALL_EX, syscall(isn));
+				return;
+			case FN_BREAK:
+				handleException(BREAKPOINT_EX, syscall(isn));
+				return;
+			case FN_MFHI:
+				reg[rd] = reg[REG_HI];
+				return;
+			case FN_MTHI:
+				reg[REG_HI] = reg[rs];
+				return;
+			case FN_MFLO:
+				reg[rd] = reg[REG_LO];
+				return;
+			case FN_MTLO:
+				reg[REG_LO] = reg[rd];
+				return;
+			case FN_MULT: {
+				// sign extend
+				final long rsValue = reg[rs];
+				final long rtValue = reg[rt];
+				final long result = rsValue * rtValue;
+				reg[REG_LO] = (int) result;
+				reg[REG_HI] = (int) (result >>> 32);
+				return;
+			}
+			case FN_MULTU: {
+				// zero extend
+				final long rsValue = reg[rs] & 0xffffffffL;
+				final long rtValue = reg[rt] & 0xffffffffL;
+				final long result = rsValue * rtValue;
+				reg[REG_LO] = (int) result;
+				reg[REG_HI] = (int) (result >>> 32);
+				return;
+			}
+			case FN_DIV: {
+				// divide as signed
+				// result is unpredictable for zero, no exceptions thrown
+				int rsValue = reg[rs];
+				int rtValue = reg[rt];
+				if (rt != 0) {
+					reg[REG_LO] = rsValue / rtValue;
+					reg[REG_HI] = rsValue % rtValue;
 				}
-				case FN_DIV: {
-					// divide as signed
-					// result is unpredictable for zero, no exceptions thrown
-					int rsValue = reg[rs];
-					int rtValue = reg[rt];
-					if (rt != 0) {
-						reg[REG_LO] = rsValue / rtValue;
-						reg[REG_HI] = rsValue % rtValue;
-					}
-					return;
+				return;
+			}
+			case FN_DIVU: {
+				// unpredictable result and no exception for zero
+				// zero extend
+				final long rsValue = reg[rs] & 0xffffffffL;
+				final long rtValue = reg[rt] & 0xffffffffL;
+				if (rtValue != 0) {
+					reg[REG_LO] = (int) (rsValue / rtValue);
+					reg[REG_HI] = (int) (rsValue % rtValue);
 				}
-				case FN_DIVU: {
-					// unpredictable result and no exception for zero
-					// zero extend
-					final long rsValue = reg[rs] & 0xffffffffL;
-					final long rtValue = reg[rt] & 0xffffffffL;
-					if (rtValue != 0) {
-						reg[REG_LO] = (int) (rsValue / rtValue);
-						reg[REG_HI] = (int) (rsValue % rtValue);
-					}
-					return;
+				return;
+			}
+			case FN_ADDU:
+				reg[rd] = reg[rs] + reg[rt];
+				return;
+			case FN_SUBU:
+				reg[rd] = reg[rs] - reg[rt];
+				return;
+			case FN_AND:
+				reg[rd] = reg[rs] & reg[rt];
+				return;
+			case FN_OR:
+				reg[rd] = reg[rs] | reg[rt];
+				return;
+			case FN_XOR:
+				reg[rd] = reg[rs] ^ reg[rt];
+				return;
+			case FN_NOR:
+				reg[rd] = ~(reg[rs] | reg[rt]);
+				return;
+			case FN_SLT:
+				reg[rd] = (reg[rs] < reg[rt]) ? 1 : 0;
+				return;
+			case FN_SLTU: {
+				// zero extend
+				long rsValue = reg[rs] & 0xffffffffL;
+				long rtValue = reg[rt] & 0xffffffffL;
+				reg[rd] = rsValue < rtValue ? 1 : 0;
+				return;
+			}
+			case FN_TNE:
+				if (reg[rs] != reg[rt]) {
+					handleException(TRAP_EX, 0);
 				}
-				case FN_ADDU:
-					reg[rd] = reg[rs] + reg[rt];
-					return;
-				case FN_SUBU:
-					reg[rd] = reg[rs] - reg[rt];
-					return;
-				case FN_AND:
-					reg[rd] = reg[rs] & reg[rt];
-					return;
-				case FN_OR:
-					reg[rd] = reg[rs] | reg[rt];
-					return;
-				case FN_XOR:
-					reg[rd] = reg[rs] ^ reg[rt];
-					return;
-				case FN_NOR:
-					reg[rd] = ~(reg[rs] | reg[rt]);
-					return;
-				case FN_SLT:
-					reg[rd] = (reg[rs] < reg[rt]) ? 1 : 0;
-					return;
-				case FN_SLTU: {
-					// zero extend
-					long rsValue = reg[rs] & 0xffffffffL;
-					long rtValue = reg[rt] & 0xffffffffL;
-					reg[rd] = rsValue < rtValue ? 1 : 0;
-					return;
-				}
-				case FN_TNE:
-					if (reg[rs] != reg[rt]) {
-						throw new CpuException(CpuException.Type.Trap);
-					}
-					return;
-				default:
-					throw new IllegalArgumentException("invalid fn " + opString(fn));
+				return;
+			default:
+				throw new IllegalArgumentException("invalid fn " + opString(fn));
 		}
+	}
+	
+	public void handleException(String type, int value) {
+		throw new CpuException(type + " " + value);
 	}
 	
 	private void execFn2 (final int isn) {
@@ -595,8 +596,7 @@ public final class Cpu {
 				int erl = (newVal >> 2) & 0x1;
 				int exl = (newVal >> 1) & 0x1;
 				int ie = (newVal >> 0) & 0x1;
-				log.debug("set status cp=%x bev=%x im=%x um=%x erl=%x exl=%x ie=%x",
-						cp, bev, im, um, erl, exl, ie);
+				log.debug("set status cp=%x bev=%x im=%x um=%x erl=%x exl=%x ie=%x", cp, bev, im, um, erl, exl, ie);
 				if (ie == 1) {
 					throw new RuntimeException("interrupts enabled");
 				}
@@ -693,7 +693,7 @@ public final class Cpu {
 					throw new RuntimeException("unknown fcsr %x\n");
 				}
 				break;
-				
+			
 			default:
 				throw new RuntimeException("write unimplemented fp control register " + fs + ", " + Integer.toHexString(rtValue));
 		}
@@ -772,7 +772,7 @@ public final class Cpu {
 			case FP_FN_CVT_S:
 				storeSingle(fpReg, fd, fpReg[fs]);
 				return;
-			default: 
+			default:
 				throw new RuntimeException("invalid fpu fn word " + opString(fn));
 		}
 	}

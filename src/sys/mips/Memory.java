@@ -4,8 +4,11 @@ import java.io.PrintStream;
 
 public final class Memory {
 	
-	/** 1mb page size (divided by 4) */
-	private static final int PAGELEN = 0x40000;
+	/** 1mb page size */
+	private static final int PAGESIZE = 0x100000;
+	
+	/** page size in ints */
+	private static final int PAGELEN = PAGESIZE / 4;
 	
 	/** return index of 1mb page */
 	private static int pageIndex (int addr) {
@@ -19,12 +22,23 @@ public final class Memory {
 	
 	private final int[][] pages = new int[0x1000][];
 	private final Symbols symbols = new Symbols();
+	private final int wordAddrXor;
+	private final int halfWordAddrXor;
 	
 	private int system;
 	private SystemListener systemListener;
 	
 	public Memory () {
-		//
+		this(false);
+	}
+	
+	public Memory (boolean littleEndian) {
+		this.wordAddrXor = littleEndian ? 0 : 3;
+		this.halfWordAddrXor = littleEndian ? 0 : 2;
+	}
+	
+	public int getWordAddrXor () {
+		return wordAddrXor;
 	}
 	
 	public Symbols getSymbols () {
@@ -64,8 +78,10 @@ public final class Memory {
 			if (addr > system) {
 				fireSystemRead(addr, w);
 			}
+			// 0,1,2,3 xor 0 -> 0,1,2,3
+			// 0,1,2,3 xor 3 -> 3,2,1,0
 			// 0,1,2,3 -> 3,2,1,0 -> 24,16,8,0
-			final int s = (3 - (addr & 3)) << 3;
+			final int s = ((addr & 3) ^ wordAddrXor) << 3;
 			return (byte) (w >>> s);
 		} else {
 			throw new IllegalArgumentException("load unmapped " + Integer.toHexString(addr));
@@ -78,7 +94,7 @@ public final class Memory {
 			fireSystemWrite(addr, b);
 		}
 	}
-
+	
 	/** store byte into system area, no system write event */
 	public void storeByteSystem (final int systemAddr, final byte b) {
 		storeByteImpl(systemAddr + system, b);
@@ -89,7 +105,7 @@ public final class Memory {
 		final int[] page = pages[pageIndex(addr)];
 		if (page != null) {
 			final int i = wordIndex(addr);
-			final int s = (3 - (addr & 3)) << 3;
+			final int s = ((addr & 3) ^ wordAddrXor) << 3;
 			final int andm = ~(0xff << s);
 			final int orm = (b & 0xff) << s;
 			page[i] = (page[i] & andm) | orm;
@@ -108,7 +124,7 @@ public final class Memory {
 					fireSystemRead(addr, w);
 				}
 				// 0,2 -> 2,0 -> 16,0
-				final int s = (2 - (addr & 2)) << 3;
+				final int s = ((addr & 2) ^ halfWordAddrXor) << 3;
 				return (short) (w >>> s);
 			} else {
 				throw new IllegalArgumentException("load unmapped " + Integer.toHexString(addr));
@@ -123,7 +139,7 @@ public final class Memory {
 			final int[] page = pages[pageIndex(addr)];
 			if (page != null) {
 				// 0,2 -> 2,0 -> 16,0
-				final int s = (2 - (addr & 2)) << 3;
+				final int s = ((addr & 2) ^ halfWordAddrXor) << 3;
 				final int andm = ~(0xffff << s);
 				final int orm = (hw & 0xffff) << s;
 				final int i = wordIndex(addr);
@@ -146,7 +162,7 @@ public final class Memory {
 		}
 		return w;
 	}
-
+	
 	/** load word from system area, doesn't call system listener */
 	public final int loadWordSystem (final int addr) {
 		return pages[pageIndex(addr + system)][wordIndex(addr)];
@@ -181,7 +197,7 @@ public final class Memory {
 			fireSystemWrite(addr, word);
 		}
 	}
-
+	
 	/** store word into system area, unchecked, doesn't call system listener */
 	public void storeWordSystem (final int systemAddr, final int word) {
 		storeWordImpl(systemAddr + system, word);
@@ -202,15 +218,16 @@ public final class Memory {
 	
 	/** load boxed word, null if unmapped */
 	public final Long loadDoubleWordSafe (final int addr) {
-			final int[] page = pages[pageIndex(addr)];
-			if (page != null) {
-				final long w1 = page[wordIndex(addr)] & 0xffff_ffffL;
-				final long w2 = page[wordIndex(addr + 4)] & 0xffff_ffffL;
-				return Long.valueOf((w1 << 32) | w2);
-			} else {
-				return null;
-			}
+		// XXX might need swap
+		final int[] page = pages[pageIndex(addr)];
+		if (page != null) {
+			final long w1 = page[wordIndex(addr)] & 0xffff_ffffL;
+			final long w2 = page[wordIndex(addr + 4)] & 0xffff_ffffL;
+			return Long.valueOf((w1 << 32) | w2);
+		} else {
+			return null;
 		}
+	}
 	
 	public void print (PrintStream ps) {
 		ps.println("memory map");
@@ -227,7 +244,7 @@ public final class Memory {
 			}
 		}
 	}
-
+	
 	private void fireSystemRead (int addr, int value) {
 		if (systemListener != null) {
 			systemListener.systemRead(addr - system, value);

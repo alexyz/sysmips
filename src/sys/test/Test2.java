@@ -4,7 +4,7 @@ import java.io.RandomAccessFile;
 
 import sys.mips.*;
 
-import static sys.mips.Constants.*;
+import static sys.mips.MipsConstants.*;
 
 public class Test2 {
 	

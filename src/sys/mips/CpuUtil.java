@@ -6,7 +6,7 @@ import java.util.*;
 import sys.elf.*;
 
 import static sys.mips.MemoryUtil.*;
-import static sys.mips.Constants.*;
+import static sys.mips.MipsConstants.*;
 import static sys.mips.IsnUtil.*;
 
 /**
@@ -30,6 +30,15 @@ public class CpuUtil {
 			}
 		}
 		
+//		int gp;
+//	    for (ELF32Section section : elf.sections) {
+//	      if (section.type == ELF32Section.SHT_MIPS_REGINFO) {
+//	        file.seek(section.fileOffset + 20);
+//	        gp = elf.header.decode(file.readInt());
+//	        break;
+//	      }
+//	    }
+		
 		for (ELF32Symbol symbol : elf.symbols) {
 			if (symbol.getBind() == ELF32Symbol.STB_GLOBAL && symbol.size > 0) {
 				cpu.getMemory().getSymbols().put(symbol.value, symbol.name);
@@ -43,7 +52,7 @@ public class CpuUtil {
 	}
 	
 	/**
-	 * store argument and environment vectors and load registers ready for a
+	 * store argument and environment vectors and load argument registers ready for a
 	 * call to a main() function
 	 */
 	public static void setMainArgs (final Cpu cpu, final int addr, final List<String> argsList, final List<String> envList) {

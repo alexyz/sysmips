@@ -3,7 +3,11 @@ package sys.mips;
 /**
  * mips constants
  */
-public final class Constants {
+public final class MipsConstants {
+	
+	public static final String BREAKPOINT_EX = "breakpoint";
+	public static final String SYSCALL_EX = "syscall";
+	public static final String TRAP_EX = "trap";
 	
 	// any instructions added here must also be added to IsnSet!
 	
@@ -263,6 +267,10 @@ public final class Constants {
 	//
 
 	/** first argument register */
+	public static final int REG_ZERO = 0;
+	public static final int REG_AT = 1;
+	public static final int REG_V0 = 2;
+	public static final int REG_V1 = 3;
 	public static final int REG_A0 = 4;
 	public static final int REG_A1 = 5;
 	public static final int REG_A2 = 6;
@@ -305,7 +313,7 @@ public final class Constants {
 	/** system coprocessor processor id register (15,0) */
 	public static final int CPR_PRID = 15 * 8 + 0;
 	
-	private Constants () {
+	private MipsConstants () {
 		//
 	}
 	

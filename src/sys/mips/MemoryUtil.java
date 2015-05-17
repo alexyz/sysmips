@@ -43,7 +43,7 @@ public class MemoryUtil {
 		return p;
 	}
 	
-	/** return pointer to first byte after data */
+	/** store null terminated string, return pointer to first byte after data */
 	public static final int storeString (final Memory mem, final int addr, String value) {
 		System.out.println("memory store string " + value);
 		return storeBytes(mem, addr, (value + "\0").getBytes(StandardCharsets.US_ASCII));
@@ -51,7 +51,7 @@ public class MemoryUtil {
 	
 	/** return pointer to first byte after data */
 	public static final int storeBytes (final Memory mem, final int addr, final byte[] data) {
-		System.out.println("memory store bytes " + data.length);
+		//System.out.println("memory store bytes " + data.length);
 		if (data.length > 0) {
 			if ((addr & 3) == 0 && (data.length & 3) == 0) {
 				storeBytesAsWords(mem, addr, data, 0, data.length);
@@ -71,12 +71,14 @@ public class MemoryUtil {
 	
 	private static void storeBytesAsWords (final Memory mem, final int addr, byte[] data, int offset, int len) {
 		System.out.println("memory store bytes as words " + len);
+		// store as little or big endian...
+		int x = mem.getWordAddrXor();
 		if ((addr & 3) == 0 && (len & 3) == 0) {
 			for (int n = offset; n < (offset + len); n += 4) {
-				final int b1 = data[n] & 0xff;
-				final int b2 = data[n + 1] & 0xff;
-				final int b3 = data[n + 2] & 0xff;
-				final int b4 = data[n + 3] & 0xff;
+				final int b1 = data[n ^ x] & 0xff;
+				final int b2 = data[(n + 1) ^ x] & 0xff;
+				final int b3 = data[(n + 2) ^ x] & 0xff;
+				final int b4 = data[(n + 3) ^ x] & 0xff;
 				mem.storeWord(addr + n, (b1 << 24) | (b2 << 16) | (b3 << 8) | b4);
 			}
 		} else {

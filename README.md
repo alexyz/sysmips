@@ -1,24 +1,30 @@
 # Sysmips
 
-MIPS32r2/Malta system emulator (NOT officially associated with Imagination Technologies)
+MIPS 4Kc/Malta system emulator, intended to run Linux 3.2
 
-Intended to run the Debian Stable Linux 3.2 for MIPS Malta kernel
+Loosely based on the mipsem project (a user-level MIPS R2000A/Linux emulator)
 
-Loosely based on the mipsem/cfern project (a user-level MIPS/Linux emulator)
-
-For a MIPS compiler, try Sourcery CodeBench Lite Edition for MIPS ELF
+This project is NOT officially associated with Imagination Technologies
 
 ## Suggested Reading
 
 * [LinuxMIPS Wiki](http://www.linux-mips.org/wiki/MIPS_Malta)
-* [MIPS Architecture For Programmers Volumes I-III](http://www.imgtec.com/mips/architectures/mips32.asp)
+* MIPS32 Architecture For Programmers Volume I: Introduction to the MIPS32 Architecture (c. 2001 for MIPS32 release 1)
+* MIPS32 Architecture For Programmers Volume II: The MIPS32 Instruction Set (c. 2001)
+* MIPS32 Architecture For Programmers Volume III: The MIPS32 Privileged Resource Architecture (c. 2001)
+* MIPS32 4K Processor Core Family Software User's Manual (c. 2001-2002)
 * TIS ELF Specification
 * MIPS Malta User's Manual
 * MIPS YAMON User's Manual, Reference Manual and source code
-* Linux source code: [arch/mips/include/asm](http://lxr.linux.no/linux+v3.2.65/arch/mips/include/asm/), [arch/mips/mti-malta](http://lxr.linux.no/linux+v3.2.65/arch/mips/mti-malta/)
+* Linux 3.2.68 source code, particularly arch/mips/include/asm and arch/mips/mti-malta
 * GRUB source code
 * Galileo GT-64120 System Controller Datasheet
 * System V Application Binary Interface for MIPS
+
+## Suggested Software
+
+* [Linux kernel image](https://packages.debian.org/stable/kernel/linux-image-3.2.0-4-4kc-malta) 
+* Sourcery CodeBench Lite Edition for MIPS ELF (a MIPS compiler for Windows) 
 
 ## Screenshot
 

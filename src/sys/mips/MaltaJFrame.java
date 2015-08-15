@@ -147,7 +147,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 			
 		} catch (Exception e) {
 			e.printStackTrace();
-			showErrorDialog("Start", e.toString());
+			showErrorDialog("Start", e);
 			return;
 		}
 		
@@ -159,7 +159,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 			} catch (Exception e) {
 				e.printStackTrace(System.out);
 				SwingUtilities.invokeLater(() -> {
-					showErrorDialog("Start", e.toString());
+					showErrorDialog("Start", e);
 				});
 			} finally {
 				malta = null;
@@ -170,8 +170,30 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		t.start();
 	}
 	
+	private void showErrorDialog(String title, Throwable t) {
+		StringBuilder sb = new StringBuilder();
+		while (t != null) {
+			if (sb.length() > 0) {
+				sb.append(": ");
+			}
+			sb.append(t);
+			t = t.getCause();
+		}
+		showErrorDialog(title, sb.toString());
+	}
+	
 	private void showErrorDialog(String title, String msg) {
-		JOptionPane.showMessageDialog(this, msg, title, JOptionPane.ERROR_MESSAGE);
+		StringBuilder sb = new StringBuilder();
+		int l = 0;
+		for (int n = 0; n < msg.length(); n++) {
+			final char c = msg.charAt(n);
+			sb.append(c);
+			if (l++ > 72 && c == ' ') {
+				sb.append("\n");
+				l = 0;
+			}
+		}
+		JOptionPane.showMessageDialog(this, sb.toString(), title, JOptionPane.ERROR_MESSAGE);
 	}
 
 	@Override

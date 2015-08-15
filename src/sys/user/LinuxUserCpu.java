@@ -19,11 +19,11 @@ class LinuxUserCpu extends Cpu {
 	}
 	
 	@Override
-	public void handleException (String type, int value) {
+	public void execExn (String type, int value) {
 		if (type.equals(SYSCALL_EX)) {
 			syscall(getRegister(REG_V0) - 4000);
 		} else {
-			super.handleException(type, value);
+			super.execExn(type, value);
 		}
 	}
 	

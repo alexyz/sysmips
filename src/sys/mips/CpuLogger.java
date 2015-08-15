@@ -41,11 +41,15 @@ public class CpuLogger {
 	
 	public void call (int addr) {
 		calls.add(cpu.getMemory().getSymbols().getName(addr, false));
+		info("call " + getCalls());
+	}
+
+	public String getCalls () {
 		StringBuilder sb = new StringBuilder();
 		for (String call : calls) {
 			sb.append("/").append(call);
 		}
-		debug("call " + sb.toString());
+		return sb.toString();
 	}
 	
 	public void ret () {

@@ -9,13 +9,10 @@ import static sys.mips.IsnUtil.*;
 
 public class Cpu {
 	
-	private static final int KSSEG = 0xc000_0000;
-	private static final int KSEG0 = 0x8000_0000;
-	
 	/** general purpose registers, and hi/lo */
 	private final int[] reg = new int[34];
-	/** coprocessor 0 registers (32*8) */
-	private final int[] cpReg = new int[256];
+	/** coprocessor 0 registers */
+	private final int[] cpReg = new int[32*8];
 	/**
 	 * coprocessor 1 registers (longs/doubles in consecutive registers, least
 	 * significant word first!)
@@ -39,18 +36,26 @@ public class Cpu {
 		// linux_3.2.65\arch\mips\include\asm\cpu-features.h
 		// linux_3.2.65\arch\mips\include\asm\cpu.h
 		// linux_3.2.65\arch\mips\include\asm\mipsregs.h
+		
 		// default values on reboot
 		// 3<<28: CU1/CU0: access to coprocessor 0 and 1
 		// 1<<22: BEV: bootstrap exception vectors
 		// 1<<2: ERL: reset error level
 		// 1<<1: EXL: exception level
-		int st = (3 << 28) | (1 << 22) | (1 << 2) | (1 << 1);
-		cpReg[CPR_STATUS] = st;
+		cpReg[CPR_STATUS] = (3 << 28) | (1 << 22) | (1 << 2) | (1 << 1);
 		// kernel mode if EXL or ERL
-		kernelMode = (st & 0x6) != 0;
-		// TODO MIPS 4KC = 0x18000
-		cpReg[CPR_PRID] = 0x0110;
-		// support S, D, W, L
+		kernelMode = true;
+		
+		// 0x10000 = MIPS, 0x8000 = 4KC 
+		cpReg[CPR_PRID] = 0x18000;
+		
+		// 15: big endian, 7: TLB
+		cpReg[CPR_CONFIG] = (1 << 31) | (1 << 15) | (1 << 7) | (1 << 1);
+		
+		// 30: tlb entries - 1, 3: watch registers, 1: ejtag
+		cpReg[CPR_CONFIG1] = (15 << 30) | (1 << 3) | (1 << 1);
+		
+		// support S, D, W, L (unlike the 4kc...)
 		int fcr = (1 << 16) | (1 << 17) | (1 << 20) | (1 << 21) | (1 << 8);
 		fpControlReg[FPCR_FIR] = fcr;
 	}
@@ -149,7 +154,7 @@ public class Cpu {
 			log.debug("isn count " + l);
 			System.out.println();
 			log.print(System.out);
-			throw e;
+			throw new RuntimeException("stop in " + log.getCalls(), e);
 		}
 	}
 	
@@ -181,6 +186,8 @@ public class Cpu {
 	 * translate virtual address to physical
 	 */
 	private final int translate (int addr) {
+//		private static final int KSSEG = 0xc000_0000;
+//		private static final int KSEG0 = 0x8000_0000;
 		// can only do signed compare...
 		if (addr >= 0) {
 			// from 0 to KSEG0 (2GB mark)
@@ -461,10 +468,10 @@ public class Cpu {
 				}
 				return;
 			case FN_SYSCALL:
-				handleException(SYSCALL_EX, syscall(isn));
+				execExn(SYSCALL_EX, syscall(isn));
 				return;
 			case FN_BREAK:
-				handleException(BREAKPOINT_EX, syscall(isn));
+				execExn(BREAKPOINT_EX, syscall(isn));
 				return;
 			case FN_MFHI:
 				reg[rd] = reg[REG_HI];
@@ -548,7 +555,7 @@ public class Cpu {
 			}
 			case FN_TNE:
 				if (reg[rs] != reg[rt]) {
-					handleException(TRAP_EX, 0);
+					execExn(TRAP_EX, 0);
 				}
 				return;
 			default:
@@ -556,7 +563,7 @@ public class Cpu {
 		}
 	}
 	
-	public void handleException(String type, int value) {
+	protected void execExn(String type, int value) {
 		throw new CpuException(type + " " + value);
 	}
 	
@@ -606,44 +613,47 @@ public class Cpu {
 	
 	private final void execCpMfc0 (final int isn) {
 		final int rt = rt(isn);
-		final int rd = rd(isn);
+		final int cpr = rd(isn);
 		final int sel = sel(isn);
-		final int cpr = rd * 8 + sel;
 		
-		switch (cpr) {
+		switch (cpr + sel * 32) {
 			case CPR_STATUS:
 			case CPR_PRID:
+			case CPR_CONFIG:
+			case CPR_CONFIG1:
 				break;
 			
 			default:
-				throw new RuntimeException("move from unknown cp reg " + rd + ", " + sel);
+				throw new RuntimeException("move from unknown cp reg " + cpr + ", " + sel);
 		}
 		
 		final int val = cpReg[cpr];
 		reg[rt] = val;
-		// System.out.println("mfc0 " + rd + "." + sel + " -> 0x" +
-		// Integer.toHexString(val));
 		return;
 	}
 	
+	/** move to system coprocessor register */
 	private final void execCpMtc0 (final int isn) {
 		final int rt = rt(isn);
-		final int rd = rd(isn);
+		final int cpr = rd(isn);
 		final int sel = sel(isn);
-		final int cpr = rd * 8 + sel;
 		final int oldVal = cpReg[cpr];
-		int newVal = reg[rt];
+		// the requested value
+		final int regrt = reg[rt];
+		final int newVal;
 		
-		switch (cpr) {
+		switch (cpr + sel * 32) {
 			case CPR_CONTEXT:
-				if (newVal != 0) {
-					throw new RuntimeException("unknown ctx reg value " + Integer.toHexString(newVal));
+				if (regrt == 0) {
+					newVal = 0;
+				} else {
+					throw new RuntimeException("unknown ctx reg value " + Integer.toHexString(regrt));
 				}
 				break;
 			case CPR_STATUS: {
 				// allow only cp0/1, bev, im7-0, um, erl, exl, ie
 				int mask = 0b0011_0000_0100_0000_1111_1111_0001_0111;
-				newVal = newVal & mask;
+				newVal = regrt & mask;
 				int cp = (newVal >> 28) & 0x3;
 				int bev = (newVal >> 22) & 0x1;
 				int im = (newVal >> 8) & 0xff;
@@ -657,12 +667,15 @@ public class Cpu {
 				}
 				break;
 			}
+			case CPR_HWREN:
+				newVal = regrt & 0x7;
+				break;
 			default:
-				throw new RuntimeException("move to unknown cp reg " + rd + ", " + sel);
+				throw new RuntimeException("move to unknown cp reg " + cpr + ", " + sel);
 		}
 		
 		if (oldVal != newVal) {
-			log.info("mtc0 " + rd + "." + sel + " was 0x" + Integer.toHexString(oldVal) + " now 0x" + Integer.toHexString(newVal));
+			log.info("mtc0 " + cpr + "." + sel + " was 0x" + Integer.toHexString(oldVal) + " now 0x" + Integer.toHexString(newVal));
 			cpReg[cpr] = newVal;
 		}
 	}

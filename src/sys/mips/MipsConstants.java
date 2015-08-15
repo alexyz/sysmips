@@ -286,7 +286,7 @@ public final class MipsConstants {
 	// floating point control registers and constants
 	//
 
-	/** fp control implementation register */
+	/** floating point control implementation register */
 	public static final int FPCR_FIR = 0;
 	/** floating point condition codes register */
 	public static final int FPCR_FCCR = 25;
@@ -307,11 +307,17 @@ public final class MipsConstants {
 	//
 	
 	/** system coprocessor context register (4,0) */
-	public static final int CPR_CONTEXT = 4 * 8 + 0;
+	public static final int CPR_CONTEXT = 4*8+0;
+	/** system coprocessor hardware enable register (8,0) */
+	public static final int CPR_HWREN = 8*8+0;
 	/** system coprocessor status register (12,0) */
-	public static final int CPR_STATUS = 12 * 8 + 0;
+	public static final int CPR_STATUS = 12*8+0;
 	/** system coprocessor processor id register (15,0) */
-	public static final int CPR_PRID = 15 * 8 + 0;
+	public static final int CPR_PRID = 15*8+0;
+	/** system coprocessor config register (16,0) */
+	public static final int CPR_CONFIG = 16*8+0;
+	/** system coprocessor config1 register (16,1) */
+	public static final int CPR_CONFIG1 = 16*8+1;
 	
 	private MipsConstants () {
 		//

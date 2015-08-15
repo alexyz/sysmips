@@ -315,9 +315,28 @@ public final class MipsConstants {
 	/** system coprocessor processor id register (15,0) */
 	public static final int CPR_PRID = 15*8+0;
 	/** system coprocessor config register (16,0) */
-	public static final int CPR_CONFIG = 16*8+0;
+	public static final int CPR_CONFIG0 = 16*8+0;
 	/** system coprocessor config1 register (16,1) */
 	public static final int CPR_CONFIG1 = 16*8+1;
+	/** system coprocessor watch lo register (18,0) */
+	public static final int CPR_WATCHLO = 18*8+0;
+	
+	/** interrupt enable */
+	public static final int CPR_STATUS_IE = 1 << 0;
+	/** exception level */
+	public static final int CPR_STATUS_EXL = 1 << 1;
+	/** reset error level */
+	public static final int CPR_STATUS_ERL = 1 << 2;
+	/** user mode */
+	public static final int CPR_STATUS_UM = 1 << 4;
+	/** interrupt mask (7 bits) */
+	public static final int CPR_STATUS_IM = 0x7f << 8;
+	/** bootstrap exception vectors */
+	public static final int CPR_STATUS_BEV = 1 << 22;
+	/** access to system coprocessor */
+	public static final int CPR_STATUS_CU0 = 1 << 28;
+	/** access to floating point coprocessor */
+	public static final int CPR_STATUS_CU1 = 1 << 29;
 	
 	private MipsConstants () {
 		//

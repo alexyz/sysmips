@@ -30,6 +30,7 @@ public class Cpu {
 	private int rmwPhysicalAddress;
 	private FpRound roundingMode = FpRound.NONE;
 	private boolean kernelMode;
+	private boolean interruptEnable;
 	
 	public Cpu (boolean littleEndian) {
 		memory = new Memory(littleEndian);
@@ -38,26 +39,22 @@ public class Cpu {
 		// linux_3.2.65\arch\mips\include\asm\mipsregs.h
 		
 		// default values on reboot
-		// 3<<28: CU1/CU0: access to coprocessor 0 and 1
-		// 1<<22: BEV: bootstrap exception vectors
-		// 1<<2: ERL: reset error level
-		// 1<<1: EXL: exception level
-		cpReg[CPR_STATUS] = (3 << 28) | (1 << 22) | (1 << 2) | (1 << 1);
-		// kernel mode if EXL or ERL
-		kernelMode = true;
+		cpReg[CPR_STATUS] = CPR_STATUS_EXL | CPR_STATUS_ERL | CPR_STATUS_BEV | CPR_STATUS_CU0 | CPR_STATUS_CU1;
 		
 		// 0x10000 = MIPS, 0x8000 = 4KC 
 		cpReg[CPR_PRID] = 0x18000;
 		
 		// 15: big endian, 7: TLB
-		cpReg[CPR_CONFIG] = (1 << 31) | (1 << 15) | (1 << 7) | (1 << 1);
+		cpReg[CPR_CONFIG0] = (1 << 31) | ((littleEndian?0:1) << 15) | (1 << 7) | (1 << 1);
 		
-		// 30: tlb entries - 1, 3: watch registers, 1: ejtag
-		cpReg[CPR_CONFIG1] = (15 << 30) | (1 << 3) | (1 << 1);
+		// 25: tlb entries - 1
+		// should enable 3: watch registers and 1: ejtag, but we don't want them
+		cpReg[CPR_CONFIG1] = (15 << 25);
 		
 		// support S, D, W, L (unlike the 4kc...)
-		int fcr = (1 << 16) | (1 << 17) | (1 << 20) | (1 << 21) | (1 << 8);
-		fpControlReg[FPCR_FIR] = fcr;
+		fpControlReg[FPCR_FIR] = (1 << 16) | (1 << 17) | (1 << 20) | (1 << 21) | (1 << 8);
+		
+		updateStatus();
 	}
 	
 	public int[] getCpRegisters () {
@@ -615,11 +612,12 @@ public class Cpu {
 		final int rt = rt(isn);
 		final int cpr = rd(isn);
 		final int sel = sel(isn);
+		final int i = cpr * 8 + sel;
 		
-		switch (cpr + sel * 32) {
+		switch (i) {
 			case CPR_STATUS:
 			case CPR_PRID:
-			case CPR_CONFIG:
+			case CPR_CONFIG0:
 			case CPR_CONFIG1:
 				break;
 			
@@ -627,8 +625,7 @@ public class Cpu {
 				throw new RuntimeException("move from unknown cp reg " + cpr + ", " + sel);
 		}
 		
-		final int val = cpReg[cpr];
-		reg[rt] = val;
+		reg[rt] = cpReg[i];
 		return;
 	}
 	
@@ -637,46 +634,52 @@ public class Cpu {
 		final int rt = rt(isn);
 		final int cpr = rd(isn);
 		final int sel = sel(isn);
-		final int oldVal = cpReg[cpr];
-		// the requested value
+		final int i = cpr * 8 + sel;
+		final int value = cpReg[cpr];
 		final int regrt = reg[rt];
-		final int newVal;
+		int newValue = value;
 		
-		switch (cpr + sel * 32) {
+		switch (i) {
 			case CPR_CONTEXT:
-				if (regrt == 0) {
-					newVal = 0;
-				} else {
+				if (regrt != 0) {
 					throw new RuntimeException("unknown ctx reg value " + Integer.toHexString(regrt));
 				}
 				break;
-			case CPR_STATUS: {
-				// allow only cp0/1, bev, im7-0, um, erl, exl, ie
-				int mask = 0b0011_0000_0100_0000_1111_1111_0001_0111;
-				newVal = regrt & mask;
-				int cp = (newVal >> 28) & 0x3;
-				int bev = (newVal >> 22) & 0x1;
-				int im = (newVal >> 8) & 0xff;
-				int um = (newVal >> 4) & 0x1;
-				int erl = (newVal >> 2) & 0x1;
-				int exl = (newVal >> 1) & 0x1;
-				int ie = (newVal >> 0) & 0x1;
-				log.debug("set status cp=%x bev=%x im=%x um=%x erl=%x exl=%x ie=%x", cp, bev, im, um, erl, exl, ie);
-				if (ie == 1) {
-					throw new RuntimeException("interrupts enabled");
-				}
-				break;
-			}
 			case CPR_HWREN:
-				newVal = regrt & 0x7;
+				newValue = regrt & 0x7;
+				break;
+			case CPR_STATUS:
+				// don't need to preserve anything
+				newValue = regrt & (CPR_STATUS_CU1 | CPR_STATUS_CU0 | CPR_STATUS_BEV | 
+						CPR_STATUS_IM | CPR_STATUS_UM | CPR_STATUS_ERL | 
+						CPR_STATUS_EXL | CPR_STATUS_IE);
 				break;
 			default:
 				throw new RuntimeException("move to unknown cp reg " + cpr + ", " + sel);
 		}
 		
-		if (oldVal != newVal) {
-			log.info("mtc0 " + cpr + "." + sel + " was 0x" + Integer.toHexString(oldVal) + " now 0x" + Integer.toHexString(newVal));
-			cpReg[cpr] = newVal;
+		if (value != newValue) {
+			log.info("mtc0 " + cpr + "." + sel + " was 0x" + Integer.toHexString(value) + " now 0x" + Integer.toHexString(newValue));
+			cpReg[i] = newValue;
+			updateStatus();
+		}
+	}
+
+	private void updateStatus() {
+		int s = cpReg[CPR_STATUS];
+		boolean ie = (s & CPR_STATUS_IE) != 0;
+		boolean exl = (s & CPR_STATUS_EXL) != 0;
+		boolean erl = (s & CPR_STATUS_ERL) != 0;
+		boolean um = (s & CPR_STATUS_UM) != 0;
+		// interrupts enabled if IE = 1 and EXL = 0 and ERL = 0 and DM = 0 (debug mode)
+		interruptEnable = ie && !exl && !erl;
+		// kernel mode if UM = 0, or EXL = 1, or ERL = 1
+		kernelMode = !um || exl || erl;
+		if (interruptEnable) {
+			throw new RuntimeException("interrupts enabled");
+		}
+		if (!kernelMode) {
+			throw new RuntimeException("user mode");
 		}
 	}
 	

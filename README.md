@@ -13,13 +13,13 @@ This project is NOT officially associated with Imagination Technologies
 * MIPS32 Architecture For Programmers Volume II: The MIPS32 Instruction Set (c. 2001)
 * MIPS32 Architecture For Programmers Volume III: The MIPS32 Privileged Resource Architecture (c. 2001)
 * MIPS32 4K Processor Core Family Software User's Manual (c. 2001-2002)
-* TIS ELF Specification
+* Tool Interface Standard (TIS) Executable and Linking Format (ELF) Specification Version 1.2
 * MIPS Malta User's Manual
 * MIPS YAMON User's Manual, Reference Manual and source code
 * Linux 3.2.68 source code, particularly arch/mips/include/asm and arch/mips/mti-malta
 * GRUB source code
 * Galileo GT-64120 System Controller Datasheet
-* System V Application Binary Interface for MIPS
+* System V Application Binary Interface MIPS RISC Processor Supplement 3rd Edition
 
 ## Suggested Software
 

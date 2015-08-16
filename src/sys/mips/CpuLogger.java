@@ -41,7 +41,7 @@ public class CpuLogger {
 	
 	public void call (int addr) {
 		calls.add(cpu.getMemory().getSymbols().getName(addr, false));
-		info("call " + getCalls());
+		debug("call " + getCalls());
 	}
 
 	public String getCalls () {

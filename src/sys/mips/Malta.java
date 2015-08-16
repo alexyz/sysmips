@@ -5,13 +5,17 @@ import java.beans.PropertyChangeSupport;
 public class Malta implements SystemListener {
 	
 	public static final int M_SDRAM = 0x0;
+	public static final int M_UNCACHED_EX_H = 0x100;
+	
 	public static final int M_PCI1 = 0x0800_0000;
+	
 	// TODO not sure about this, connected with value of GT_PCI0IOLD
 	public static final int M_IOBASE = 0x1000_0000;
 	public static final int M_DMA2_MASK_REG = M_IOBASE + 0xD4;
 	public static final int M_PORT = M_IOBASE + 0x03f8;
 	public static final int M_UART_TX = M_PORT;
 	public static final int M_UART_LSR = M_PORT + 5;
+	
 	public static final int M_PCI2 = 0x1800_0000;
 	public static final int M_GTBASE = 0x1be0_0000;
 	public static final int M_UNUSED = 0x1c00_0000;
@@ -53,10 +57,11 @@ public class Malta implements SystemListener {
 		
 		final Symbols sym = mem.getSymbols();
 		sym.put(SYSTEM + M_SDRAM, "M_SDRAM");
+		sym.put(SYSTEM + M_UNCACHED_EX_H, "M_UNCACHED_EX_H", 0x80);
 		sym.put(SYSTEM + M_PCI1, "M_PCI1");
 		sym.put(SYSTEM + M_IOBASE, "M_IOBASE");
 		sym.put(SYSTEM + M_DMA2_MASK_REG, "M_DMA2_MASK_REG");
-		sym.put(SYSTEM + M_PORT, "M_PORT", 65536);
+		sym.put(SYSTEM + M_PORT, "M_PORT", 0x10000);
 		sym.put(SYSTEM + M_UART_LSR, "M_UART_LSR", 1);
 		sym.put(SYSTEM + M_PCI2, "M_PCI2");
 		sym.put(SYSTEM + M_GTBASE, "M_GTBASE");
@@ -85,7 +90,7 @@ public class Malta implements SystemListener {
 	
 	@Override
 	public void systemRead (int addr, int value) {
-		log.debug("system read " + cpu.getMemory().getSymbols().getName(SYSTEM + addr) + " => " + Integer.toHexString(value));
+		log.debug("system read " + getName(addr) + " => " + Integer.toHexString(value));
 		switch (addr) {
 			case M_UART_LSR:
 			case M_REVISION:
@@ -94,12 +99,12 @@ public class Malta implements SystemListener {
 				if (gt.read(addr)) {
 					break;
 				}
-				throw new RuntimeException("unknown malta read " + cpu.getMemory().getSymbols().getName(SYSTEM + addr));
+				throw new RuntimeException("unknown malta read " + getName(addr));
 		}
 	}
 	
 	@Override
-	public void systemWrite (int addr, int value) {
+	public void systemWrite (final int addr, final int value) {
 		switch (addr) {
 			case M_DMA2_MASK_REG:
 				// information in asm/dma.h
@@ -109,14 +114,20 @@ public class Malta implements SystemListener {
 				consoleWrite(value);
 				break;
 			default:
-				if (addr >= M_DISPLAY && addr < M_DISPLAY + 0x100) {
+				if (addr >= M_UNCACHED_EX_H && addr < M_UNCACHED_EX_H + 0x100) {
+					log.info("set uncached exception handler " + getName(SYSTEM + addr) + " <= " + Integer.toHexString(value));
+				} else if (addr >= M_DISPLAY && addr < M_DISPLAY + 0x100) {
 					support.firePropertyChange("display", null, displayText());
 				} else if (gt.write(addr)) {
-					//
+					// ok
 				} else {
-					throw new RuntimeException("unknown system write " + cpu.getMemory().getSymbols().getName(SYSTEM + addr) + " <= " + Integer.toHexString(value));
+					throw new RuntimeException("unknown system write " + getName(SYSTEM + addr) + " <= " + getName(value));
 				}
 		}
+	}
+
+	private String getName (final int addr) {
+		return cpu.getMemory().getSymbols().getName(addr);
 	}
 
 	private void consoleWrite (int value) {

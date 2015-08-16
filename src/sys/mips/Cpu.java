@@ -12,7 +12,7 @@ public class Cpu {
 	/** general purpose registers, and hi/lo */
 	private final int[] reg = new int[34];
 	/** coprocessor 0 registers */
-	private final int[] cpReg = new int[32*8];
+	private final int[] cpReg = new int[64];
 	/**
 	 * coprocessor 1 registers (longs/doubles in consecutive registers, least
 	 * significant word first!)
@@ -29,8 +29,7 @@ public class Cpu {
 	private int cycle;
 	private int rmwPhysicalAddress;
 	private FpRound roundingMode = FpRound.NONE;
-	private boolean kernelMode;
-	private boolean interruptEnable;
+	private boolean kernelMode = true;
 	
 	public Cpu (boolean littleEndian) {
 		memory = new Memory(littleEndian);
@@ -53,8 +52,6 @@ public class Cpu {
 		
 		// support S, D, W, L (unlike the 4kc...)
 		fpControlReg[FPCR_FIR] = (1 << 16) | (1 << 17) | (1 << 20) | (1 << 21) | (1 << 8);
-		
-		updateStatus();
 	}
 	
 	public int[] getCpRegisters () {
@@ -610,79 +607,89 @@ public class Cpu {
 	
 	private final void execCpMfc0 (final int isn) {
 		final int rt = rt(isn);
-		final int cpr = rd(isn);
+		final int rd = rd(isn);
 		final int sel = sel(isn);
-		final int i = cpr * 8 + sel;
+		final int cpr = cpr(rd, sel);
 		
-		switch (i) {
+		switch (cpr) {
 			case CPR_STATUS:
 			case CPR_PRID:
 			case CPR_CONFIG0:
 			case CPR_CONFIG1:
+			case CPR_CAUSE:
 				break;
-			
 			default:
-				throw new RuntimeException("move from unknown cp reg " + cpr + ", " + sel);
+				throw new RuntimeException("move from unknown cp reg " + cpRegName(rd, sel));
 		}
 		
-		reg[rt] = cpReg[i];
+		reg[rt] = cpReg[cpr];
 		return;
 	}
 	
 	/** move to system coprocessor register */
 	private final void execCpMtc0 (final int isn) {
-		final int rt = rt(isn);
-		final int cpr = rd(isn);
+		final int rd = rd(isn);
 		final int sel = sel(isn);
-		final int i = cpr * 8 + sel;
+		final int cpr = cpr(rd, sel);
 		final int value = cpReg[cpr];
-		final int regrt = reg[rt];
-		int newValue = value;
-		
-		switch (i) {
-			case CPR_CONTEXT:
-				if (regrt != 0) {
-					throw new RuntimeException("unknown ctx reg value " + Integer.toHexString(regrt));
-				}
-				break;
-			case CPR_HWREN:
-				newValue = regrt & 0x7;
-				break;
-			case CPR_STATUS:
-				// don't need to preserve anything
-				newValue = regrt & (CPR_STATUS_CU1 | CPR_STATUS_CU0 | CPR_STATUS_BEV | 
-						CPR_STATUS_IM | CPR_STATUS_UM | CPR_STATUS_ERL | 
-						CPR_STATUS_EXL | CPR_STATUS_IE);
-				break;
-			default:
-				throw new RuntimeException("move to unknown cp reg " + cpr + ", " + sel);
-		}
-		
+		final int newValue = reg[rt(isn)];
+
 		if (value != newValue) {
-			log.info("mtc0 " + cpr + "." + sel + " was 0x" + Integer.toHexString(value) + " now 0x" + Integer.toHexString(newValue));
-			cpReg[i] = newValue;
-			updateStatus();
+			log.info("mtc0 " + cpRegName(rd, sel) + " 0x" + Integer.toHexString(value) + " <- 0x" + Integer.toHexString(newValue));
+			
+			switch (cpr) {
+				case CPR_CONTEXT:
+					if (newValue != 0) {
+						throw new RuntimeException("unknown ctx reg value " + Integer.toHexString(newValue));
+					}
+					return;
+				case CPR_STATUS:
+					setStatus(newValue);
+					return;
+				case CPR_CAUSE:
+					setCause(newValue);
+					break;
+				default:
+					throw new RuntimeException("move to unknown cp reg " + cpRegName(rd, sel));
+			}
 		}
 	}
 
-	private void updateStatus() {
-		int s = cpReg[CPR_STATUS];
-		boolean ie = (s & CPR_STATUS_IE) != 0;
-		boolean exl = (s & CPR_STATUS_EXL) != 0;
-		boolean erl = (s & CPR_STATUS_ERL) != 0;
-		boolean um = (s & CPR_STATUS_UM) != 0;
-		// interrupts enabled if IE = 1 and EXL = 0 and ERL = 0 and DM = 0 (debug mode)
-		interruptEnable = ie && !exl && !erl;
+	private void setCause (final int regrt) {
+		final int value = cpReg[CPR_CAUSE];
+		int mask = CPR_CAUSE_IV;
+		if ((regrt & ~mask) != 0) {
+			throw new RuntimeException("unknown cause value " + Integer.toHexString(regrt));
+		}
+		cpReg[CPR_CAUSE] = (value & ~mask) | (regrt & mask);
+	}
+
+	private void setStatus (final int newValue) {
+		final int mask = CPR_STATUS_CU1 | CPR_STATUS_CU0 | CPR_STATUS_BEV | CPR_STATUS_IM | CPR_STATUS_UM | CPR_STATUS_ERL | CPR_STATUS_EXL | CPR_STATUS_IE;
+		if ((newValue & ~mask) != 0) {
+			throw new RuntimeException("unknown status value " + Integer.toHexString(newValue));
+		}
+		// don't need to preserve anything
+		cpReg[CPR_STATUS] = newValue & mask;
+		
+		boolean ie = (newValue & CPR_STATUS_IE) != 0;
+		boolean exl = (newValue & CPR_STATUS_EXL) != 0;
+		boolean erl = (newValue & CPR_STATUS_ERL) != 0;
+		boolean um = (newValue & CPR_STATUS_UM) != 0;
+		
 		// kernel mode if UM = 0, or EXL = 1, or ERL = 1
 		kernelMode = !um || exl || erl;
-		if (interruptEnable) {
-			throw new RuntimeException("interrupts enabled");
-		}
 		if (!kernelMode) {
 			throw new RuntimeException("user mode");
 		}
+		
+		// interrupts enabled if IE = 1 and EXL = 0 and ERL = 0 and DM = 0 (debug mode)
+		boolean interruptsEnabled = ie && !exl && !erl;
+		if (interruptsEnabled) {
+			throw new RuntimeException("interrupts enabled");
+		}
 	}
-	
+
 	private final void execCpFn (final int isn) {
 		final int fn = fn(isn);
 		// ...

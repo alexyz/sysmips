@@ -303,23 +303,25 @@ public final class MipsConstants {
 	public static final int FCSR_RM_RM = 0x3;
 	
 	//
-	// system coprocessor control registers (as register*8+selection)
+	// system coprocessor control registers (as register+selection*32)
 	//
 	
 	/** system coprocessor context register (4,0) */
-	public static final int CPR_CONTEXT = 4*8+0;
+	public static final int CPR_CONTEXT = 4;
 	/** system coprocessor hardware enable register (8,0) */
-	public static final int CPR_HWREN = 8*8+0;
+	public static final int CPR_HWREN = 8;
 	/** system coprocessor status register (12,0) */
-	public static final int CPR_STATUS = 12*8+0;
+	public static final int CPR_STATUS = 12;
+	/** system coprocessor cause register */
+	public static final int CPR_CAUSE = 13;
 	/** system coprocessor processor id register (15,0) */
-	public static final int CPR_PRID = 15*8+0;
+	public static final int CPR_PRID = 15;
 	/** system coprocessor config register (16,0) */
-	public static final int CPR_CONFIG0 = 16*8+0;
+	public static final int CPR_CONFIG0 = 16;
 	/** system coprocessor config1 register (16,1) */
-	public static final int CPR_CONFIG1 = 16*8+1;
+	public static final int CPR_CONFIG1 = 16 + (1*32);
 	/** system coprocessor watch lo register (18,0) */
-	public static final int CPR_WATCHLO = 18*8+0;
+	public static final int CPR_WATCHLO = 18;
 	
 	/** interrupt enable */
 	public static final int CPR_STATUS_IE = 1 << 0;
@@ -337,6 +339,16 @@ public final class MipsConstants {
 	public static final int CPR_STATUS_CU0 = 1 << 28;
 	/** access to floating point coprocessor */
 	public static final int CPR_STATUS_CU1 = 1 << 29;
+	
+	/** use general or special exception vector */
+	public static final int CPR_CAUSE_IV = (1 << 23);
+	/** software interrupt */
+	public static final int CPR_CAUSE_IPSW = (3 << 1);
+	
+	/** return the cpr index for the register and selection */
+	public static int cpr (int rd, int sel) {
+		return rd + sel * 32;
+	}
 	
 	private MipsConstants () {
 		//

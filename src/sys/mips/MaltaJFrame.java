@@ -4,7 +4,6 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
-import java.awt.event.*;
 import java.beans.*;
 import java.io.*;
 import java.util.*;
@@ -33,20 +32,12 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	private final JButton fileButton = new JButton("...");
 	private final Timer timer;
 	
-	private Malta malta;
+	private volatile Malta malta;
 	
 	public MaltaJFrame () {
 		super("Sysmips");
 		
-		timer = new Timer(100, new ActionListener() {
-			@Override
-			public void actionPerformed (ActionEvent e) {
-				final Malta m = malta;
-				if (m != null) {
-					cycleLabel.setText("Cycle " + m.getCpu().getCycle());
-				}
-			}
-		});
+		timer = new Timer(100, e -> updateCycle(malta));
 		timer.start();
 		
 		// should load these from prefs
@@ -96,7 +87,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		setContentPane(p);
 		pack();
 	}
-	
+
 	private void selectFile () {
 		File dir = new File(System.getProperty("user.dir"));
 		JFileChooser fc = new JFileChooser(dir);
@@ -139,8 +130,8 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		
 		displayLabel.setText(" ");
 		consoleArea.setText("");
-		malta = new Malta();
 		
+		Malta malta = new Malta();
 		try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
 			final int top = CpuUtil.loadElf(malta.getCpu(), raf);
 			CpuUtil.setMainArgs(malta.getCpu(), top + 0x100000, args, env);
@@ -152,6 +143,9 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		}
 		
 		malta.getSupport().addPropertyChangeListener(this);
+		updateCycle(malta);
+		
+		this.malta = malta;
 		
 		final Thread t = new Thread(() -> {
 			try {
@@ -159,10 +153,11 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 			} catch (Exception e) {
 				e.printStackTrace(System.out);
 				SwingUtilities.invokeLater(() -> {
+					updateCycle(malta);
 					showErrorDialog("Start", e);
 				});
 			} finally {
-				malta = null;
+				this.malta = null;
 			}
 		});
 		
@@ -199,11 +194,8 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	@Override
 	public void propertyChange (PropertyChangeEvent evt) {
 		// System.out.println("jframe event " + evt);
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run () {
-				update(evt.getPropertyName(), evt.getNewValue());
-			}
+		SwingUtilities.invokeLater(() -> {
+			update(evt.getPropertyName(), evt.getNewValue());
 		});
 	}
 	
@@ -228,4 +220,11 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 				throw new RuntimeException("unknown property " + propertyName);
 		}
 	}
+	
+	private void updateCycle (Malta m) {
+		if (m != null) {
+			cycleLabel.setText("Cycle " + m.getCpu().getCycle());
+		}
+	}
+	
 }

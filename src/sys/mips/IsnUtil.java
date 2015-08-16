@@ -78,7 +78,7 @@ public class IsnUtil {
 				name = rdnames[sel];
 			}
 		}
-		return rd + "." + sel + ":" + name;
+		return rd + ", " + sel + ": " + name;
 	}
 	
 	public static String gpRegName (int reg) {

@@ -91,6 +91,7 @@ public class GT {
 	}
 
 	private int loadWord (int offset) {
+		// swap due to an expected bug in GT
 		return swap(cpu.getMemory().loadWordSystem(gtbase + offset));
 	}
 	

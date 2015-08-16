@@ -19,6 +19,7 @@ public class Cpu {
 	 */
 	private final int[] fpReg = new int[32];
 	private final int[] fpControlReg = new int[32];
+	private final Entry[] tlb = Entry.create(16);
 	private final CpuLogger log = new CpuLogger(this);
 	private final Memory memory;
 	
@@ -116,15 +117,17 @@ public class Cpu {
 			while (true) {
 				// log.add(cpRegString(this));
 				// log.add(gpRegString(this));
-				log.debug(IsnUtil.isnString(this));
-				
 				if (reg[0] != 0) {
 					log.info("reg 0 not 0");
 					reg[0] = 0;
 				}
+				
 				final int isn = loadWord(pc);
+				log.debug(IsnUtil.isnString(this, isn));
+				
 				pc = nextPc;
 				nextPc += 4;
+				
 				if (op(isn) != 0) {
 					execOp(isn);
 				} else {
@@ -135,10 +138,13 @@ public class Cpu {
 				if (isnObj != null) {
 					isnCount.get(isnObj.name)[0]++;
 				}
+				
 				cycle++;
 			}
+			
 		} catch (Exception e) {
-			log.info("stop due to " + e);
+			// can't print pc, it's wrong
+			log.info("stop: " + e);
 			final List<String> l = isnCount.entrySet()
 					.stream()
 					.filter(x -> x.getValue()[0] > 0)
@@ -383,7 +389,8 @@ public class Cpu {
 				storeWord(aa, (reg[rt] << (32 - s)) | (w & (0xffffffff >>> s)));
 				return;
 			}
-			
+			case OP_PREF:
+				return;
 			default:
 				throw new RuntimeException("invalid op " + opString(op));
 		}
@@ -633,27 +640,29 @@ public class Cpu {
 		final int rd = rd(isn);
 		final int sel = sel(isn);
 		final int cpr = cpr(rd, sel);
-		final int value = cpReg[cpr];
+		final int oldValue = cpReg[cpr];
 		final int newValue = reg[rt(isn)];
-		if (value != newValue) {
-			log.info("mtc0 " + cpRegName(rd, sel) + " 0x" + Integer.toHexString(value) + " <- 0x" + Integer.toHexString(newValue));
+		if (oldValue != newValue) {
+			log.info("mtc0 " + cpRegName(rd, sel) + " 0x" + Integer.toHexString(oldValue) + " <- 0x" + Integer.toHexString(newValue));
 		}
 		
 		switch (cpr) {
 			case CPR_INDEX:
-				cpReg[cpr] = value & 0xf;
+				cpReg[cpr] = newValue & 0xf;
 				return;
 			case CPR_ENTRYLO0:
 			case CPR_ENTRYLO1:
-				cpReg[cpr] = value & 0x7fff_ffff;
+				cpReg[cpr] = newValue & 0x7fff_ffff;
 				return;
 			case CPR_ENTRYHI:
-				cpReg[cpr] = value & 0xffff_f0ff;
+				cpReg[cpr] = newValue & 0xffff_f0ff;
+				return;
+			case CPR_PAGEMASK:
+				cpReg[cpr] = oldValue & 0x00ff_f000;
 				return;
 			case CPR_CONTEXT:
-			case CPR_PAGEMASK:
 			case CPR_WIRED:
-				if (value != newValue) {
+				if (oldValue != newValue) {
 					throw new RuntimeException("unknown value " + Integer.toHexString(newValue));
 				}
 				return;
@@ -664,7 +673,7 @@ public class Cpu {
 				setCause(newValue);
 				return;
 			case CPR_CONFIG:
-				if (value != newValue) {
+				if (oldValue != newValue) {
 					throw new RuntimeException("unknown config value " + Integer.toHexString(newValue));
 				}
 				return;
@@ -673,13 +682,13 @@ public class Cpu {
 		}
 	}
 	
-	private void setCause (final int regrt) {
+	private void setCause (final int newValue) {
 		final int value = cpReg[CPR_CAUSE];
 		int mask = CPR_CAUSE_IV;
-		if ((regrt & ~mask) != 0) {
-			throw new RuntimeException("unknown cause value " + Integer.toHexString(regrt));
+		if ((newValue & ~mask) != 0) {
+			throw new RuntimeException("unknown cause value " + Integer.toHexString(newValue));
 		}
-		cpReg[CPR_CAUSE] = (value & ~mask) | (regrt & mask);
+		cpReg[CPR_CAUSE] = (value & ~mask) | (newValue & mask);
 	}
 	
 	private void setStatus (final int newValue) {
@@ -711,9 +720,27 @@ public class Cpu {
 	private final void execCpFn (final int isn) {
 		final int fn = fn(isn);
 		switch (fn) {
-			case CP_FN_TLBWI:
-				// TODO write indexed tlb entry...
-				
+			case CP_FN_TLBWI: {
+				// write indexed tlb entry...
+				int i = cpReg[CPR_INDEX];
+				int lo0 = cpReg[CPR_ENTRYLO0];
+				int lo1 = cpReg[CPR_ENTRYLO1];
+				int pm = cpReg[CPR_PAGEMASK];
+				int hi = cpReg[CPR_ENTRYHI];
+				Entry e = tlb[i];
+				e.pageMask = pm >>> 12;
+				e.virtualPageNumber = hi >>> 12;
+				e.addressSpaceId = (hi >>> 12) & 0xff;
+				e.global = (lo0 & lo1 & 1) != 0;
+				e.data0.physicalFrameNumber = (lo0 >>> 6) & 0x7ffff;
+				e.data0.dirty = (lo0 & 4) != 0;
+				e.data0.valid = (lo0 & 2) != 0;
+				e.data1.physicalFrameNumber = (lo1 >>> 6) & 0x7ffff;
+				e.data1.dirty = (lo1 & 4) != 0;
+				e.data1.valid = (lo1 & 2) != 0;
+				log.info("updated tlb[" + i + "]=" + e);
+				return;
+			}
 			default:
 				throw new RuntimeException("invalid coprocessor fn " + opString(fn));
 		}
@@ -755,11 +782,11 @@ public class Cpu {
 				return;
 				
 			case FP_RS_CFC1:
-				execFpuCfc1(isn);
+				execFpuCopyFrom(isn);
 				return;
 				
 			case FP_RS_CTC1:
-				execFpuCtc1(isn);
+				execFpuCopyTo(isn);
 				return;
 				
 			default:
@@ -768,7 +795,7 @@ public class Cpu {
 		
 	}
 	
-	private void execFpuCfc1 (final int isn) {
+	private void execFpuCopyFrom (final int isn) {
 		final int rt = rt(isn);
 		final int fs = fs(isn);
 		
@@ -784,7 +811,7 @@ public class Cpu {
 		}
 	}
 	
-	private void execFpuCtc1 (final int isn) {
+	private void execFpuCopyTo (final int isn) {
 		final int rtValue = reg[rt(isn)];
 		final int fs = fs(isn);
 		

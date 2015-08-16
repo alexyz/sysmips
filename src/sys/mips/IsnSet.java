@@ -91,6 +91,7 @@ public class IsnSet {
 		addIsn(newOp(OP_SWR, "swr", SF_STORE));
 		addIsn(newOp(OP_LL, "ll", SF_LOAD));
 		addIsn(newOp(OP_LWC1, "lwc1", "{ft} <- [{base}+{offset}]: {membaseoffsets} <- {baseoffset}"));
+		addIsn(newOp(OP_PREF, "pref", "{rt}, [{base}+{offset}]: {baseoffset}"));
 		addIsn(newOp(OP_LDC1, "ldc1",  "{ft} <- [{base}+{offset}]: {membaseoffsetd} <- {baseoffset}"));
 		addIsn(newOp(OP_SWC1, "swc1", "[{base}+{offset}] <- {ft}: [{baseoffset}] <- {regfts}"));
 		addIsn(newOp(OP_SDC1, "sdc1", "[{base}+{offset}] <- {ft}: [{baseoffset}] <- {regftd}"));
@@ -179,7 +180,7 @@ public class IsnSet {
 		addIsn(newCop1FnX(FP_FNX_MADDS, "madd.s", "{fd} <- {fs} * {ft} + {fr}: {regfss} * {regfts} + {regfrs}"));
 	}
 
-	public Isn getIsn(int isn) {
+	public Isn getIsn (int isn) {
 		final int op = op(isn);
 		final int rs = rs(isn);
 		final int rt = rt(isn);

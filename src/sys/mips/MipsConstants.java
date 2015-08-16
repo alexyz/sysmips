@@ -85,6 +85,8 @@ public final class MipsConstants {
 	public static final byte OP_LL = 0x30;
 	/** load word from mem to coprocessor */
 	public static final byte OP_LWC1 = 0x31;
+	/** prefetch */
+	public static final byte OP_PREF = 0x33;
 	/** load double word to floating point */
 	public static final byte OP_LDC1 = 0x35;
 	/** store conditional word */

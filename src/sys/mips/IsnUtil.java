@@ -92,11 +92,10 @@ public class IsnUtil {
 	/**
 	 * Disassemble an instruction
 	 */
-	public static String isnString (final Cpu cpu) {
+	public static String isnString (final Cpu cpu, final int isn) {
 		final Memory mem = cpu.getMemory();
 		final Symbols syms = mem.getSymbols();
 		final int pc = cpu.getPc();
-		final int isn = mem.loadWord(pc);
 		final int op = op(isn);
 		final int rs = rs(isn);
 		final int rt = rt(isn);
@@ -104,7 +103,7 @@ public class IsnUtil {
 		final int rd = rd(isn);
 		
 		Isn isnObj;
-		if (fn == FN_SLL && rd == 0) {
+		if (op == OP_SPECIAL && fn == FN_SLL && rd == 0) {
 			isnObj = NOP;
 		} else {
 			isnObj = IsnSet.INSTANCE.getIsn(isn);

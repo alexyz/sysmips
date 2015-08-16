@@ -44,7 +44,7 @@ public class Cpu {
 		cpReg[CPR_PRID] = 0x18000;
 		
 		// 15: big endian, 7: TLB
-		cpReg[CPR_CONFIG0] = (1 << 31) | ((littleEndian?0:1) << 15) | (1 << 7) | (1 << 1);
+		cpReg[CPR_CONFIG] = (1 << 31) | ((littleEndian?0:1) << 15) | (1 << 7) | (1 << 1);
 		
 		// 25: tlb entries - 1
 		// should enable 3: watch registers and 1: ejtag, but we don't want them
@@ -180,8 +180,8 @@ public class Cpu {
 	 * translate virtual address to physical
 	 */
 	private final int translate (int addr) {
-//		private static final int KSSEG = 0xc000_0000;
-//		private static final int KSEG0 = 0x8000_0000;
+		//		private static final int KSSEG = 0xc000_0000;
+		//		private static final int KSEG0 = 0x8000_0000;
 		// can only do signed compare...
 		if (addr >= 0) {
 			// from 0 to KSEG0 (2GB mark)
@@ -431,8 +431,8 @@ public class Cpu {
 			case FN_SRA:
 				reg[rd] = reg[rt] >> sa(isn);
 				return;
-			case FN_SRLV:
-				reg[rd] = reg[rt] >>> (reg[rs] & 0x1f);
+				case FN_SRLV:
+					reg[rd] = reg[rt] >>> (reg[rs] & 0x1f);
 				return;
 			case FN_SRAV:
 				reg[rd] = reg[rt] >> (reg[rs] & 0x1f);
@@ -595,17 +595,17 @@ public class Cpu {
 		
 		switch (rs) {
 			case CP_RS_MFC0:
-				execCpMfc0(isn);
+				execCpMoveFrom(isn);
 				return;
 			case CP_RS_MTC0:
-				execCpMtc0(isn);
+				execCpMoveTo(isn);
 				return;
 			default:
 				throw new RuntimeException("invalid coprocessor rs " + opString(rs));
 		}
 	}
 	
-	private final void execCpMfc0 (final int isn) {
+	private final void execCpMoveFrom (final int isn) {
 		final int rt = rt(isn);
 		final int rd = rd(isn);
 		final int sel = sel(isn);
@@ -614,9 +614,11 @@ public class Cpu {
 		switch (cpr) {
 			case CPR_STATUS:
 			case CPR_PRID:
-			case CPR_CONFIG0:
+			case CPR_CONFIG:
 			case CPR_CONFIG1:
 			case CPR_CAUSE:
+			case CPR_ENTRYHI:
+			case CPR_WIRED:
 				break;
 			default:
 				throw new RuntimeException("move from unknown cp reg " + cpRegName(rd, sel));
@@ -627,34 +629,50 @@ public class Cpu {
 	}
 	
 	/** move to system coprocessor register */
-	private final void execCpMtc0 (final int isn) {
+	private final void execCpMoveTo (final int isn) {
 		final int rd = rd(isn);
 		final int sel = sel(isn);
 		final int cpr = cpr(rd, sel);
 		final int value = cpReg[cpr];
 		final int newValue = reg[rt(isn)];
-
 		if (value != newValue) {
 			log.info("mtc0 " + cpRegName(rd, sel) + " 0x" + Integer.toHexString(value) + " <- 0x" + Integer.toHexString(newValue));
-			
-			switch (cpr) {
-				case CPR_CONTEXT:
-					if (newValue != 0) {
-						throw new RuntimeException("unknown ctx reg value " + Integer.toHexString(newValue));
-					}
-					return;
-				case CPR_STATUS:
-					setStatus(newValue);
-					return;
-				case CPR_CAUSE:
-					setCause(newValue);
-					break;
-				default:
-					throw new RuntimeException("move to unknown cp reg " + cpRegName(rd, sel));
-			}
+		}
+		
+		switch (cpr) {
+			case CPR_INDEX:
+				cpReg[cpr] = value & 0xf;
+				return;
+			case CPR_ENTRYLO0:
+			case CPR_ENTRYLO1:
+				cpReg[cpr] = value & 0x7fff_ffff;
+				return;
+			case CPR_ENTRYHI:
+				cpReg[cpr] = value & 0xffff_f0ff;
+				return;
+			case CPR_CONTEXT:
+			case CPR_PAGEMASK:
+			case CPR_WIRED:
+				if (value != newValue) {
+					throw new RuntimeException("unknown value " + Integer.toHexString(newValue));
+				}
+				return;
+			case CPR_STATUS:
+				setStatus(newValue);
+				return;
+			case CPR_CAUSE:
+				setCause(newValue);
+				return;
+			case CPR_CONFIG:
+				if (value != newValue) {
+					throw new RuntimeException("unknown config value " + Integer.toHexString(newValue));
+				}
+				return;
+			default:
+				throw new RuntimeException("move to unknown cp reg " + cpRegName(rd, sel));
 		}
 	}
-
+	
 	private void setCause (final int regrt) {
 		final int value = cpReg[CPR_CAUSE];
 		int mask = CPR_CAUSE_IV;
@@ -663,7 +681,7 @@ public class Cpu {
 		}
 		cpReg[CPR_CAUSE] = (value & ~mask) | (regrt & mask);
 	}
-
+	
 	private void setStatus (final int newValue) {
 		final int mask = CPR_STATUS_CU1 | CPR_STATUS_CU0 | CPR_STATUS_BEV | CPR_STATUS_IM | CPR_STATUS_UM | CPR_STATUS_ERL | CPR_STATUS_EXL | CPR_STATUS_IE;
 		if ((newValue & ~mask) != 0) {
@@ -689,11 +707,16 @@ public class Cpu {
 			throw new RuntimeException("interrupts enabled");
 		}
 	}
-
+	
 	private final void execCpFn (final int isn) {
 		final int fn = fn(isn);
-		// ...
-		throw new RuntimeException("invalid coprocessor fn " + opString(fn));
+		switch (fn) {
+			case CP_FN_TLBWI:
+				// TODO write indexed tlb entry...
+				
+			default:
+				throw new RuntimeException("invalid coprocessor fn " + opString(fn));
+		}
 	}
 	
 	private void execFpuRs (final int isn) {
@@ -771,7 +794,7 @@ public class Cpu {
 					throw new RuntimeException("unknown fcsr %x\n");
 				}
 				break;
-			
+				
 			default:
 				throw new RuntimeException("write unimplemented fp control register " + fs + ", " + Integer.toHexString(rtValue));
 		}

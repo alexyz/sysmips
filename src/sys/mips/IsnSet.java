@@ -141,12 +141,12 @@ public class IsnSet {
 		addIsn(newCop0(CP_RS_RDPGPR, "rdpgpr", ""));
 		addIsn(newCop0(CP_RS_WRPGPR, "wrpgpr", ""));
 		
-		addIsn(newCop0Fn(CP_FN_TLBINV, "tlbinv", ""));
-		addIsn(newCop0Fn(CP_FN_TLBINVF, "tlbinvf", ""));
-		addIsn(newCop0Fn(CP_FN_TLBP, "tlbp", ""));
 		addIsn(newCop0Fn(CP_FN_TLBR, "tlbr", ""));
 		addIsn(newCop0Fn(CP_FN_TLBWI, "tlbwi", ""));
+		addIsn(newCop0Fn(CP_FN_TLBINV, "tlbinv", ""));
+		addIsn(newCop0Fn(CP_FN_TLBINVF, "tlbinvf", ""));
 		addIsn(newCop0Fn(CP_FN_TLBWR, "tlbiwr", ""));
+		addIsn(newCop0Fn(CP_FN_TLBP, "tlbp", ""));
 		
 		addIsn(newCop1(FP_RS_MFC1, "mfc1", "{rt} <- {fs}: {regfsx}"));
 		addIsn(newCop1(FP_RS_CFC1, "cfc1", "{rt} <- {fscw}"));

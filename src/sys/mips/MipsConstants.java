@@ -306,22 +306,64 @@ public final class MipsConstants {
 	// system coprocessor control registers (as register+selection*32)
 	//
 	
-	/** system coprocessor context register (4,0) */
+	/** system coprocessor TLB access index register */
+	public static final int CPR_INDEX = 0;
+	/** system coprocessor TLB write random register (changes every clock cycle) */
+	public static final int CPR_RANDOM = 1;
+	/** system coprocessor TLB entry even page register */
+	public static final int CPR_ENTRYLO0 = 2;
+	/** system coprocessor TLB entry odd page register */
+	public static final int CPR_ENTRYLO1 = 3;
+	/** system coprocessor context register (pointer to OS page table entry array) */
 	public static final int CPR_CONTEXT = 4;
-	/** system coprocessor hardware enable register (8,0) */
-	public static final int CPR_HWREN = 8;
-	/** system coprocessor status register (12,0) */
+	/** system coprocessor page mask register (page size for TLB entry) */
+	public static final int CPR_PAGEMASK = 5;
+	/** system coprocessor wired register (boundary between wired and random TLB entries) */
+	public static final int CPR_WIRED = 6;
+	/** system coprocessor bad virtual address register */
+	public static final int CPR_BADVADDR = 8;
+	/** system coprocessor count register (increments every other clock cycle) */
+	public static final int CPR_COUNT = 9;
+	/** system coprocessor entry hi register (TLB virtual address match) */
+	public static final int CPR_ENTRYHI = 10;
+	/** system coprocessor compare register (timer interrupt) */
+	public static final int CPR_COMPARE = 11;
+	/** system coprocessor status register */
 	public static final int CPR_STATUS = 12;
-	/** system coprocessor cause register */
+	/** system coprocessor cause of most recent exception register */
 	public static final int CPR_CAUSE = 13;
-	/** system coprocessor processor id register (15,0) */
+	/** system coprocessor exception program counter register */
+	public static final int CPR_EPC = 14;
+	/** system coprocessor processor id register */
 	public static final int CPR_PRID = 15;
-	/** system coprocessor config register (16,0) */
-	public static final int CPR_CONFIG0 = 16;
+	/** system coprocessor config register */
+	public static final int CPR_CONFIG = 16;
 	/** system coprocessor config1 register (16,1) */
 	public static final int CPR_CONFIG1 = 16 + (1*32);
-	/** system coprocessor watch lo register (18,0) */
+	/** system coprocessor load linked physical address register */
+	public static final int CPR_LLADDR = 17;
+	/** system coprocessor watchpoint debug lo register */
 	public static final int CPR_WATCHLO = 18;
+	/** system coprocessor watchpoint debug hi register */
+	public static final int CPR_WATCHHI = 19;
+	/** system coprocessor debug exception register */
+	public static final int CPR_DEBUG = 23;
+	/** system coprocessor debug exception program counter register */
+	public static final int CPR_DEPC = 24;
+	/** system coprocessor i/d cache testing register */
+	public static final int CPR_ERRCTL = 26;
+	/** system coprocessor cache tag array register */
+	public static final int CPR_TAGLO = 28;
+	/** system coprocessor cache data array register (28,1) */
+	public static final int CPR_DATALO = 28 + (1*32);
+	/** system coprocessor error exception program counter register */
+	public static final int CPR_ERROREPC = 30;
+	/** system coprocessor debug save register */
+	public static final int CPR_DESAVE = 31;
+	
+	//
+	// system coprocessor register bitmasks
+	//
 	
 	/** interrupt enable */
 	public static final int CPR_STATUS_IE = 1 << 0;

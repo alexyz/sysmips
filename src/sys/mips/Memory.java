@@ -239,7 +239,7 @@ public final class Memory {
 						c++;
 					}
 				}
-				ps.println("  addr 0x" + Integer.toHexString(n * 0x100000) + " usage " + (c / 0x100000));
+				ps.println("  addr 0x" + Integer.toHexString(n * 0x100000) + " usage " + ((c * 100) / 0x100000) + "%");
 			}
 		}
 	}

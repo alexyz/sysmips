@@ -11,28 +11,41 @@ public class Malta implements SystemListener {
 	
 	// TODO not sure about this, connected with value of GT_PCI0IOLD
 	public static final int M_IOBASE = 0x1000_0000;
+	public static final int M_PIC_MASTER_CMD = M_IOBASE + 0x20;
+	public static final int M_PIC_MASTER_IMR = M_IOBASE + 0x21;
+	public static final int M_RTCADR = M_IOBASE + 0x70;
+	public static final int M_RTCDAT = M_IOBASE + 0x71;
+	public static final int M_PIC_SLAVE_CMD = M_IOBASE + 0xa0;
+	public static final int M_PIC_SLAVE_IMR = M_IOBASE + 0xa1;
 	public static final int M_DMA2_MASK_REG = M_IOBASE + 0xD4;
 	public static final int M_PORT = M_IOBASE + 0x03f8;
 	public static final int M_UART_TX = M_PORT;
 	public static final int M_UART_LSR = M_PORT + 5;
 	
 	public static final int M_PCI2 = 0x1800_0000;
+	
 	public static final int M_GTBASE = 0x1be0_0000;
-	public static final int M_UNUSED = 0x1c00_0000;
-	public static final int M_FLASH1 = 0x1e00_0000;
+	
+	public static final int M_CBUS = 0x1c00_0000;
+	
+	public static final int M_MONITORFLASH = 0x1e00_0000;
 	public static final int M_RESERVED = 0x1e40_0000;
+	
 	public static final int M_DEVICES = 0x1f00_0000;
 	public static final int M_DISPLAY = 0x1f00_0400;
 	public static final int M_DISPLAY_LEDBAR = M_DISPLAY + 0x8;
 	public static final int M_DISPLAY_ASCIIWORD = M_DISPLAY + 0x10;
 	public static final int M_DISPLAY_ASCIIPOS = M_DISPLAY + 0x18;
+	
 	public static final int M_SCSPEC1 = 0x1f10_0010;
-	public static final int M_FLASH2 = 0x1fc0_0000;
+	
+	public static final int M_BOOTROM = 0x1fc0_0000;
 	public static final int M_REVISION = 0x1fc0_0010;
+	
 	public static final int M_SCSPEC2 = 0x1fd0_0010;
 	public static final int M_SCSPEC2_BONITO = 0x1fe0_0010;
 	
-	// not sure where these come from
+	// XXX not sure where these come from
 	public static final int LINUX = 0x8000_0000;
 	public static final int SYSTEM = 0xa000_0000;
 	
@@ -52,7 +65,7 @@ public class Malta implements SystemListener {
 		mem.initPage(SYSTEM + M_SDRAM);
 		mem.initPage(SYSTEM + M_IOBASE);
 		mem.initPage(SYSTEM + M_DEVICES);
-		mem.initPage(SYSTEM + M_FLASH2);
+		mem.initPage(SYSTEM + M_BOOTROM);
 		mem.initPage(SYSTEM + M_GTBASE);
 		
 		final Symbols sym = mem.getSymbols();
@@ -60,22 +73,28 @@ public class Malta implements SystemListener {
 		sym.put(SYSTEM + M_UNCACHED_EX_H, "M_UNCACHED_EX_H", 0x80);
 		sym.put(SYSTEM + M_PCI1, "M_PCI1");
 		sym.put(SYSTEM + M_IOBASE, "M_IOBASE");
+		sym.put(SYSTEM + M_PIC_MASTER_CMD, "M_PIC_MASTER_CMD", 1);
+		sym.put(SYSTEM + M_PIC_MASTER_IMR, "M_PIC_MASTER_IMR", 1);
+		sym.put(SYSTEM + M_RTCADR, "M_RTCADR");
+		sym.put(SYSTEM + M_RTCDAT, "M_RTCDAT");
+		sym.put(SYSTEM + M_PIC_SLAVE_CMD, "M_PIC_SLAVE_CMD", 1);
+		sym.put(SYSTEM + M_PIC_SLAVE_IMR, "M_PIC_SLAVE_IMR", 1);
 		sym.put(SYSTEM + M_DMA2_MASK_REG, "M_DMA2_MASK_REG");
 		sym.put(SYSTEM + M_PORT, "M_PORT", 0x10000);
 		sym.put(SYSTEM + M_UART_LSR, "M_UART_LSR", 1);
 		sym.put(SYSTEM + M_PCI2, "M_PCI2");
 		sym.put(SYSTEM + M_GTBASE, "M_GTBASE");
-		sym.put(SYSTEM + M_FLASH1, "M_FLASH1");
+		sym.put(SYSTEM + M_MONITORFLASH, "M_MONITORFLASH");
 		sym.put(SYSTEM + M_RESERVED, "M_RESERVED");
 		sym.put(SYSTEM + M_DEVICES, "M_DEVICES");
 		sym.put(SYSTEM + M_DISPLAY, "M_DISPLAY");
 		sym.put(SYSTEM + M_SCSPEC1, "M_SCSPEC1");
 		sym.put(SYSTEM + M_SCSPEC2, "M_SCSPEC2");
 		sym.put(SYSTEM + M_SCSPEC2_BONITO, "M_SCSPEC2_BONITO");
-		sym.put(SYSTEM + M_UNUSED, "M_UNUSED");
-		sym.put(SYSTEM + M_FLASH2, "M_FLASH2");
+		sym.put(SYSTEM + M_CBUS, "M_CBUS");
+		sym.put(SYSTEM + M_BOOTROM, "M_BOOTROM");
 		sym.put(SYSTEM + M_REVISION, "M_REVISION", 8);
-		                 
+		
 		mem.storeWordSystem(M_REVISION, 1);
 		mem.storeByteSystem(M_UART_LSR, (byte) 0x20);
 		
@@ -106,30 +125,54 @@ public class Malta implements SystemListener {
 	@Override
 	public void systemWrite (final int addr, final int value) {
 		switch (addr) {
+			case M_RTCADR:
+				// mc146818rtc.h
+				// 0 = seconds, 2 = minutes, 4 = hours, 6 = dow, 7 = dom, 8 = month, 9 = year
+				throw new RuntimeException("rtc adr write");
+			
 			case M_DMA2_MASK_REG:
 				// information in asm/dma.h
 				log.info("enable dma channel 4+" + value);
-				break;
+				return;
+				
 			case M_UART_TX:
 				consoleWrite(value);
-				break;
+				return;
+				
+			case M_PIC_MASTER_CMD:
+				log.info("pic master cmd " + Integer.toHexString(value & 0xff));
+				return;
+				
+			case M_PIC_MASTER_IMR:
+				log.info("pic master imr " + Integer.toHexString(value & 0xff));
+				return;
+				
+			case M_PIC_SLAVE_CMD:
+				log.info("pic slave cmd " + Integer.toHexString(value & 0xff));
+				return;
+				
+			case M_PIC_SLAVE_IMR:
+				log.info("pic slave imr " + Integer.toHexString(value & 0xff));
+				return;
+				
 			default:
 				if (addr >= M_UNCACHED_EX_H && addr < M_UNCACHED_EX_H + 0x100) {
 					log.info("set uncached exception handler " + getName(SYSTEM + addr) + " <= " + Integer.toHexString(value));
+					return;
 				} else if (addr >= M_DISPLAY && addr < M_DISPLAY + 0x100) {
 					support.firePropertyChange("display", null, displayText());
+					return;
 				} else if (gt.write(addr)) {
-					// ok
-				} else {
-					throw new RuntimeException("unknown system write " + getName(SYSTEM + addr) + " <= " + getName(value));
+					return;
 				}
+				throw new RuntimeException("unknown system write " + getName(SYSTEM + addr) + " <= " + getName(value));
 		}
 	}
-
+	
 	private String getName (final int addr) {
 		return cpu.getMemory().getSymbols().getName(addr);
 	}
-
+	
 	private void consoleWrite (int value) {
 		if ((value >= 32 && value < 127) || value == '\n') {
 			consoleSb.append((char) value);

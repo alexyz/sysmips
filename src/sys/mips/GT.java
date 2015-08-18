@@ -113,35 +113,35 @@ public class GT {
 			}
 		}
 		
-		storeWord(GT_SCS10LD, 0);
-		storeWord(GT_SCS10HD, 0x07);
-		storeWord(GT_SCS32LD, 0x0008);
-		storeWord(GT_SCS32HD, 0x0f);
-		storeWord(GT_CS20LD, 0x00e0);
+		storeWord(GT_SCS10LD, 0x0);
+		storeWord(GT_SCS10HD, 0x7);
+		storeWord(GT_SCS32LD, 0x8);
+		storeWord(GT_SCS32HD, 0xf);
+		storeWord(GT_CS20LD, 0xe0);
 		storeWord(GT_CS20HD, 0x70);
-		storeWord(GT_CS3BOOTLD, 0x00f8);
+		storeWord(GT_CS3BOOTLD, 0xf8);
 		storeWord(GT_CS3BOOTHD, 0x7f);
-		storeWord(GT_PCI0IOLD, 0x0080);
-		storeWord(GT_PCI0IOHD, 0x0f);
-		storeWord(GT_PCI0M0LD, 0x0090);
+		storeWord(GT_PCI0IOLD, 0x80);
+		storeWord(GT_PCI0IOHD, 0xf);
+		storeWord(GT_PCI0M0LD, 0x90);
 		storeWord(GT_PCI0M0HD, 0x1f);
 		
-		storeWord(GT_PCI0M1LD, 0x0790);
+		storeWord(GT_PCI0M1LD, 0x790);
 		storeWord(GT_PCI0M1HD, 0x1f);
-		storeWord(GT_PCI1IOLD, 0x0100);
-		storeWord(GT_PCI1IOHD, 0x0f);
-		storeWord(GT_PCI1M0LD, 0x0110);
+		storeWord(GT_PCI1IOLD, 0x100);
+		storeWord(GT_PCI1IOHD, 0xf);
+		storeWord(GT_PCI1M0LD, 0x110);
 		storeWord(GT_PCI1M0HD, 0x1f);
-		storeWord(GT_PCI1M1LD, 0x0120);
+		storeWord(GT_PCI1M1LD, 0x120);
 		storeWord(GT_PCI1M1HD, 0x2f);
 		
-		storeWord(GT_SCS10AR, 0);
-		storeWord(GT_SCS32AR, 0x008);
-		storeWord(GT_CS20R, 0x0e0);
-		storeWord(GT_CS3BOOTR, 0x0f8);
+		storeWord(GT_SCS10AR, 0x0);
+		storeWord(GT_SCS32AR, 0x8);
+		storeWord(GT_CS20R, 0xe0);
+		storeWord(GT_CS3BOOTR, 0xf8);
 		
-		storeWord(GT_PCI0IOREMAP, 0x080);
-		storeWord(GT_PCI0M0REMAP, 0x090);
+		storeWord(GT_PCI0IOREMAP, 0x80);
+		storeWord(GT_PCI0M0REMAP, 0x90);
 		storeWord(GT_PCI0M1REMAP, 0x790);
 		storeWord(GT_PCI1IOREMAP, 0x100);
 		storeWord(GT_PCI1M0REMAP, 0x110);

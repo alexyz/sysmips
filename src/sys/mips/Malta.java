@@ -9,7 +9,8 @@ public class Malta implements SystemListener {
 	
 	public static final int M_PCI1 = 0x0800_0000;
 	
-	// TODO not sure about this, connected with value of GT_PCI0IOLD
+	// TODO not sure about this, connected with value of [GT_PCI0IOLD]
+	// these live in the PIIX4 southbridge
 	public static final int M_IOBASE = 0x1000_0000;
 	public static final int M_PIC_MASTER_CMD = M_IOBASE + 0x20;
 	public static final int M_PIC_MASTER_IMR = M_IOBASE + 0x21;
@@ -18,6 +19,8 @@ public class Malta implements SystemListener {
 	public static final int M_PIC_SLAVE_CMD = M_IOBASE + 0xa0;
 	public static final int M_PIC_SLAVE_IMR = M_IOBASE + 0xa1;
 	public static final int M_DMA2_MASK_REG = M_IOBASE + 0xD4;
+	
+	// the first uart is on the isa bus connected to the PIIX4
 	public static final int M_PORT = M_IOBASE + 0x03f8;
 	public static final int M_UART_TX = M_PORT;
 	public static final int M_UART_LSR = M_PORT + 5;
@@ -45,14 +48,16 @@ public class Malta implements SystemListener {
 	public static final int M_SCSPEC2 = 0x1fd0_0010;
 	public static final int M_SCSPEC2_BONITO = 0x1fe0_0010;
 	
-	// XXX not sure where these come from
+	// linux load address (corresponds to kseg0)
 	public static final int LINUX = 0x8000_0000;
+	// malta board facilities (corresponds to kseg1)
 	public static final int SYSTEM = 0xa000_0000;
 	
 	private final Cpu cpu = new Cpu(false);
 	private final PropertyChangeSupport support = new PropertyChangeSupport(this);
 	private final StringBuilder consoleSb = new StringBuilder();
 	private final CpuLogger log = cpu.getLog();
+	// the GT is the northbridge
 	private final GT gt = new GT(cpu, M_GTBASE);
 	
 	public Malta () {

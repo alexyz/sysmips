@@ -1,10 +1,10 @@
 # Sysmips
 
-MIPS 4Kc/Malta system emulator, intended to run Linux 3.2
+MIPS 4Kc/Malta/GT-64120A/PIIX4 system emulator, intended to run Linux 3.2
 
 Loosely based on the mipsem project (a user-level MIPS R2000A/Linux emulator)
 
-This project is NOT officially associated with Imagination Technologies
+This project is NOT officially associated with Imagination Technologies, Galileo Technology, Intel or any other company
 
 ## Suggested Reading
 
@@ -18,7 +18,9 @@ This project is NOT officially associated with Imagination Technologies
 * MIPS YAMON User's Manual, Reference Manual and source code
 * Linux 3.2.68 source code, particularly arch/mips/include/asm and arch/mips/mti-malta
 * GRUB source code
-* Galileo GT-64120 System Controller Datasheet
+* Galileo GT-64120 System Controller Datasheet (1999)
+* Galileo GT-64120A System Controller Datasheet (2001)
+* Intel 82371AB PCI-TO-ISA / IDE XCELERATOR (PIIX4) (1997)
 * System V Application Binary Interface MIPS RISC Processor Supplement 3rd Edition
 
 ## Suggested Software

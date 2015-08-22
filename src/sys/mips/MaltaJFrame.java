@@ -32,12 +32,12 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	private final JButton fileButton = new JButton("...");
 	private final Timer timer;
 	
-	private volatile Malta malta;
+	private volatile Cpu cpu;
 	
 	public MaltaJFrame () {
 		super("Sysmips");
 		
-		timer = new Timer(100, e -> updateCycle(malta));
+		timer = new Timer(100, e -> updateCycle(cpu));
 		timer.start();
 		
 		// should load these from prefs
@@ -101,7 +101,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	}
 	
 	private void start () {
-		if (malta != null) {
+		if (cpu != null) {
 			showErrorDialog("Start", "Already started");
 			return;
 		}
@@ -131,10 +131,12 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		displayLabel.setText(" ");
 		consoleArea.setText("");
 		
-		Malta malta = new Malta();
+		final Cpu cpu;
+		
 		try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
-			final int top = CpuUtil.loadElf(malta.getCpu(), raf);
-			CpuUtil.setMainArgs(malta.getCpu(), top + 0x100000, args, env);
+			int[] top = new int[1];
+			cpu = CpuUtil.loadElf(raf, top);
+			CpuUtil.setMainArgs(cpu, top[0] + 0x100000, args, env);
 			
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -142,22 +144,22 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 			return;
 		}
 		
-		malta.getSupport().addPropertyChangeListener(this);
-		updateCycle(malta);
+		cpu.getMemory().getMalta().getSupport().addPropertyChangeListener(this);
+		updateCycle(cpu);
 		
-		this.malta = malta;
+		this.cpu = cpu;
 		
 		final Thread t = new Thread(() -> {
 			try {
-				malta.getCpu().run();
+				cpu.run();
 			} catch (Exception e) {
 				e.printStackTrace(System.out);
 				SwingUtilities.invokeLater(() -> {
-					updateCycle(malta);
+					updateCycle(cpu);
 					showErrorDialog("Start", e);
 				});
 			} finally {
-				this.malta = null;
+				this.cpu = null;
 			}
 		});
 		
@@ -221,9 +223,9 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		}
 	}
 	
-	private void updateCycle (Malta m) {
-		if (m != null) {
-			cycleLabel.setText("Cycle " + m.getCpu().getCycle());
+	private void updateCycle (Cpu cpu) {
+		if (cpu != null) {
+			cycleLabel.setText("Cycle " + cpu.getCycle());
 		}
 	}
 	

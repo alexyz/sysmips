@@ -4,7 +4,11 @@ import java.lang.reflect.*;
 
 import static sys.ByteOrder.*;
 
-public class GT {
+/**
+ * this class kind-of represents the northbridge, but doesn't really handle any
+ * device mapping
+ */
+public class GT implements Device {
 	
 	/** SCS[1:0]* Low Decode Address */
 	public static final int GT_SCS10LD = 0x008;
@@ -73,6 +77,7 @@ public class GT {
 	/** PCI_1 Memory 1 Address Remap */
 	public static final int GT_PCI1M1REMAP = 0x118;
 	
+	/** pci 0 command register */
 	public static final int GT_PCI0_CMD = 0xc00;
 	public static final int GT_PCI1_CFGADDR = 0xcf0;
 	public static final int GT_PCI1_CFGDATA = 0xcf4;
@@ -80,125 +85,104 @@ public class GT {
 	public static final int GT_PCI0_CFGADDR = 0xcf8;
 	public static final int GT_PCI0_CFGDATA = 0xcfc;
 	
-	private final int gtbase;
-	private final Cpu cpu;
-	private final CpuLogger log;
+	private final IOMemory iomem = new IOMemory();
 	
-	public GT (Cpu cpu, int gtbase) {
-		this.cpu = cpu;
-		this.gtbase = gtbase;
-		this.log = cpu.getLog();
+	public GT () {
+//		iomem.putw(GT_SCS10LD, 0x0);
+//		iomem.putw(GT_SCS10HD, 0x7);
+//		iomem.putw(GT_SCS10AR, 0x0);
+//		
+//		iomem.putw(GT_SCS32LD, 0x8);
+//		iomem.putw(GT_SCS32HD, 0xf);
+//		iomem.putw(GT_SCS32AR, 0x8);
+//		
+//		iomem.putw(GT_CS20LD, 0xe0);
+//		iomem.putw(GT_CS20HD, 0x70);
+//		iomem.putw(GT_CS20R, 0xe0);
+//		
+//		iomem.putw(GT_CS3BOOTLD, 0xf8);
+//		iomem.putw(GT_CS3BOOTHD, 0x7f);
+//		iomem.putw(GT_CS3BOOTR, 0xf8);
+		
+		iomem.putWord(GT_PCI0IOLD, 0x80);
+		iomem.putWord(GT_PCI0IOHD, 0xf);
+		iomem.putWord(GT_PCI0M0LD, 0x90);
+		iomem.putWord(GT_PCI0M0HD, 0x1f);
+		iomem.putWord(GT_PCI0M1LD, 0x790);
+		iomem.putWord(GT_PCI0M1HD, 0x1f);
+		iomem.putWord(GT_PCI0IOREMAP, 0x80);
+		iomem.putWord(GT_PCI0M0REMAP, 0x90);
+		iomem.putWord(GT_PCI0M1REMAP, 0x790);
+		
+//		iomem.putw(GT_PCI1IOLD, 0x100);
+//		iomem.putw(GT_PCI1IOHD, 0xf);
+//		iomem.putw(GT_PCI1M0LD, 0x110);
+//		iomem.putw(GT_PCI1M0HD, 0x1f);
+//		iomem.putw(GT_PCI1M1LD, 0x120);
+//		iomem.putw(GT_PCI1M1HD, 0x2f);
+//		iomem.putw(GT_PCI1IOREMAP, 0x100);
+//		iomem.putw(GT_PCI1M0REMAP, 0x110);
+//		iomem.putw(GT_PCI1M1REMAP, 0x120);
 	}
 
-	private int loadWord (int offset) {
-		// swap due to an expected bug in GT
-		return swap(cpu.getMemory().loadWordSystem(gtbase + offset));
-	}
-	
-	private void storeWord (int offset, int value) {
-		cpu.getMemory().storeWordSystem(gtbase + offset, swap(value));
-	}
-	
-	public void init () {
-		final Memory mem = cpu.getMemory();
-		final Symbols sym = mem.getSymbols();
+	@Override
+	public void init (Symbols sym, int offset) {
+		System.out.println("init gt at " + Integer.toHexString(offset));
+		
 		for (Field f : GT.class.getFields()) {
 			final int m = f.getModifiers();
 			if (Modifier.isPublic(m) && Modifier.isStatic(m) && Modifier.isFinal(m)) {
 				try {
-					sym.put(mem.getSystem() + gtbase + f.getInt(null), f.getName(), 4);
+					sym.put(offset + f.getInt(null), f.getName(), 4);
 				} catch (Exception e) {
 					throw new RuntimeException(e);
 				}
 			}
 		}
 		
-		storeWord(GT_SCS10LD, 0x0);
-		storeWord(GT_SCS10HD, 0x7);
-		storeWord(GT_SCS32LD, 0x8);
-		storeWord(GT_SCS32HD, 0xf);
-		storeWord(GT_CS20LD, 0xe0);
-		storeWord(GT_CS20HD, 0x70);
-		storeWord(GT_CS3BOOTLD, 0xf8);
-		storeWord(GT_CS3BOOTHD, 0x7f);
-		storeWord(GT_PCI0IOLD, 0x80);
-		storeWord(GT_PCI0IOHD, 0xf);
-		storeWord(GT_PCI0M0LD, 0x90);
-		storeWord(GT_PCI0M0HD, 0x1f);
-		
-		storeWord(GT_PCI0M1LD, 0x790);
-		storeWord(GT_PCI0M1HD, 0x1f);
-		storeWord(GT_PCI1IOLD, 0x100);
-		storeWord(GT_PCI1IOHD, 0xf);
-		storeWord(GT_PCI1M0LD, 0x110);
-		storeWord(GT_PCI1M0HD, 0x1f);
-		storeWord(GT_PCI1M1LD, 0x120);
-		storeWord(GT_PCI1M1HD, 0x2f);
-		
-		storeWord(GT_SCS10AR, 0x0);
-		storeWord(GT_SCS32AR, 0x8);
-		storeWord(GT_CS20R, 0xe0);
-		storeWord(GT_CS3BOOTR, 0xf8);
-		
-		storeWord(GT_PCI0IOREMAP, 0x80);
-		storeWord(GT_PCI0M0REMAP, 0x90);
-		storeWord(GT_PCI0M1REMAP, 0x790);
-		storeWord(GT_PCI1IOREMAP, 0x100);
-		storeWord(GT_PCI1M0REMAP, 0x110);
-		storeWord(GT_PCI1M1REMAP, 0x120);
+	}
+
+	@Override
+	public int systemRead (int addr, int size) {
+		// swap due to an expected bug in GT
+		return swap(iomem.get(addr, size));
 	}
 	
-	public boolean read (int addr) {
-		final int offset = addr - gtbase;
+	@Override
+	public void systemWrite (int addr, int size, int value) {
+		CpuLogger log = Cpu.getInstance().getLog();
+		// XXX swap here?
+		log.info("gt write " + Integer.toHexString(addr) + " <= " + Integer.toHexString(value));
+		iomem.put(addr, size, value);
 		
-		switch (offset) {
-			case GT_PCI0IOLD:
-			case GT_PCI0M0LD:
-			case GT_PCI0M0HD:
-			case GT_PCI0M1LD:
-			case GT_PCI0M1HD:
-			case GT_PCI0IOREMAP:
-			case GT_PCI0M0REMAP:
-			case GT_PCI0M1REMAP:
-			case GT_PCI0_CMD:
-			case GT_PCI0IOHD:
-				return true;
-				
-			default:
-				return false;
-		}
-	}
-	
-	public boolean write (int addr) {
-		final int offset = addr - gtbase;
-		final int value = loadWord(offset);
-		
-		switch (offset) {
+		switch (addr) {
 			case GT_PCI0IOREMAP:
 				log.info("set PCI 0 IO remap " + value);
 				if (value != 0) {
 					throw new RuntimeException("unknown remap");
 				}
-				return true;
+				break;
 				
 			case GT_PCI0_CMD:
 				log.info("ignore PCI0 command " + value);
-				return true;
+				break;
 				
 			case GT_PCI0_CFGADDR:
 				setAddr(value);
-				return true;
+				break;
 			
 			case GT_PCI0_CFGDATA:
 				setData(value);
-				return true;
+				break;
 				
 			default:
-				return false;
+				throw new RuntimeException("invalid gt write");
 		}
+		
 	}
 	
 	private void setAddr (final int cfgaddr) {
+		CpuLogger log = Cpu.getInstance().getLog();
 		// pci configuration space
 		int en = (cfgaddr >>> 31) & 0x1;
 		int bus = (cfgaddr >>> 16) & 0xff;
@@ -208,7 +192,7 @@ public class GT {
 		log.info("set PCI0 config address %x en=%d bus=%d dev=%d func=%d reg=%d", cfgaddr, en, bus, dev, func, reg);
 		
 		if (bus == 0 && dev == 0 && func == 0) {
-			storeWord(GT_PCI0_CFGDATA, 0);
+			iomem.putWord(GT_PCI0_CFGDATA, 0);
 			
 		} else {
 			throw new RuntimeException("set unknown bus/device/function addr");
@@ -216,7 +200,8 @@ public class GT {
 	}
 	
 	private void setData (int value) {
-		int cfgaddr = loadWord(GT_PCI0_CFGADDR);
+		CpuLogger log = Cpu.getInstance().getLog();
+		int cfgaddr = iomem.getWord(GT_PCI0_CFGADDR);
 		int en = (cfgaddr >>> 31) & 0x1;
 		int bus = (cfgaddr >>> 16) & 0xff;
 		int dev = (cfgaddr >>> 11) & 0x1f;
@@ -231,5 +216,5 @@ public class GT {
 			throw new RuntimeException("set unknown bus/device/function data");
 		}
 	}
-	
+
 }

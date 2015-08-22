@@ -2,7 +2,11 @@ package sys.mips;
 
 import java.beans.PropertyChangeSupport;
 
-public class Malta implements SystemListener {
+/**
+ * this class kind-of represents the southbridge, but it is also doing device
+ * mapping
+ */
+public class Malta implements Device {
 	
 	public static final int M_SDRAM = 0x0;
 	public static final int M_UNCACHED_EX_H = 0x100;
@@ -48,87 +52,82 @@ public class Malta implements SystemListener {
 	public static final int M_SCSPEC2 = 0x1fd0_0010;
 	public static final int M_SCSPEC2_BONITO = 0x1fe0_0010;
 	
-	// linux load address (corresponds to kseg0)
-	public static final int LINUX = 0x8000_0000;
-	// malta board facilities (corresponds to kseg1)
-	public static final int SYSTEM = 0xa000_0000;
-	
-	private final Cpu cpu = new Cpu(false);
+	// this should probably live on the cpu
 	private final PropertyChangeSupport support = new PropertyChangeSupport(this);
 	private final StringBuilder consoleSb = new StringBuilder();
-	private final CpuLogger log = cpu.getLog();
 	// the GT is the northbridge
-	private final GT gt = new GT(cpu, M_GTBASE);
+	private final GT gt = new GT();
+	private IOMemory iomem = new IOMemory();
+	private int offset;
 	
 	public Malta () {
-		// initialise the memory for linux and malta
-		final Memory mem = cpu.getMemory();
-		mem.setSystem(SYSTEM);
-		for (int n = 0; n < 32; n++) {
-			mem.initPage(LINUX + 0x100000 * n);
-		}
-		mem.initPage(SYSTEM + M_SDRAM);
-		mem.initPage(SYSTEM + M_IOBASE);
-		mem.initPage(SYSTEM + M_DEVICES);
-		mem.initPage(SYSTEM + M_BOOTROM);
-		mem.initPage(SYSTEM + M_GTBASE);
-		
-		final Symbols sym = mem.getSymbols();
-		sym.put(SYSTEM + M_SDRAM, "M_SDRAM");
-		sym.put(SYSTEM + M_UNCACHED_EX_H, "M_UNCACHED_EX_H", 0x80);
-		sym.put(SYSTEM + M_PCI1, "M_PCI1");
-		sym.put(SYSTEM + M_IOBASE, "M_IOBASE");
-		sym.put(SYSTEM + M_PIC_MASTER_CMD, "M_PIC_MASTER_CMD", 1);
-		sym.put(SYSTEM + M_PIC_MASTER_IMR, "M_PIC_MASTER_IMR", 1);
-		sym.put(SYSTEM + M_RTCADR, "M_RTCADR");
-		sym.put(SYSTEM + M_RTCDAT, "M_RTCDAT");
-		sym.put(SYSTEM + M_PIC_SLAVE_CMD, "M_PIC_SLAVE_CMD", 1);
-		sym.put(SYSTEM + M_PIC_SLAVE_IMR, "M_PIC_SLAVE_IMR", 1);
-		sym.put(SYSTEM + M_DMA2_MASK_REG, "M_DMA2_MASK_REG");
-		sym.put(SYSTEM + M_PORT, "M_PORT", 0x10000);
-		sym.put(SYSTEM + M_UART_LSR, "M_UART_LSR", 1);
-		sym.put(SYSTEM + M_PCI2, "M_PCI2");
-		sym.put(SYSTEM + M_GTBASE, "M_GTBASE");
-		sym.put(SYSTEM + M_MONITORFLASH, "M_MONITORFLASH");
-		sym.put(SYSTEM + M_RESERVED, "M_RESERVED");
-		sym.put(SYSTEM + M_DEVICES, "M_DEVICES");
-		sym.put(SYSTEM + M_DISPLAY, "M_DISPLAY");
-		sym.put(SYSTEM + M_SCSPEC1, "M_SCSPEC1");
-		sym.put(SYSTEM + M_SCSPEC2, "M_SCSPEC2");
-		sym.put(SYSTEM + M_SCSPEC2_BONITO, "M_SCSPEC2_BONITO");
-		sym.put(SYSTEM + M_CBUS, "M_CBUS");
-		sym.put(SYSTEM + M_BOOTROM, "M_BOOTROM");
-		sym.put(SYSTEM + M_REVISION, "M_REVISION", 8);
-		
-		mem.storeWordSystem(M_REVISION, 1);
-		mem.storeByteSystem(M_UART_LSR, (byte) 0x20);
-		
-		gt.init();
-		
-		mem.setSystemListener(this);
-	}
-	
-	public Cpu getCpu () {
-		return cpu;
-	}
-	
-	@Override
-	public void systemRead (int addr, int value) {
-		log.debug("system read " + getName(addr) + " => " + Integer.toHexString(value));
-		switch (addr) {
-			case M_UART_LSR:
-			case M_REVISION:
-				break;
-			default:
-				if (gt.read(addr)) {
-					break;
-				}
-				throw new RuntimeException("unknown malta read " + getName(addr));
+		iomem.putWord(M_REVISION, 1);
+		iomem.putByte(M_UART_LSR, 0x20);
+		iomem.putWord(M_DISPLAY_LEDBAR, 0);
+		iomem.putWord(M_DISPLAY_ASCIIWORD, 0);
+		for (int n = 0; n < 8; n++) {
+			iomem.putWord(M_DISPLAY_ASCIIPOS + (n * 8), 0);
 		}
 	}
 	
 	@Override
-	public void systemWrite (final int addr, final int value) {
+	public void init (Symbols sym, int offset) {
+		System.out.println("init malta at " + Integer.toHexString(offset));
+		this.offset = offset;
+		
+		sym.put(offset + M_SDRAM, "M_SDRAM");
+		sym.put(offset + M_UNCACHED_EX_H, "M_UNCACHED_EX_H", 0x80);
+		sym.put(offset + M_PCI1, "M_PCI1");
+		sym.put(offset + M_IOBASE, "M_IOBASE");
+		sym.put(offset + M_PIC_MASTER_CMD, "M_PIC_MASTER_CMD", 1);
+		sym.put(offset + M_PIC_MASTER_IMR, "M_PIC_MASTER_IMR", 1);
+		sym.put(offset + M_RTCADR, "M_RTCADR");
+		sym.put(offset + M_RTCDAT, "M_RTCDAT");
+		sym.put(offset + M_PIC_SLAVE_CMD, "M_PIC_SLAVE_CMD", 1);
+		sym.put(offset + M_PIC_SLAVE_IMR, "M_PIC_SLAVE_IMR", 1);
+		sym.put(offset + M_DMA2_MASK_REG, "M_DMA2_MASK_REG");
+		sym.put(offset + M_PORT, "M_PORT", 0x10000);
+		sym.put(offset + M_UART_LSR, "M_UART_LSR", 1);
+		sym.put(offset + M_PCI2, "M_PCI2");
+		sym.put(offset + M_GTBASE, "M_GTBASE");
+		sym.put(offset + M_MONITORFLASH, "M_MONITORFLASH");
+		sym.put(offset + M_RESERVED, "M_RESERVED");
+		sym.put(offset + M_DEVICES, "M_DEVICES");
+		sym.put(offset + M_DISPLAY, "M_DISPLAY");
+		sym.put(offset + M_SCSPEC1, "M_SCSPEC1");
+		sym.put(offset + M_SCSPEC2, "M_SCSPEC2");
+		sym.put(offset + M_SCSPEC2_BONITO, "M_SCSPEC2_BONITO");
+		sym.put(offset + M_CBUS, "M_CBUS");
+		sym.put(offset + M_BOOTROM, "M_BOOTROM");
+		sym.put(offset + M_REVISION, "M_REVISION", 8);
+		
+		gt.init(sym, offset + M_GTBASE);
+	}
+	
+	@Override
+	public int systemRead (int addr, int size) {
+		if (addr >= M_GTBASE && addr < M_GTBASE + 0x1000) {
+			return gt.systemRead(addr - M_GTBASE, size);
+		}
+
+		final CpuLogger log = Cpu.getInstance().getLog();
+		log.debug("malta read " + getName(addr) + " size " + size);
+		
+		return iomem.get(addr, size);
+	}
+	
+	@Override
+	public void systemWrite (final int addr, int size, final int value) {
+		if (addr >= M_GTBASE && addr < M_GTBASE + 0x1000) {
+			gt.systemWrite(addr - M_GTBASE, size, value);
+			return;
+		}
+		
+		CpuLogger log = Cpu.getInstance().getLog();
+		log.debug("malta write " + getName(addr) + " <= " + Integer.toHexString(value));
+		
+		iomem.put(addr, size, value);
+		
 		switch (addr) {
 			case M_RTCADR:
 				// mc146818rtc.h
@@ -138,44 +137,45 @@ public class Malta implements SystemListener {
 			case M_DMA2_MASK_REG:
 				// information in asm/dma.h
 				log.info("enable dma channel 4+" + value);
-				return;
+				break;
 				
 			case M_UART_TX:
 				consoleWrite(value);
-				return;
+				break;
 				
 			case M_PIC_MASTER_CMD:
 				log.info("pic master cmd " + Integer.toHexString(value & 0xff));
-				return;
+				break;
 				
 			case M_PIC_MASTER_IMR:
 				log.info("pic master imr " + Integer.toHexString(value & 0xff));
-				return;
+				break;
 				
 			case M_PIC_SLAVE_CMD:
 				log.info("pic slave cmd " + Integer.toHexString(value & 0xff));
-				return;
+				break;
 				
 			case M_PIC_SLAVE_IMR:
 				log.info("pic slave imr " + Integer.toHexString(value & 0xff));
-				return;
+				break;
 				
 			default:
 				if (addr >= M_UNCACHED_EX_H && addr < M_UNCACHED_EX_H + 0x100) {
-					log.info("set uncached exception handler " + getName(SYSTEM + addr) + " <= " + Integer.toHexString(value));
-					return;
+					log.debug("set uncached exception handler " + getName(addr) + " <= " + Integer.toHexString(value));
+					break;
+					
 				} else if (addr >= M_DISPLAY && addr < M_DISPLAY + 0x100) {
 					support.firePropertyChange("display", null, displayText());
-					return;
-				} else if (gt.write(addr)) {
-					return;
+					break;
 				}
-				throw new RuntimeException("unknown system write " + getName(SYSTEM + addr) + " <= " + getName(value));
+				
+				throw new RuntimeException("unknown system write " + getName(addr) + " <= " + Integer.toHexString(value));
 		}
+		
 	}
 	
 	private String getName (final int addr) {
-		return cpu.getMemory().getSymbols().getName(addr);
+		return Cpu.getInstance().getMemory().getSymbols().getName(offset + addr);
 	}
 	
 	private void consoleWrite (int value) {
@@ -195,14 +195,13 @@ public class Malta implements SystemListener {
 	}
 	
 	public String displayText() {
-		final Memory mem = cpu.getMemory();
 		final StringBuilder sb = new StringBuilder();
-		final int leds = mem.loadWordSystem(M_DISPLAY_LEDBAR) & 0xff;
+		final int leds = iomem.getWord(M_DISPLAY_LEDBAR) & 0xff;
 		sb.append(Integer.toBinaryString(leds)).append(" ");
-		final int word = mem.loadWordSystem(M_DISPLAY_ASCIIWORD);
+		final int word = iomem.getWord(M_DISPLAY_ASCIIWORD);
 		sb.append(Integer.toHexString(word)).append(" ");
 		for (int n = 0; n < 8; n++) {
-			int w = mem.loadWordSystem(M_DISPLAY_ASCIIPOS + (n * 8)) & 0xff;
+			int w = iomem.getWord(M_DISPLAY_ASCIIPOS + (n * 8)) & 0xff;
 			sb.append(w != 0 ? (char) w : ' ');
 		}
 		return sb.toString();

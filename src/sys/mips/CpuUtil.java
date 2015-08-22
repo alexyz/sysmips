@@ -14,15 +14,16 @@ import static sys.mips.IsnUtil.*;
  */
 public class CpuUtil {
 	
-	/** load elf file, set entry point, return max address */
-	public static int loadElf (Cpu cpu, RandomAccessFile file) throws Exception {
-		final Memory mem = cpu.getMemory();
-		final Symbols sym = mem.getSymbols();
-		
-		final ELF32 elf = new ELF32(file);
+	/** load elf file into cpu, set entry point, return max address */
+	public static Cpu loadElf (final RandomAccessFile file, final int[] top) throws Exception {
+		ELF32 elf = new ELF32(file);
 		System.out.println("elf=" + elf);
 		
-		int top = 0;
+		Cpu cpu = new Cpu(elf.header.data == ELF32Header.ELFDATA2LSB);
+		Memory mem = cpu.getMemory();
+		Symbols sym = mem.getSymbols();
+		
+		top[0] = 0;
 		
 		for (ELF32Program program : elf.programs) {
 			if (program.type == ELF32Program.PT_LOAD) {
@@ -31,11 +32,11 @@ public class CpuUtil {
 				final byte[] data = new byte[program.memorySize];
 				file.read(data, 0, program.fileSize);
 				MemoryUtil.storeBytes(mem, program.physicalAddress, data);
-				top = program.physicalAddress + program.memorySize;
+				top[0] = program.physicalAddress + program.memorySize;
 			}
 		}
 		
-		System.out.println("top=" + Integer.toHexString(top));
+		System.out.println("top=" + Integer.toHexString(top[0]));
 		
 		// only need this for user-level...
 //		int gp;
@@ -54,11 +55,11 @@ public class CpuUtil {
 		}
 		
 		System.out.println("symbols=" + sym);
-		
 		System.out.println("entry=" + sym.getName(elf.header.entryAddress));
+		
 		cpu.setPc(elf.header.entryAddress);
 		
-		return top;
+		return cpu;
 	}
 	
 	/**

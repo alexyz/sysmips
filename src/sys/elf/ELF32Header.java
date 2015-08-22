@@ -3,7 +3,6 @@ package sys.elf;
 import java.io.*;
 
 import sys.ByteOrder;
-import sys.mips.MemoryUtil;
 
 /**
  * ELF header file
@@ -26,6 +25,10 @@ public class ELF32Header {
 	public static final int EM_MIPS = 8;
 	public static final int SHN_UNDEF = 0;
 	public static final int EV_CURRENT = 1;
+	/** little endian */
+	public static final int ELFDATA2LSB = 1;
+	/** big endian */
+	public static final int ELFDATA2MSB = 2;
 	
 	public final byte class_;
 	public final byte data;
@@ -111,10 +114,10 @@ public class ELF32Header {
 	
 	public String dataString () {
 		switch (data) {
-			case 1:
-				return "littleendian";
-			case 2:
-				return "bigendian";
+			case ELFDATA2LSB:
+				return "littleEndian";
+			case ELFDATA2MSB:
+				return "bigEndian";
 			default:
 				return Integer.toHexString(data);
 		}

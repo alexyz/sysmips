@@ -9,14 +9,18 @@ import static sys.mips.IsnUtil.*;
 
 public class Cpu {
 	
+	private static ThreadLocal<Cpu> instance = new ThreadLocal<>();
+	
+	/** allow other classes to access cpu */
+	public static Cpu getInstance() {
+		return instance.get();
+	}
+	
 	/** general purpose registers, and hi/lo */
 	private final int[] reg = new int[34];
-	/** coprocessor 0 registers */
+	/** coprocessor 0 registers (register+selection*32) */
 	private final int[] cpReg = new int[64];
-	/**
-	 * coprocessor 1 registers (longs/doubles in consecutive registers, least
-	 * significant word first!)
-	 */
+	/** coprocessor 1 registers (longs/doubles in consecutive registers) */
 	private final int[] fpReg = new int[32];
 	private final int[] fpControlReg = new int[32];
 	private final Entry[] tlb = Entry.create(16);
@@ -33,10 +37,10 @@ public class Cpu {
 	private boolean kernelMode = true;
 	
 	public Cpu (boolean littleEndian) {
-		memory = new Memory(littleEndian);
-		// linux_3.2.65\arch\mips\include\asm\cpu-features.h
-		// linux_3.2.65\arch\mips\include\asm\cpu.h
-		// linux_3.2.65\arch\mips\include\asm\mipsregs.h
+		memory = new Memory(0x2000000, littleEndian);
+		memory.setMalta(new Malta());
+		memory.setKernelMode(true);
+		memory.init();
 		
 		// default values on reboot
 		cpReg[CPR_STATUS] = CPR_STATUS_EXL | CPR_STATUS_ERL | CPR_STATUS_BEV | CPR_STATUS_CU0 | CPR_STATUS_CU1;
@@ -107,6 +111,8 @@ public class Cpu {
 	/** never returns, throws CpuException... */
 	public final void run () {
 		log.info("run");
+		instance.set(this);
+		
 		memory.print(System.out);
 		final TreeMap<String, int[]> isnCount = new TreeMap<>();
 		for (String name : IsnSet.INSTANCE.nameMap.keySet()) {
@@ -122,7 +128,7 @@ public class Cpu {
 					reg[0] = 0;
 				}
 				
-				final int isn = loadWord(pc);
+				final int isn = memory.loadWord(pc);
 				log.debug(IsnUtil.isnString(this, isn));
 				
 				pc = nextPc;
@@ -158,56 +164,6 @@ public class Cpu {
 		}
 	}
 	
-	public int loadWord (final int addr) {
-		return memory.loadWord(translate(addr));
-	}
-	
-	public void storeWord (final int addr, final int value) {
-		memory.storeWord(translate(addr), value);
-	}
-	
-	public short loadHalfWord (final int addr) {
-		return memory.loadHalfWord(translate(addr));
-	}
-	
-	public void storeHalfWord (final int addr, final short value) {
-		memory.storeHalfWord(translate(addr), value);
-	}
-	
-	public byte loadByte (final int addr) {
-		return memory.loadByte(translate(addr));
-	}
-	
-	public void storeByte (final int addr, final byte value) {
-		memory.storeByte(translate(addr), value);
-	}
-	
-	/**
-	 * translate virtual address to physical
-	 */
-	private final int translate (int addr) {
-		//		private static final int KSSEG = 0xc000_0000;
-		//		private static final int KSEG0 = 0x8000_0000;
-		// can only do signed compare...
-		if (addr >= 0) {
-			// from 0 to KSEG0 (2GB mark)
-			return lookup(addr);
-		} else if (kernelMode) {
-			if (addr < 0xc000_000) {
-				// from KSEG0 (2GB mark) to KSSEG (3GB mark)
-				return addr;
-			} else {
-				throw new CpuException("unimplemented kernel translate " + Integer.toHexString(addr));
-			}
-		} else {
-			throw new CpuException("invalid user translate " + Integer.toHexString(addr));
-		}
-	}
-	
-	protected int lookup (int addr) {
-		throw new CpuException("unimplemented tlb " + Integer.toHexString(addr));
-	}
-	
 	private final void execOp (final int isn) {
 		final int[] reg = this.reg;
 		final int op = op(isn);
@@ -236,20 +192,20 @@ public class Cpu {
 				execFn2(isn);
 				return;
 			case OP_LWC1:
-				fpReg[rt] = loadWord(reg[rs] + simm);
+				fpReg[rt] = memory.loadWord(reg[rs] + simm);
 				return;
 			case OP_LDC1:
 				// least significant word first...
-				fpReg[rt + 1] = loadWord(reg[rs] + simm);
-				fpReg[rt] = loadWord(reg[rs] + simm + 4);
+				fpReg[rt + 1] = memory.loadWord(reg[rs] + simm);
+				fpReg[rt] = memory.loadWord(reg[rs] + simm + 4);
 				return;
 			case OP_SWC1:
-				storeWord(reg[rs] + simm, fpReg[rt]);
+				memory.storeWord(reg[rs] + simm, fpReg[rt]);
 				return;
 			case OP_SDC1:
 				// least significant word first...
-				storeWord(reg[rs] + simm, fpReg[rt + 1]);
-				storeWord(reg[rs] + simm + 4, fpReg[rt]);
+				memory.storeWord(reg[rs] + simm, fpReg[rt + 1]);
+				memory.storeWord(reg[rs] + simm + 4, fpReg[rt]);
 				return;
 			case OP_J:
 				nextPc = jump(isn, pc);
@@ -304,26 +260,26 @@ public class Cpu {
 				reg[rt] = reg[rs] | (simm & 0xffff);
 				return;
 			case OP_SW:
-				storeWord(reg[rs] + simm, reg[rt]);
+				memory.storeWord(reg[rs] + simm, reg[rt]);
 				return;
 			case OP_SH:
-				storeHalfWord(reg[rs] + simm, (short) reg[rt]);
+				memory.storeHalfWord(reg[rs] + simm, (short) reg[rt]);
 				return;
 			case OP_SB:
-				storeByte(reg[rs] + simm, (byte) reg[rt]);
+				memory.storeByte(reg[rs] + simm, (byte) reg[rt]);
 				return;
 			case OP_LUI:
 				reg[rt] = simm << 16;
 				return;
 			case OP_LL: {
 				// begin rmw
-				final int pa = translate(reg[rs] + simm);
+				final int pa = memory.translate(reg[rs] + simm);
 				rmwPhysicalAddress = pa;
 				reg[rt] = memory.loadWord(pa);
 				return;
 			}
 			case OP_SC: {
-				final int pa = translate(reg[rs] + simm);
+				final int pa = memory.translate(reg[rs] + simm);
 				// should also fail if another cpu does a store to the same
 				// block of memory in same page
 				// or the same processor if Config5LLB=1
@@ -338,26 +294,26 @@ public class Cpu {
 				return;
 			}
 			case OP_LW:
-				reg[rt] = loadWord(reg[rs] + simm);
+				reg[rt] = memory.loadWord(reg[rs] + simm);
 				return;
 			case OP_LB:
-				reg[rt] = loadByte(reg[rs] + simm);
+				reg[rt] = memory.loadByte(reg[rs] + simm);
 				return;
 			case OP_LBU:
-				reg[rt] = loadByte(reg[rs] + simm) & 0xff;
+				reg[rt] = memory.loadByte(reg[rs] + simm) & 0xff;
 				return;
 			case OP_LHU:
-				reg[rt] = loadHalfWord(reg[rs] + simm) & 0xffff;
+				reg[rt] = memory.loadHalfWord(reg[rs] + simm) & 0xffff;
 				return;
 			case OP_LH:
-				reg[rt] = loadHalfWord(reg[rs] + simm);
+				reg[rt] = memory.loadHalfWord(reg[rs] + simm);
 				return;
 			case OP_LWL: {
 				// unaligned address
 				final int a = reg[rs] + simm;
 				// 0,1,2,3 -> 0,8,16,24
 				final int s = (a & 3) << 3;
-				final int w = loadWord(a & ~3);
+				final int w = memory.loadWord(a & ~3);
 				reg[rt] = (w << s) | (reg[rt] & (0xffffffff >>> (32 - s)));
 				return;
 			}
@@ -365,7 +321,7 @@ public class Cpu {
 				final int a = reg[rs] + simm;
 				// 0,1,2,3 -> 8,16,24,32
 				final int s = ((a & 3) + 1) << 3;
-				final int w = loadWord(a & ~3);
+				final int w = memory.loadWord(a & ~3);
 				reg[rt] = (w >>> (32 - s)) | (reg[rt] & (0xffffffff << s));
 				return;
 			}
@@ -375,8 +331,8 @@ public class Cpu {
 				// aligned address
 				final int aa = a & ~3;
 				final int s = (a & 3) << 3;
-				final int w = loadWord(aa);
-				storeWord(aa, (reg[rt] >>> s) | (w & (0xffffffff << (32 - s))));
+				final int w = memory.loadWord(aa);
+				memory.storeWord(aa, (reg[rt] >>> s) | (w & (0xffffffff << (32 - s))));
 				return;
 			}
 			case OP_SWR: {
@@ -385,8 +341,8 @@ public class Cpu {
 				// aligned addr
 				final int aa = a & ~3;
 				final int s = ((a & 3) + 1) << 3;
-				final int w = loadWord(aa);
-				storeWord(aa, (reg[rt] << (32 - s)) | (w & (0xffffffff >>> s)));
+				final int w = memory.loadWord(aa);
+				memory.storeWord(aa, (reg[rt] << (32 - s)) | (w & (0xffffffff >>> s)));
 				return;
 			}
 			case OP_PREF:
@@ -403,7 +359,7 @@ public class Cpu {
 		switch (rt) {
 			case RT_BGEZAL:
 				reg[31] = nextPc;
-				// fall through
+				//$FALL-THROUGH$
 			case RT_BGEZ:
 				if (reg[rs] >= 0) {
 					nextPc = branch(isn, pc);
@@ -411,7 +367,7 @@ public class Cpu {
 				return;
 			case RT_BLTZAL:
 				reg[31] = nextPc;
-				// fall through
+				//$FALL-THROUGH$
 			case RT_BLTZ:
 				if (reg[rs] < 0) {
 					nextPc = branch(isn, pc);

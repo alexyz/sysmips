@@ -27,7 +27,7 @@ public final class Memory {
 		this.halfWordAddrXor = littleEndian ? 0 : 2;
 	}
 	
-	public void init() {
+	public void init () {
 		System.out.println("init memory");
 		symbols.put(KSEG0, "KSEG0");
 		symbols.put(KSEG1, "KSEG1");
@@ -44,120 +44,68 @@ public final class Memory {
 	public boolean isKernelMode () {
 		return kernelMode;
 	}
-
+	
 	public void setKernelMode (boolean kernelMode) {
 		this.kernelMode = kernelMode;
 	}
-
+	
 	public Malta getMalta () {
 		return malta;
 	}
-
+	
 	public void setMalta (Malta malta) {
 		this.malta = malta;
 	}
-
+	
 	public Symbols getSymbols () {
 		return symbols;
 	}
 	
-	public int loadWord (final int vaddr) {
-		if (vaddr >= 0) {
-			// useg/kuseg
-			return loadWordImpl(lookup(vaddr));
-		} else if (kernelMode) {
-			if (vaddr < KSEG1) {
-				// kseg0
-				return loadWordImpl(vaddr & KSEG_MASK);
-			} else if (vaddr < KSEG2) {
-				// kseg1
-				return malta.systemRead(vaddr & KSEG_MASK, 4);
-			} else {
-				// kseg2/kseg3
-				return loadWordImpl(lookup(vaddr));
-			}
+	public final int loadWord (final int vaddr) {
+		if (isSystem(vaddr)) {
+			return malta.systemRead(vaddr & KSEG_MASK, 4);
 		} else {
-			throw new CpuException("invalid user address " + Integer.toHexString(vaddr));
-		}
-	}
-
-	public void storeWord (final int vaddr, final int value) {
-		if (vaddr >= 0) {
-			storeWordImpl(lookup(vaddr), value);
-		} else if (kernelMode) {
-			if (vaddr < KSEG1) {
-				storeWordImpl(vaddr & KSEG_MASK, value);
-			} else if (vaddr < KSEG2) {
-				malta.systemWrite(vaddr & KSEG_MASK, 4, value);
-			} else {
-				storeWordImpl(lookup(vaddr), value);
-			}
-		} else {
-			throw new CpuException("invalid user address " + Integer.toHexString(vaddr));
+			return loadWordImpl(translate(vaddr));
 		}
 	}
 	
-	public short loadHalfWord (final int vaddr) {
-		if (vaddr >= 0) {
-			return loadHalfWordImpl(lookup(vaddr));
-		} else if (kernelMode) {
-			if (vaddr < KSEG1) {
-				return loadHalfWordImpl(vaddr & KSEG_MASK);
-			} else if (vaddr < KSEG2) {
-				return (short) malta.systemRead(vaddr & KSEG_MASK, 2);
-			} else {
-				return loadHalfWordImpl(lookup(vaddr));
-			}
+	public final void storeWord (final int vaddr, final int value) {
+		if (isSystem(vaddr)) {
+			malta.systemWrite(vaddr & KSEG_MASK, 4, value);
 		} else {
-			throw new CpuException("invalid user address " + Integer.toHexString(vaddr));
+			storeWordImpl(translate(vaddr), value);
 		}
 	}
 	
-	public void storeHalfWord (final int vaddr, final short value) {
-		if (vaddr >= 0) {
-			storeHalfWordImpl(lookup(vaddr), value);
-		} else if (kernelMode) {
-			if (vaddr < KSEG1) {
-				storeHalfWordImpl(vaddr & KSEG_MASK, value);
-			} else if (vaddr < KSEG2) {
-				malta.systemWrite(vaddr & KSEG_MASK, 2, value);
-			} else {
-				storeHalfWordImpl(lookup(vaddr), value);
-			}
+	public final short loadHalfWord (final int vaddr) {
+		if (isSystem(vaddr)) {
+			return (short) malta.systemRead(vaddr & KSEG_MASK, 2);
 		} else {
-			throw new CpuException("invalid user address " + Integer.toHexString(vaddr));
+			return loadHalfWordImpl(translate(vaddr));
 		}
 	}
 	
-	public byte loadByte (final int vaddr) {
-		if (vaddr >= 0) {
-			return loadByteImpl(lookup(vaddr));
-		} else if (kernelMode) {
-			if (vaddr < KSEG1) {
-				return loadByteImpl(vaddr & KSEG_MASK);
-			} else if (vaddr < KSEG2) {
-				return (byte) malta.systemRead(vaddr & KSEG_MASK, 1);
-			} else {
-				return loadByteImpl(lookup(vaddr));
-			}
+	public final void storeHalfWord (final int vaddr, final short value) {
+		if (isSystem(vaddr)) {
+			malta.systemWrite(vaddr & KSEG_MASK, 2, value);
 		} else {
-			throw new CpuException("invalid user address " + Integer.toHexString(vaddr));
+			storeHalfWordImpl(translate(vaddr), value);
 		}
 	}
 	
-	public void storeByte (final int vaddr, final byte value) {
-		if (vaddr >= 0) {
-			storeByteImpl(lookup(vaddr), value);
-		} else if (kernelMode) {
-			if (vaddr < KSEG1) {
-				storeByteImpl(vaddr & KSEG_MASK, value);
-			} else if (vaddr < KSEG2) {
-				malta.systemWrite(vaddr & KSEG_MASK, 1, value);
-			} else {
-				storeByteImpl(lookup(vaddr), value);
-			}
+	public final byte loadByte (final int vaddr) {
+		if (isSystem(vaddr)) {
+			return (byte) malta.systemRead(vaddr & KSEG_MASK, 1);
 		} else {
-			throw new CpuException("invalid user address " + Integer.toHexString(vaddr));
+			return loadByteImpl(translate(vaddr));
+		}
+	}
+	
+	public final void storeByte (final int vaddr, final byte value) {
+		if (isSystem(vaddr)) {
+			malta.systemWrite(vaddr & KSEG_MASK, 1, value);
+		} else {
+			storeByteImpl(translate(vaddr), value);
 		}
 	}
 	
@@ -166,18 +114,26 @@ public final class Memory {
 	 */
 	public final int translate (int vaddr) {
 		if (vaddr >= 0) {
+			// useg/kuseg
 			return lookup(vaddr);
 		} else if (kernelMode) {
 			if (vaddr < KSEG1) {
+				// kseg0 (direct)
 				return vaddr & KSEG_MASK;
 			} else if (vaddr < KSEG2) {
+				// kseg1 (direct, system)
 				throw new RuntimeException("cannot translate kseg1: " + Integer.toHexString(vaddr));
 			} else {
+				// kseg2,3
 				return lookup(vaddr);
 			}
 		} else {
-			throw new CpuException("cannot translate kseg as user: " + Integer.toHexString(vaddr));
+			throw new RuntimeException("cannot translate kseg as user: " + Integer.toHexString(vaddr));
 		}
+	}
+	
+	private final boolean isSystem (int vaddr) {
+		return vaddr >= KSEG1 && vaddr < KSEG2 && kernelMode;
 	}
 	
 	/**
@@ -282,7 +238,7 @@ public final class Memory {
 			throw new IllegalArgumentException("store unaligned " + Integer.toHexString(paddr));
 		}
 	}
-
+	
 	/** load boxed word, null if unmapped */
 	public Integer loadWordSafe (final int paddr) {
 		final int i = paddr >> 2;

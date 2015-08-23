@@ -119,6 +119,8 @@ public class Cpu {
 			isnCount.put(name, new int[1]);
 		}
 		
+		long t = System.nanoTime();
+		
 		try {
 			while (true) {
 				// log.add(cpRegString(this));
@@ -161,6 +163,10 @@ public class Cpu {
 			System.out.println();
 			log.print(System.out);
 			throw new RuntimeException("stop in " + log.getCalls(), e);
+			
+		} finally {
+			long d = System.nanoTime() - t;
+			System.out.println("ns per isn: " + (d / cycle));
 		}
 	}
 	

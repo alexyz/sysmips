@@ -64,7 +64,7 @@ public final class Memory {
 	public int loadWord (final int vaddr) {
 		if (vaddr >= 0) {
 			// useg/kuseg
-			return loadWordImpl(translate(vaddr));
+			return loadWordImpl(lookup(vaddr));
 		} else if (kernelMode) {
 			if (vaddr < KSEG1) {
 				// kseg0
@@ -74,7 +74,7 @@ public final class Memory {
 				return malta.systemRead(vaddr & KSEG_MASK, 4);
 			} else {
 				// kseg2/kseg3
-				return loadWordImpl(translate(vaddr));
+				return loadWordImpl(lookup(vaddr));
 			}
 		} else {
 			throw new CpuException("invalid user address " + Integer.toHexString(vaddr));
@@ -83,14 +83,14 @@ public final class Memory {
 
 	public void storeWord (final int vaddr, final int value) {
 		if (vaddr >= 0) {
-			storeWordImpl(translate(vaddr), value);
+			storeWordImpl(lookup(vaddr), value);
 		} else if (kernelMode) {
 			if (vaddr < KSEG1) {
 				storeWordImpl(vaddr & KSEG_MASK, value);
 			} else if (vaddr < KSEG2) {
 				malta.systemWrite(vaddr & KSEG_MASK, 4, value);
 			} else {
-				storeWordImpl(translate(vaddr), value);
+				storeWordImpl(lookup(vaddr), value);
 			}
 		} else {
 			throw new CpuException("invalid user address " + Integer.toHexString(vaddr));
@@ -99,14 +99,14 @@ public final class Memory {
 	
 	public short loadHalfWord (final int vaddr) {
 		if (vaddr >= 0) {
-			return loadHalfWordImpl(translate(vaddr));
+			return loadHalfWordImpl(lookup(vaddr));
 		} else if (kernelMode) {
 			if (vaddr < KSEG1) {
 				return loadHalfWordImpl(vaddr & KSEG_MASK);
 			} else if (vaddr < KSEG2) {
 				return (short) malta.systemRead(vaddr & KSEG_MASK, 2);
 			} else {
-				return loadHalfWordImpl(translate(vaddr));
+				return loadHalfWordImpl(lookup(vaddr));
 			}
 		} else {
 			throw new CpuException("invalid user address " + Integer.toHexString(vaddr));
@@ -115,14 +115,14 @@ public final class Memory {
 	
 	public void storeHalfWord (final int vaddr, final short value) {
 		if (vaddr >= 0) {
-			storeHalfWordImpl(translate(vaddr), value);
+			storeHalfWordImpl(lookup(vaddr), value);
 		} else if (kernelMode) {
 			if (vaddr < KSEG1) {
 				storeHalfWordImpl(vaddr & KSEG_MASK, value);
 			} else if (vaddr < KSEG2) {
 				malta.systemWrite(vaddr & KSEG_MASK, 2, value);
 			} else {
-				storeHalfWordImpl(translate(vaddr), value);
+				storeHalfWordImpl(lookup(vaddr), value);
 			}
 		} else {
 			throw new CpuException("invalid user address " + Integer.toHexString(vaddr));
@@ -131,14 +131,14 @@ public final class Memory {
 	
 	public byte loadByte (final int vaddr) {
 		if (vaddr >= 0) {
-			return loadByteImpl(translate(vaddr));
+			return loadByteImpl(lookup(vaddr));
 		} else if (kernelMode) {
 			if (vaddr < KSEG1) {
 				return loadByteImpl(vaddr & KSEG_MASK);
 			} else if (vaddr < KSEG2) {
 				return (byte) malta.systemRead(vaddr & KSEG_MASK, 1);
 			} else {
-				return loadByteImpl(translate(vaddr));
+				return loadByteImpl(lookup(vaddr));
 			}
 		} else {
 			throw new CpuException("invalid user address " + Integer.toHexString(vaddr));
@@ -147,14 +147,14 @@ public final class Memory {
 	
 	public void storeByte (final int vaddr, final byte value) {
 		if (vaddr >= 0) {
-			storeByteImpl(translate(vaddr), value);
+			storeByteImpl(lookup(vaddr), value);
 		} else if (kernelMode) {
 			if (vaddr < KSEG1) {
 				storeByteImpl(vaddr & KSEG_MASK, value);
 			} else if (vaddr < KSEG2) {
 				malta.systemWrite(vaddr & KSEG_MASK, 1, value);
 			} else {
-				storeByteImpl(translate(vaddr), value);
+				storeByteImpl(lookup(vaddr), value);
 			}
 		} else {
 			throw new CpuException("invalid user address " + Integer.toHexString(vaddr));
@@ -165,7 +165,26 @@ public final class Memory {
 	 * translate virtual address to physical
 	 */
 	public final int translate (int vaddr) {
-		throw new RuntimeException("unimplemented");
+		if (vaddr >= 0) {
+			return lookup(vaddr);
+		} else if (kernelMode) {
+			if (vaddr < KSEG1) {
+				return vaddr & KSEG_MASK;
+			} else if (vaddr < KSEG2) {
+				throw new RuntimeException("cannot translate kseg1: " + Integer.toHexString(vaddr));
+			} else {
+				return lookup(vaddr);
+			}
+		} else {
+			throw new CpuException("cannot translate kseg as user: " + Integer.toHexString(vaddr));
+		}
+	}
+	
+	/**
+	 * translate virtual address to physical
+	 */
+	private final int lookup (int vaddr) {
+		throw new RuntimeException("unimplemented lookup " + Integer.toHexString(vaddr));
 	}
 	
 	private final byte loadByteImpl (final int paddr) {

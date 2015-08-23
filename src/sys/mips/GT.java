@@ -152,6 +152,7 @@ public class GT implements Device {
 	public void systemWrite (int addr, int size, int value) {
 		CpuLogger log = Cpu.getInstance().getLog();
 		// XXX swap here?
+		value = swap(value);
 		log.info("gt write " + Integer.toHexString(addr) + " <= " + Integer.toHexString(value));
 		iomem.put(addr, size, value);
 		

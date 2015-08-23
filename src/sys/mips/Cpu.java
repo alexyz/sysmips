@@ -273,22 +273,23 @@ public class Cpu {
 				return;
 			case OP_LL: {
 				// begin rmw
-				final int pa = memory.translate(reg[rs] + simm);
-				rmwPhysicalAddress = pa;
-				reg[rt] = memory.loadWord(pa);
+				final int va = reg[rs] + simm;
+				rmwPhysicalAddress = memory.translate(va);
+				reg[rt] = memory.loadWord(va);
 				return;
 			}
 			case OP_SC: {
-				final int pa = memory.translate(reg[rs] + simm);
+				final int va = reg[rs] + simm;
+				final int pa = memory.translate(va);
 				// should also fail if another cpu does a store to the same
 				// block of memory in same page
 				// or the same processor if Config5LLB=1
 				if (pa == rmwPhysicalAddress) {
-					memory.storeWord(pa, reg[rt]);
+					memory.storeWord(va, reg[rt]);
 					reg[rt] = 1;
 					rmwPhysicalAddress = 0;
 				} else {
-					System.out.println("sc fail: a=" + pa + " rmwAddress=" + rmwPhysicalAddress);
+					log.info("sc fail: va=" + Integer.toHexString(va) + " pa=" + Integer.toHexString(pa) + " rmwAddress=" + rmwPhysicalAddress);
 					reg[rt] = 0;
 				}
 				return;

@@ -7,6 +7,7 @@ import java.awt.GridLayout;
 import java.beans.*;
 import java.io.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import javax.swing.*;
 import javax.swing.Timer;
@@ -144,6 +145,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 			return;
 		}
 		
+		cpu.getMemory().print(System.out);
 		cpu.getMemory().getMalta().getSupport().addPropertyChangeListener(this);
 		updateCycle(cpu);
 		
@@ -152,8 +154,17 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		final Thread t = new Thread(() -> {
 			try {
 				cpu.run();
+				
 			} catch (Exception e) {
 				e.printStackTrace(System.out);
+				final List<String> l = cpu.getIsnCount().entrySet()
+						.stream()
+						.filter(x -> x.getValue()[0] > 0)
+						.sorted((x,y) -> y.getValue()[0] - x.getValue()[0])
+						.map(x -> x.getKey() + "=" + x.getValue()[0])
+						.collect(Collectors.toList());
+				System.out.println("isn count " + l);
+				
 				SwingUtilities.invokeLater(() -> {
 					updateCycle(cpu);
 					showErrorDialog("Start", e);
@@ -196,9 +207,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	@Override
 	public void propertyChange (PropertyChangeEvent evt) {
 		// System.out.println("jframe event " + evt);
-		SwingUtilities.invokeLater(() -> {
-			update(evt.getPropertyName(), evt.getNewValue());
-		});
+		SwingUtilities.invokeLater(() -> update(evt.getPropertyName(), evt.getNewValue()));
 	}
 	
 	private void update (String propertyName, Object newValue) {

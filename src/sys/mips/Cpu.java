@@ -1,13 +1,12 @@
 package sys.mips;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static sys.mips.MipsConstants.*;
 import static sys.mips.Decoder.*;
 import static sys.mips.IsnUtil.*;
 
-public class Cpu {
+public final class Cpu {
 	
 	private static ThreadLocal<Cpu> instance = new ThreadLocal<>();
 	
@@ -25,22 +24,32 @@ public class Cpu {
 	private final int[] fpControlReg = new int[32];
 	private final Entry[] tlb = Entry.create(16);
 	private final CpuLogger log = new CpuLogger(this);
+	private final Map<String, int[]> isnCount = new HashMap<>();
 	private final Memory memory;
+	
+	private volatile int cycle;
 	
 	/** address of current instruction */
 	private int pc;
 	/** address of current instruction + 4 (unless changed by branch) */
 	private int nextPc;
-	private int cycle;
 	private int rmwPhysicalAddress;
 	private FpRound roundingMode = FpRound.NONE;
 	private boolean kernelMode = true;
+	private int regHi;
+	private int regLo;
+	private boolean countIsns; 
+	private boolean disasm;
 	
 	public Cpu (boolean littleEndian) {
 		memory = new Memory(0x2000000, littleEndian);
 		memory.setMalta(new Malta());
 		memory.setKernelMode(true);
 		memory.init();
+		
+		for (String name : IsnSet.INSTANCE.nameMap.keySet()) {
+			isnCount.put(name, new int[1]);
+		}
 		
 		// default values on reboot
 		cpReg[CPR_STATUS] = CPR_STATUS_EXL | CPR_STATUS_ERL | CPR_STATUS_BEV | CPR_STATUS_CU0 | CPR_STATUS_CU1;
@@ -108,30 +117,46 @@ public class Cpu {
 		return log;
 	}
 	
+	public int getRegHi () {
+		return regHi;
+	}
+	
+	public int getRegLo () {
+		return regLo;
+	}
+	
+	public boolean isCountIsns () {
+		return countIsns;
+	}
+
+	public void setCountIsns (boolean countIsns) {
+		this.countIsns = countIsns;
+	}
+	
+	public Map<String, int[]> getIsnCount () {
+		return isnCount;
+	}
+
 	/** never returns, throws CpuException... */
 	public final void run () {
-		log.info("run");
+		log.info("run " + cycle);
 		instance.set(this);
 		
-		memory.print(System.out);
-		final TreeMap<String, int[]> isnCount = new TreeMap<>();
-		for (String name : IsnSet.INSTANCE.nameMap.keySet()) {
-			isnCount.put(name, new int[1]);
-		}
-		
-		long t = System.nanoTime();
+		final long t = System.nanoTime();
 		
 		try {
 			while (true) {
-				// log.add(cpRegString(this));
-				// log.add(gpRegString(this));
 				if (reg[0] != 0) {
-					log.info("reg 0 not 0");
 					reg[0] = 0;
 				}
 				
 				final int isn = memory.loadWord(pc);
-				log.debug(IsnUtil.isnString(this, isn));
+				
+				if (disasm) {
+					// log.debug(cpRegString(this));
+					// log.debug(gpRegString(this));
+					log.debug(IsnUtil.isnString(this, isn));
+				}
 				
 				pc = nextPc;
 				nextPc += 4;
@@ -142,9 +167,8 @@ public class Cpu {
 					execFn(isn);
 				}
 				
-				final Isn isnObj = IsnSet.INSTANCE.getIsn(isn);
-				if (isnObj != null) {
-					isnCount.get(isnObj.name)[0]++;
+				if (countIsns) {
+					isnCount.get(IsnSet.INSTANCE.getIsn(isn).name)[0]++;
 				}
 				
 				cycle++;
@@ -153,18 +177,11 @@ public class Cpu {
 		} catch (Exception e) {
 			// can't print pc, it's wrong
 			log.info("stop: " + e);
-			final List<String> l = isnCount.entrySet()
-					.stream()
-					.filter(x -> x.getValue()[0] > 0)
-					.sorted((x,y) -> y.getValue()[0] - x.getValue()[0])
-					.map(x -> x.getKey() + "=" + x.getValue()[0])
-					.collect(Collectors.toList());
-			log.debug("isn count " + l);
-			System.out.println();
 			log.print(System.out);
 			throw new RuntimeException("stop in " + log.getCalls(), e);
 			
 		} finally {
+			instance.remove();
 			long d = System.nanoTime() - t;
 			System.out.println("ns per isn: " + (d / cycle));
 		}
@@ -438,24 +455,24 @@ public class Cpu {
 				execExn(BREAKPOINT_EX, syscall(isn));
 				return;
 			case FN_MFHI:
-				reg[rd] = reg[REG_HI];
+				reg[rd] = regHi;
 				return;
 			case FN_MTHI:
-				reg[REG_HI] = reg[rs];
+				regHi = reg[rs];
 				return;
 			case FN_MFLO:
-				reg[rd] = reg[REG_LO];
+				reg[rd] = regLo;
 				return;
 			case FN_MTLO:
-				reg[REG_LO] = reg[rd];
+				regLo = reg[rd];
 				return;
 			case FN_MULT: {
 				// sign extend
 				final long rsValue = reg[rs];
 				final long rtValue = reg[rt];
 				final long result = rsValue * rtValue;
-				reg[REG_LO] = (int) result;
-				reg[REG_HI] = (int) (result >>> 32);
+				regLo = (int) result;
+				regHi = (int) (result >>> 32);
 				return;
 			}
 			case FN_MULTU: {
@@ -463,8 +480,8 @@ public class Cpu {
 				final long rsValue = reg[rs] & 0xffffffffL;
 				final long rtValue = reg[rt] & 0xffffffffL;
 				final long result = rsValue * rtValue;
-				reg[REG_LO] = (int) result;
-				reg[REG_HI] = (int) (result >>> 32);
+				regLo = (int) result;
+				regHi = (int) (result >>> 32);
 				return;
 			}
 			case FN_DIV: {
@@ -473,8 +490,8 @@ public class Cpu {
 				int rsValue = reg[rs];
 				int rtValue = reg[rt];
 				if (rt != 0) {
-					reg[REG_LO] = rsValue / rtValue;
-					reg[REG_HI] = rsValue % rtValue;
+					regLo = rsValue / rtValue;
+					regHi = rsValue % rtValue;
 				}
 				return;
 			}
@@ -484,8 +501,8 @@ public class Cpu {
 				final long rsValue = reg[rs] & 0xffffffffL;
 				final long rtValue = reg[rt] & 0xffffffffL;
 				if (rtValue != 0) {
-					reg[REG_LO] = (int) (rsValue / rtValue);
-					reg[REG_HI] = (int) (rsValue % rtValue);
+					regLo = (int) (rsValue / rtValue);
+					regHi = (int) (rsValue % rtValue);
 				}
 				return;
 			}
@@ -527,7 +544,7 @@ public class Cpu {
 		}
 	}
 	
-	protected void execExn(String type, int value) {
+	private void execExn(String type, int value) {
 		throw new CpuException(type + " " + value);
 	}
 	

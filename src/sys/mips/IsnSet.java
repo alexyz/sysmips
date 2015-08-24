@@ -8,7 +8,7 @@ import static sys.mips.Decoder.*;
 import static sys.mips.IsnUtil.*;
 
 /**
- * all instructions
+ * all instructions (not including the actual implementation)
  */
 public class IsnSet {
 	

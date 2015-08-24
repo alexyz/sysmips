@@ -279,10 +279,6 @@ public final class MipsConstants {
 	public static final int REG_A3 = 7;
 	/** stack pointer register */
 	public static final int REG_SP = 29;
-	/** multiply high result meta-register */
-	public static final int REG_HI = 32;
-	/** multiply low result meta-register */
-	public static final int REG_LO = 33;
 	
 	//
 	// floating point control registers and constants

@@ -1,6 +1,6 @@
 # Sysmips
 
-MIPS 4Kc/Malta/GT-64120A/PIIX4 system emulator, intended to run Linux 3.2
+MIPS32 4Kc/Malta/GT-64120A/PIIX4 system emulator, intended to run Linux 3.2
 
 Loosely based on the mipsem project (a user-level MIPS R2000A/Linux emulator)
 
@@ -13,15 +13,15 @@ This project is NOT officially associated with Imagination Technologies, Galileo
 * MIPS32 Architecture For Programmers Volume II: The MIPS32 Instruction Set (c. 2001)
 * MIPS32 Architecture For Programmers Volume III: The MIPS32 Privileged Resource Architecture (c. 2001)
 * MIPS32 4K Processor Core Family Software User's Manual (c. 2001-2002)
-* Tool Interface Standard (TIS) Executable and Linking Format (ELF) Specification Version 1.2
-* MIPS Malta User's Manual
+* Tool Interface Standard (TIS) Executable and Linking Format (ELF) Specification Version 1.2 (1995)
+* MIPS Malta User's Manual (c. 2001-2002)
 * MIPS YAMON User's Manual, Reference Manual and source code
 * Linux 3.2.68 source code, particularly arch/mips/include/asm and arch/mips/mti-malta
 * GRUB source code
 * Galileo GT-64120 System Controller Datasheet (1999)
 * Galileo GT-64120A System Controller Datasheet (2001)
 * Intel 82371AB PCI-TO-ISA / IDE XCELERATOR (PIIX4) (1997)
-* System V Application Binary Interface MIPS RISC Processor Supplement 3rd Edition
+* System V Application Binary Interface MIPS RISC Processor Supplement 3rd Edition (1996)
 
 ## Suggested Software
 

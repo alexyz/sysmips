@@ -22,9 +22,7 @@ public class IsnUtil {
 		"s4", "s5", "s6", "s7", 
 		// 24
 		"t8", "t9", "k0", "k1", 
-		"gp", "sp", "s8", "ra", 
-		// 32 (!)
-		"hi", "lo" 
+		"gp", "sp", "s8", "ra"
 	};
 
 	public static final String[][] CP_REG_NAMES = new String[][] { 
@@ -144,7 +142,7 @@ public class IsnUtil {
 		final int[] reg = cpu.getRegisters();
 		final int pc = cpu.getPc();
 		final Symbols syms = mem.getSymbols();
-		fmt(isn);
+		
 		switch (name) {
 			case "fr":
 				return fpRegName(fr(isn));
@@ -199,9 +197,9 @@ public class IsnUtil {
 			case "branch":
 				return syms.getName(branch(isn, pc));
 			case "hi":
-				return "0x" + Integer.toHexString(reg[REG_HI]);
+				return "0x" + Integer.toHexString(cpu.getRegHi());
 			case "lo":
-				return "0x" + Integer.toHexString(reg[REG_LO]);
+				return "0x" + Integer.toHexString(cpu.getRegLo());
 			case "baseoffset":
 				return syms.getName(reg[base(isn)] + simm(isn));
 			case "syscall":

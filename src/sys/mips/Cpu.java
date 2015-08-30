@@ -189,17 +189,7 @@ public final class Cpu {
 					cycle++;
 				}
 				
-				Exn e = null;
-				
-				synchronized (interrupts) {
-					if (interrupts.size() > 0) {
-						e = interrupts.remove(0);
-					}
-				}
-				
-				if (e != null && interruptsEnabled) {
-					execExn(e.type);
-				}
+				checkExn();
 			}
 			
 		} catch (Exception e) {
@@ -214,9 +204,29 @@ public final class Cpu {
 			instance.remove();
 		}
 	}
+
+	private void checkExn () {
+		Exn e = null;
+		synchronized (interrupts) {
+			if (interrupts.size() > 0) {
+				e = interrupts.remove(0);
+				System.out.println("got interrupt " + e);
+			}
+		}
+		if (e != null) {
+			if (e.type < 0) {
+				throw new RuntimeException("stop");
+			} else if (interruptsEnabled) {
+				execExn(e.type);
+			} else {
+				log.info("ignore exn " + e);
+			}
+		}
+	}
 	
 	public void interrupt (final Exn e) {
 		synchronized (interrupts) {
+			System.out.println("add exn " + e);
 			interrupts.add(e);
 		}
 	}
@@ -689,6 +699,10 @@ public final class Cpu {
 			case CPR_CAUSE:
 			case CPR_ENTRYHI:
 			case CPR_WIRED:
+				break;
+			case CPR_COUNT:
+				// update this only when read
+				cpReg[cpr] = cycle >>> 1;
 				break;
 			default:
 				throw new RuntimeException("move from unknown cp reg " + cpRegName(rd, sel));

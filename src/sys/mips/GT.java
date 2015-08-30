@@ -149,12 +149,12 @@ public class GT implements Device {
 	}
 	
 	@Override
-	public void systemWrite (int addr, int size, int value) {
+	public void systemWrite (int addr, int value, int size) {
 		CpuLogger log = Cpu.getInstance().getLog();
 		// XXX swap here?
 		value = swap(value);
 		log.info("gt write " + Integer.toHexString(addr) + " <= " + Integer.toHexString(value));
-		iomem.put(addr, size, value);
+		iomem.put(addr, value, size);
 		
 		switch (addr) {
 			case GT_PCI0IOREMAP:

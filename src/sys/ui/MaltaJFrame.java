@@ -6,6 +6,7 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.beans.*;
 import java.io.*;
+import java.text.NumberFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -16,6 +17,7 @@ import javax.swing.text.*;
 
 import sys.mips.Cpu;
 import sys.mips.CpuUtil;
+import sys.mips.Exn;
 
 public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	
@@ -34,6 +36,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	private final JTextArea consoleArea = new JTextArea();
 	private final JButton fileButton = new JButton("...");
 	private final JButton runButton = new JButton("Run");
+	private final JButton stopButton = new JButton("Stop");
 	private final Timer timer;
 	
 	private volatile Thread thread;
@@ -55,6 +58,8 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		
 		runButton.addActionListener(ae -> start());
 		
+		stopButton.addActionListener(ae -> stop());
+		
 		displayLabel.setFont(MONO);
 		displayLabel.setBorder(new EtchedBorder());
 		
@@ -71,6 +76,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		topPanel1.add(new JLabel("Env"));
 		topPanel1.add(envField);
 		topPanel1.add(runButton);
+		topPanel1.add(stopButton);
 		
 		JPanel topPanel2 = new JPanel();
 		topPanel2.add(displayLabel);
@@ -91,6 +97,12 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		setPreferredSize(new Dimension(640, 480));
 		setContentPane(p);
 		pack();
+	}
+
+	private void stop () {
+		if (cpu != null) {
+			cpu.interrupt(new Exn(-1));
+		}
 	}
 
 	private void selectFile () {
@@ -207,7 +219,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		for (int n = 0; n < msg.length(); n++) {
 			final char c = msg.charAt(n);
 			sb.append(c);
-			if (l++ > 72 && c == ' ') {
+			if (l++ > 72 && " /".indexOf(c) >= 0) {
 				sb.append("\n");
 				l = 0;
 			}
@@ -245,7 +257,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	
 	private void updateCycle () {
 		if (cpu != null) {
-			cycleLabel.setText("Cycle " + cpu.getCycle());
+			cycleLabel.setText("Cycle " + NumberFormat.getInstance().format(cpu.getCycle()));
 		}
 	}
 	

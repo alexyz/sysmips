@@ -71,7 +71,7 @@ public final class Memory {
 	
 	public final void storeWord (final int vaddr, final int value) {
 		if (isSystem(vaddr)) {
-			malta.systemWrite(vaddr & KSEG_MASK, 4, value);
+			malta.systemWrite(vaddr & KSEG_MASK, value, 4);
 		} else {
 			storeWordImpl(translate(vaddr), value);
 		}
@@ -87,7 +87,7 @@ public final class Memory {
 	
 	public final void storeHalfWord (final int vaddr, final short value) {
 		if (isSystem(vaddr)) {
-			malta.systemWrite(vaddr & KSEG_MASK, 2, value);
+			malta.systemWrite(vaddr & KSEG_MASK, value, 2);
 		} else {
 			storeHalfWordImpl(translate(vaddr), value);
 		}
@@ -103,7 +103,7 @@ public final class Memory {
 	
 	public final void storeByte (final int vaddr, final byte value) {
 		if (isSystem(vaddr)) {
-			malta.systemWrite(vaddr & KSEG_MASK, 1, value);
+			malta.systemWrite(vaddr & KSEG_MASK, value, 1);
 		} else {
 			storeByteImpl(translate(vaddr), value);
 		}

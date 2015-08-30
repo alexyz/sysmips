@@ -1,6 +1,7 @@
 package sys.mips;
 
 import java.beans.PropertyChangeSupport;
+import java.util.Calendar;
 
 /**
  * this class kind-of represents the southbridge, but it is also doing device
@@ -19,6 +20,11 @@ public class Malta implements Device {
 	// 82371AB (PIIX4) 3.1.2. IO SPACE REGISTERS
 	public static final int M_PIC_MASTER_CMD = M_PIIX4 + 0x20;
 	public static final int M_PIC_MASTER_IMR = M_PIIX4 + 0x21;
+	// programmable interval timers
+	public static final int M_I8253_COUNTER_0 = M_PIIX4 + 0x40;
+	public static final int M_I8253_COUNTER_1 = M_PIIX4 + 0x41;
+	public static final int M_I8253_COUNTER_2 = M_PIIX4 + 0x42;
+	public static final int M_I8253_TCW = M_PIIX4 + 0x43;
 	public static final int M_RTCADR = M_PIIX4 + 0x70;
 	public static final int M_RTCDAT = M_PIIX4 + 0x71;
 	public static final int M_PIC_SLAVE_CMD = M_PIIX4 + 0xa0;
@@ -53,6 +59,19 @@ public class Malta implements Device {
 	public static final int M_SCSPEC2 = 0x1fd0_0010;
 	public static final int M_SCSPEC2_BONITO = 0x1fe0_0010;
 	
+	private static int indexToCalendar (int index) {
+		switch (index) {
+			case 0: return Calendar.SECOND;
+			case 2: return Calendar.MINUTE;
+			case 4: return Calendar.HOUR_OF_DAY;
+			case 6: return Calendar.DAY_OF_WEEK;
+			case 7: return Calendar.DAY_OF_MONTH;
+			case 8: return Calendar.MONTH;
+			case 9: return Calendar.YEAR;
+			default: throw new RuntimeException("invalid index " + index);
+		}
+	}
+	
 	// this should probably live on the cpu
 	private final PropertyChangeSupport support = new PropertyChangeSupport(this);
 	private final StringBuilder consoleSb = new StringBuilder();
@@ -63,7 +82,7 @@ public class Malta implements Device {
 	
 	public Malta () {
 		iomem.putWord(M_REVISION, 1);
-		iomem.putByte(M_UART_LSR, 0x20);
+		iomem.putByte(M_UART_LSR, (byte) 0x20);
 		iomem.putWord(M_DISPLAY_LEDBAR, 0);
 		iomem.putWord(M_DISPLAY_ASCIIWORD, 0);
 		for (int n = 0; n < 8; n++) {
@@ -82,6 +101,10 @@ public class Malta implements Device {
 		sym.put(offset + M_PIIX4, "M_PIIX4");
 		sym.put(offset + M_PIC_MASTER_CMD, "M_PIC_MASTER_CMD", 1);
 		sym.put(offset + M_PIC_MASTER_IMR, "M_PIC_MASTER_IMR", 1);
+		sym.put(offset + M_I8253_COUNTER_0, "M_I8253_COUNTER_0", 1);
+		sym.put(offset + M_I8253_COUNTER_1, "M_I8253_COUNTER_1", 1);
+		sym.put(offset + M_I8253_COUNTER_2, "M_I8253_COUNTER_2", 1);
+		sym.put(offset + M_I8253_TCW, "M_I8253_TCW", 1);
 		sym.put(offset + M_RTCADR, "M_RTCADR");
 		sym.put(offset + M_RTCDAT, "M_RTCDAT");
 		sym.put(offset + M_PIC_SLAVE_CMD, "M_PIC_SLAVE_CMD", 1);
@@ -111,29 +134,48 @@ public class Malta implements Device {
 			return gt.systemRead(addr - M_GTBASE, size);
 		}
 
-		final CpuLogger log = Cpu.getInstance().getLog();
-		log.debug("malta read " + getName(addr) + " size " + size);
+//		final CpuLogger log = Cpu.getInstance().getLog();
+//		log.debug("malta read " + getName(addr) + " size " + size);
 		
 		return iomem.get(addr, size);
 	}
 	
 	@Override
-	public void systemWrite (final int addr, int size, final int value) {
+	public void systemWrite (final int addr, final int value, int size) {
 		if (addr >= M_GTBASE && addr < M_GTBASE + 0x1000) {
-			gt.systemWrite(addr - M_GTBASE, size, value);
+			gt.systemWrite(addr - M_GTBASE, value, size);
 			return;
 		}
 		
 		CpuLogger log = Cpu.getInstance().getLog();
-		log.debug("malta write " + getName(addr) + " <= " + Integer.toHexString(value));
+		//log.debug("malta write " + getName(addr) + " <= " + Integer.toHexString(value) + " size " + size);
 		
-		iomem.put(addr, size, value);
+		iomem.put(addr, value, size);
 		
 		switch (addr) {
-			case M_RTCADR:
+			case M_RTCADR: {
 				// mc146818rtc.h
 				// 0 = seconds, 2 = minutes, 4 = hours, 6 = dow, 7 = dom, 8 = month, 9 = year
-				throw new RuntimeException("rtc adr write");
+				//log.debug("rtc adr write");
+				if (value == 0xa) {
+					boolean uip = (System.currentTimeMillis() % 1000) >= 990;
+					iomem.putByte(M_RTCDAT, (byte) (uip ? 0x80 : 0));
+				} else if (value == 0xb) {
+					iomem.putByte(M_RTCDAT, (byte) 4);
+				} else {
+					final int f = indexToCalendar(value);
+					iomem.putByte(M_RTCDAT, (byte) Calendar.getInstance().get(f));
+				}
+				return;
+			}
+			
+			case M_RTCDAT: {
+				if (value == 4) {
+					// set mode binary
+					return;
+				}
+				throw new RuntimeException("unexpected rtc dat write: " + value);
+			}
 			
 			case M_DMA2_MASK_REG:
 				// information in asm/dma.h

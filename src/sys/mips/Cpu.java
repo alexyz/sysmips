@@ -26,6 +26,8 @@ public final class Cpu {
 	private final CpuLogger log = new CpuLogger(this);
 	private final Map<String, int[]> isnCount = new HashMap<>();
 	private final Memory memory;
+	private final boolean littleEndian;
+	private final List<Exn> interrupts = new ArrayList<>();
 	
 	private volatile int cycle;
 	
@@ -35,24 +37,26 @@ public final class Cpu {
 	private int nextPc;
 	private int rmwPhysicalAddress;
 	private FpRound roundingMode = FpRound.NONE;
-	private boolean kernelMode = true;
+	private boolean kernelMode;
 	private int regHi;
 	private int regLo;
 	private boolean countIsns; 
 	private boolean disasm;
+	private boolean interruptsEnabled;
 	
 	public Cpu (boolean littleEndian) {
+		this.littleEndian = littleEndian;
 		memory = new Memory(0x2000000, littleEndian);
 		memory.setMalta(new Malta());
 		memory.setKernelMode(true);
 		memory.init();
-		
 		for (String name : IsnSet.INSTANCE.nameMap.keySet()) {
 			isnCount.put(name, new int[1]);
 		}
 		
 		// default values on reboot
 		cpReg[CPR_STATUS] = CPR_STATUS_EXL | CPR_STATUS_ERL | CPR_STATUS_BEV | CPR_STATUS_CU0 | CPR_STATUS_CU1;
+		statusUpdated();
 		
 		// 0x10000 = MIPS, 0x8000 = 4KC 
 		cpReg[CPR_PRID] = 0x18000;
@@ -66,6 +70,8 @@ public final class Cpu {
 		
 		// support S, D, W, L (unlike the 4kc...)
 		fpControlReg[FPCR_FIR] = (1 << 16) | (1 << 17) | (1 << 20) | (1 << 21) | (1 << 8);
+		
+		setPc(EXV_RESET);
 	}
 	
 	public int[] getCpRegisters () {
@@ -128,7 +134,7 @@ public final class Cpu {
 	public boolean isCountIsns () {
 		return countIsns;
 	}
-
+	
 	public void setCountIsns (boolean countIsns) {
 		this.countIsns = countIsns;
 	}
@@ -136,65 +142,95 @@ public final class Cpu {
 	public Map<String, int[]> getIsnCount () {
 		return isnCount;
 	}
-
-	/** never returns, throws CpuException... */
+	
+	public int[] getFpControlReg () {
+		return fpControlReg;
+	}
+	
+	public boolean isLittleEndian () {
+		return littleEndian;
+	}
+	
+	/** never returns, throws runtime exception... */
 	public final void run () {
 		log.info("run " + cycle);
-		instance.set(this);
 		
 		final long t = System.nanoTime();
 		
 		try {
+			instance.set(this);
+			
 			while (true) {
-				if (reg[0] != 0) {
-					reg[0] = 0;
-				}
-				
-				final int isn = memory.loadWord(pc);
-				
-				if (disasm) {
-					// log.debug(cpRegString(this));
-					// log.debug(gpRegString(this));
-					log.debug(IsnUtil.isnString(this, isn));
-				}
-				
-				pc = nextPc;
-				nextPc += 4;
-				
-				if (op(isn) != 0) {
+				for (int n = 0; n < 10000; n++) {
+					if (reg[0] != 0) {
+						reg[0] = 0;
+					}
+					
+					final int isn = memory.loadWord(pc);
+					
+					if (disasm) {
+						// log.debug(cpRegString(this));
+						// log.debug(gpRegString(this));
+						log.debug(IsnUtil.isnString(this, isn));
+					}
+					
+					pc = nextPc;
+					nextPc += 4;
+					
 					execOp(isn);
-				} else {
-					execFn(isn);
+					
+					// pc is next isn
+					// nextpc is isn after (may have been moved by branch)
+					
+					if (countIsns) {
+						isnCount.get(IsnSet.INSTANCE.getIsn(isn).name)[0]++;
+					}
+					
+					cycle++;
 				}
 				
-				if (countIsns) {
-					isnCount.get(IsnSet.INSTANCE.getIsn(isn).name)[0]++;
+				Exn e = null;
+				
+				synchronized (interrupts) {
+					if (interrupts.size() > 0) {
+						e = interrupts.remove(0);
+					}
 				}
 				
-				cycle++;
+				if (e != null && interruptsEnabled) {
+					execExn(e.type);
+				}
 			}
 			
 		} catch (Exception e) {
 			// can't print pc, it's wrong
+			long d = System.nanoTime() - t;
 			log.info("stop: " + e);
+			log.info("ns per isn: " + (d / cycle));
 			log.print(System.out);
 			throw new RuntimeException("stop in " + log.getCalls(), e);
 			
 		} finally {
 			instance.remove();
-			long d = System.nanoTime() - t;
-			System.out.println("ns per isn: " + (d / cycle));
+		}
+	}
+	
+	public void interrupt (final Exn e) {
+		synchronized (interrupts) {
+			interrupts.add(e);
 		}
 	}
 	
 	private final void execOp (final int isn) {
-		final int[] reg = this.reg;
 		final int op = op(isn);
 		final int rs = rs(isn);
 		final int rt = rt(isn);
 		final int simm = simm(isn);
 		
 		switch (op) {
+			case OP_SPECIAL:
+				execFn(isn);
+				return;
 			case OP_REGIMM:
 				execRegimm(isn);
 				return;
@@ -418,8 +454,8 @@ public final class Cpu {
 			case FN_SRA:
 				reg[rd] = reg[rt] >> sa(isn);
 				return;
-				case FN_SRLV:
-					reg[rd] = reg[rt] >>> (reg[rs] & 0x1f);
+			case FN_SRLV:
+				reg[rd] = reg[rt] >>> (reg[rs] & 0x1f);
 				return;
 			case FN_SRAV:
 				reg[rd] = reg[rt] >> (reg[rs] & 0x1f);
@@ -449,10 +485,10 @@ public final class Cpu {
 				}
 				return;
 			case FN_SYSCALL:
-				execExn(SYSCALL_EX, syscall(isn));
+				execExn(EX_Sys);
 				return;
 			case FN_BREAK:
-				execExn(BREAKPOINT_EX, syscall(isn));
+				execExn(EX_Bp);
 				return;
 			case FN_MFHI:
 				reg[rd] = regHi;
@@ -536,7 +572,7 @@ public final class Cpu {
 			}
 			case FN_TNE:
 				if (reg[rs] != reg[rt]) {
-					execExn(TRAP_EX, 0);
+					execExn(EX_Tr);
 				}
 				return;
 			default:
@@ -544,8 +580,54 @@ public final class Cpu {
 		}
 	}
 	
-	private void execExn(String type, int value) {
-		throw new CpuException(type + " " + value);
+	private void execExn (int ex) {
+		log.info("exec exception " + exceptionName(ex));
+		
+		final int status = cpReg[CPR_STATUS];
+		final int cause = cpReg[CPR_CAUSE];
+		
+		final boolean bev = (status & CPR_STATUS_BEV) != 0;
+		final boolean exl = (status & CPR_STATUS_EXL) != 0;
+		final boolean iv = (cause & CPR_CAUSE_IV) != 0;
+		
+		if (bev) {
+			// OS hasn't installed a handler yet...
+			throw new RuntimeException("bootstrap exception");
+		}
+		
+		if (exl) {
+			// eh...
+			throw new RuntimeException("exl exception");
+		}
+		
+		int newstatus = status | CPR_STATUS_EXL;
+		int newcause = cause & ~(CPR_CAUSE_EXCODE | CPR_CAUSE_BD);
+		int newepc;
+		
+		if (nextPc == pc + 4) {
+			newepc = pc;
+			
+		} else {
+			newepc = pc - 4;
+			newcause |= CPR_CAUSE_BD;
+		}
+		
+		newcause |= (ex << CPR_CAUSE_EXCODE_SHL);
+		
+		cpReg[CPR_CAUSE] = newcause;
+		cpReg[CPR_STATUS] = newstatus;
+		cpReg[CPR_EPC] = newepc;
+		
+		statusUpdated();
+		
+		if (ex == EX_INT && iv) {
+			setPc(EXV_INTERRUPT_IV);
+			
+		} else {
+			setPc(EXV_EXCEPTION);
+		}
+		
+		throw new RuntimeException("some other exception...");
 	}
 	
 	private void execFn2 (final int isn) {
@@ -579,6 +661,7 @@ public final class Cpu {
 	/** execute system coprocessor instruction */
 	private void execCpRs (final int isn) {
 		final int rs = rs(isn);
+		// should check if cp0 enabled/kernel mode?
 		
 		switch (rs) {
 			case CP_RS_MFC0:
@@ -647,10 +730,10 @@ public final class Cpu {
 				}
 				return;
 			case CPR_STATUS:
-				setStatus(newValue);
+				setCpStatus(newValue);
 				return;
 			case CPR_CAUSE:
-				setCause(newValue);
+				setCpCause(newValue);
 				return;
 			case CPR_CONFIG:
 				if (oldValue != newValue) {
@@ -662,7 +745,7 @@ public final class Cpu {
 		}
 	}
 	
-	private void setCause (final int newValue) {
+	private void setCpCause (final int newValue) {
 		final int value = cpReg[CPR_CAUSE];
 		int mask = CPR_CAUSE_IV;
 		if ((newValue & ~mask) != 0) {
@@ -671,18 +754,24 @@ public final class Cpu {
 		cpReg[CPR_CAUSE] = (value & ~mask) | (newValue & mask);
 	}
 	
-	private void setStatus (final int newValue) {
+	private void setCpStatus (final int newValue) {
 		final int mask = CPR_STATUS_CU1 | CPR_STATUS_CU0 | CPR_STATUS_BEV | CPR_STATUS_IM | CPR_STATUS_UM | CPR_STATUS_ERL | CPR_STATUS_EXL | CPR_STATUS_IE;
 		if ((newValue & ~mask) != 0) {
 			throw new RuntimeException("unknown status value " + Integer.toHexString(newValue));
 		}
+		
 		// don't need to preserve anything
 		cpReg[CPR_STATUS] = newValue & mask;
-		
-		boolean ie = (newValue & CPR_STATUS_IE) != 0;
-		boolean exl = (newValue & CPR_STATUS_EXL) != 0;
-		boolean erl = (newValue & CPR_STATUS_ERL) != 0;
-		boolean um = (newValue & CPR_STATUS_UM) != 0;
+
+		statusUpdated();
+	}
+	
+	private void statusUpdated() {
+		final int status = cpReg[CPR_STATUS];
+		final boolean ie = (status & CPR_STATUS_IE) != 0;
+		final boolean exl = (status & CPR_STATUS_EXL) != 0;
+		final boolean erl = (status & CPR_STATUS_ERL) != 0;
+		final boolean um = (status & CPR_STATUS_UM) != 0;
 		
 		// kernel mode if UM = 0, or EXL = 1, or ERL = 1
 		kernelMode = !um || exl || erl;
@@ -690,8 +779,8 @@ public final class Cpu {
 			throw new RuntimeException("user mode");
 		}
 		
-		// interrupts enabled if IE = 1 and EXL = 0 and ERL = 0 and DM = 0 (debug mode)
-		boolean interruptsEnabled = ie && !exl && !erl;
+		// interrupts enabled if IE = 1 and EXL = 0 and ERL = 0
+		interruptsEnabled = ie && !exl && !erl;
 		if (interruptsEnabled) {
 			throw new RuntimeException("interrupts enabled");
 		}
@@ -699,6 +788,7 @@ public final class Cpu {
 	
 	private final void execCpFn (final int isn) {
 		final int fn = fn(isn);
+		
 		switch (fn) {
 			case CP_FN_TLBWI: {
 				// write indexed tlb entry...
@@ -753,7 +843,7 @@ public final class Cpu {
 				return;
 				
 			case FP_RS_BC1:
-				if (fptf(isn) == getFpCondition(fpcc(isn))) {
+				if (fptf(isn) == fccrFcc(fpControlReg, fpcc(isn))) {
 					nextPc = branch(isn, pc);
 				} else {
 					// don't execute delay slot
@@ -898,15 +988,6 @@ public final class Cpu {
 				return;
 			default:
 				throw new RuntimeException("invalid fpu fnx " + opString(fn));
-		}
-	}
-	
-	public boolean getFpCondition (final int cc) {
-		if (cc >= 0 && cc < 8) {
-			return (fpControlReg[FPCR_FCCR] & (1 << cc)) != 0;
-			
-		} else {
-			throw new IllegalArgumentException("invalid fpu cc " + cc);
 		}
 	}
 	

@@ -5,14 +5,9 @@ package sys.mips;
  */
 public final class MipsConstants {
 	
-	public static final String BREAKPOINT_EX = "breakpoint";
-	public static final String SYSCALL_EX = "syscall";
-	public static final String TRAP_EX = "trap";
-	
-	// any instructions added here must also be added to IsnSet!
-	
 	//
 	// instructions
+	// any instructions added here must also be added to IsnSet!
 	//
 	
 	/** special meta instruction selected by FN */
@@ -51,12 +46,18 @@ public final class MipsConstants {
 	public static final byte OP_COP0 = 0x10;
 	/** coprocessor 1 (fpu) meta instruction selected by RS then by RT/FN */
 	public static final byte OP_COP1 = 0x11;
+	public static final byte OP_COP2 = 0x12;
 	/** coprocessor 1 (fpu) extension meta instruction (selected by fn) */
 	public static final byte OP_COP1X = 0x13;
 	/** branch if equal likely, execute delay slot only if taken */
 	public static final byte OP_BEQL = 0x14;
+	public static final byte OP_BNEL = 0x15;
+	public static final byte OP_BLEZL = 0x16;
+	public static final byte OP_BGTZL = 0x17;
 	/** meta instruction selected by fn */
 	public static final byte OP_SPECIAL2 = 0x1c;
+	public static final byte OP_JALX = 0x1d;
+	public static final byte OP_SPECIAL3 = 0x1f;
 	/** load byte (signed) */
 	public static final byte OP_LB = 0x20;
 	/** load halfword. sign extend */
@@ -81,20 +82,25 @@ public final class MipsConstants {
 	public static final byte OP_SW = 0x2b;
 	/** store word right */
 	public static final byte OP_SWR = 0x2e;
+	public static final byte OP_CACHE = 0x2f;
 	/** load linked word synchronised */
 	public static final byte OP_LL = 0x30;
 	/** load word from mem to coprocessor */
 	public static final byte OP_LWC1 = 0x31;
+	public static final byte OP_LWC2 = 0x32;
 	/** prefetch */
 	public static final byte OP_PREF = 0x33;
 	/** load double word to floating point */
 	public static final byte OP_LDC1 = 0x35;
+	public static final byte OP_LDC2 = 0x36;
 	/** store conditional word */
 	public static final byte OP_SC = 0x38;
 	/** store word from coprocessor to memory */
 	public static final byte OP_SWC1 = 0x39;
+	public static final byte OP_SWC2 = 0x3a;
 	/** store double word from coprocessor to memory */
 	public static final byte OP_SDC1 = 0x3d;
+	public static final byte OP_SDC2 = 0x3e;
 	
 	//
 	// SPECIAL instructions
@@ -102,6 +108,7 @@ public final class MipsConstants {
 	
 	/** shift word left logical. also nop if sa,rd,rt = 0 */
 	public static final byte FN_SLL = 0x00;
+	public static final byte FN_MOVCI = 0x01;
 	/** shift word right logical */
 	public static final byte FN_SRL = 0x02;
 	/** shift word right arithmetic (preserve sign) */
@@ -120,6 +127,7 @@ public final class MipsConstants {
 	public static final byte FN_MOVN = 0x0b;
 	public static final byte FN_SYSCALL = 0x0c;
 	public static final byte FN_BREAK = 0x0d;
+	public static final byte FN_SYNC = 0x0f;
 	/** move from hi register */
 	public static final byte FN_MFHI = 0x10;
 	/** move to hi register */
@@ -139,6 +147,7 @@ public final class MipsConstants {
 	public static final byte FN_ADD = 0x20;
 	/** add unsigned word */
 	public static final byte FN_ADDU = 0x21;
+	public static final byte FN_SUB = 0x22;
 	/** subtract unsigned word */
 	public static final byte FN_SUBU = 0x23;
 	/** bitwise logical and */
@@ -153,17 +162,13 @@ public final class MipsConstants {
 	public static final byte FN_SLT = 0x2a;
 	/** set on less than unsigned */
 	public static final byte FN_SLTU = 0x2b;
+	public static final byte FN_TGE = 0x30;
+	public static final byte FN_TGEU = 0x31;
+	public static final byte FN_TLT = 0x32;
+	public static final byte FN_TLTU = 0x33;
+	public static final byte FN_TEQ = 0x34;
 	/** trap if not equal */
 	public static final byte FN_TNE = 0x36;
-	
-	//
-	// SPECIAL2 instructions
-	//
-	
-	/** multiply word to gpr */
-	public static final byte FN2_MUL = 0x02;
-	/** count leading zeros in word */
-	public static final byte FN2_CLZ = 0x20;
 	
 	//
 	// REGIMM instructions
@@ -173,10 +178,36 @@ public final class MipsConstants {
 	public static final byte RT_BLTZ = 0x00;
 	/** branch if greater than or equal to zero */
 	public static final byte RT_BGEZ = 0x01;
+	public static final byte RT_BLTZL = 0x02;
+	public static final byte RT_BGEZL = 0x03;
+	public static final byte RT_TGEI = 0x08;
+	public static final byte RT_TGEIU = 0x09;
+	public static final byte RT_TLTI = 0x0a;
+	public static final byte RT_TLTIU = 0x0b;
+	public static final byte RT_TEQI = 0x0c;
+	public static final byte RT_TNEI = 0x0e;
 	/** branch on less than zero and link */
 	public static final byte RT_BLTZAL = 0x10;
 	/** branch on greater than or equal to zero and link */
 	public static final byte RT_BGEZAL = 0x11;
+	public static final byte RT_BLTZALL = 0x12;
+	public static final byte RT_BGEZALL = 0x13;
+	public static final byte RT_SYNCI = 0x1f;
+
+	//
+	// SPECIAL2 instructions
+	//
+	
+	public static final byte FN2_MADD = 0x00;
+	public static final byte FN2_MADDU = 0x01;
+	/** multiply word to gpr */
+	public static final byte FN2_MUL = 0x02;
+	public static final byte FN2_MSUB = 0x04;
+	public static final byte FN2_MSUBU = 0x05;
+	/** count leading zeros in word */
+	public static final byte FN2_CLZ = 0x20;
+	public static final byte FN2_MLO = 0x21;
+	public static final byte FN2_SDBBP = 0x3f;
 	
 	//
 	// System coprocessor instructions
@@ -184,12 +215,10 @@ public final class MipsConstants {
 	
 	/** move from coprocessor 0 */
 	public static final byte CP_RS_MFC0 = 0x00;
-	public static final byte CP_RS_MFH = 0x02;
 	/** move to coprocessor 0 */
 	public static final byte CP_RS_MTC0 = 0x04;
-	/** move to high coprocessor 0 */
-	public static final byte CP_RS_MTHC0 = 0x06;
 	public static final byte CP_RS_RDPGPR = 0x0a;
+	public static final byte CP_RS_MFMC0 = 0x0b;
 	public static final byte CP_RS_WRPGPR = 0x0e;
 	/** meta instruction, when rs >= CP_RS_CO, isn is selected by fn */
 	public static final byte CP_RS_CO = 0x10;
@@ -200,10 +229,14 @@ public final class MipsConstants {
 
 	public static final byte CP_FN_TLBR = 0x01;
 	public static final byte CP_FN_TLBWI = 0x02;
+	/** TLB invalidate, optional instruction */
 	public static final byte CP_FN_TLBINV = 0x03;
 	public static final byte CP_FN_TLBINVF = 0x04;
 	public static final byte CP_FN_TLBWR = 0x06;
 	public static final byte CP_FN_TLBP = 0x08;
+	public static final byte CP_FN_ERET = 0x18;
+	public static final byte CP_FN_DERET = 0x1f;
+	public static final byte CP_FN_WAIT = 0x20;
 	
 	//
 	// floating point (coprocessor 1) instructions
@@ -213,12 +246,16 @@ public final class MipsConstants {
 	public static final byte FP_RS_MFC1 = 0x00;
 	/** move control word from floating point */
 	public static final byte FP_RS_CFC1 = 0x02;
+	public static final byte FP_RS_MFHC1 = 0x03;
 	/** move word to floating point from gpr */
 	public static final byte FP_RS_MTC1 = 0x04;
 	/** move control word to floating point */
 	public static final byte FP_RS_CTC1 = 0x06;
+	public static final byte FP_RS_MTHC1 = 0x07;
 	/** branch on fp condition sort-of meta instruction (depends on CC and TF) */
 	public static final byte FP_RS_BC1 = 0x08;
+	public static final byte FP_RS_BC1ANY2 = 0x09;
+	public static final byte FP_RS_BC1ANY4 = 0x0a;
 	/**
 	 * single precision meta instruction, when rs >= FP_RS_S (and < 0x18), isn is
 	 * selected by fn
@@ -230,6 +267,7 @@ public final class MipsConstants {
 	public static final byte FP_RS_W = 0x14;
 	/** long precision meta instruction */
 	public static final byte FP_RS_L = 0x15;
+	public static final byte FP_RS_PS = 0x16;
 	
 	//
 	// floating point functions
@@ -239,23 +277,55 @@ public final class MipsConstants {
 	public static final byte FP_FN_SUB = 0x01;
 	public static final byte FP_FN_MUL = 0x02;
 	public static final byte FP_FN_DIV = 0x03;
+	public static final byte FP_FN_SQRT = 0x04;
 	public static final byte FP_FN_ABS = 0x05;
 	public static final byte FP_FN_MOV = 0x06;
 	public static final byte FP_FN_NEG = 0x07;
+	public static final byte FP_FN_ROUND_L = 0x08;
+	public static final byte FP_FN_TRUNC_L = 0x09;
+	public static final byte FP_FN_CEIL_L = 0x0a;
+	public static final byte FP_FN_FLOOR_L = 0x0b;
+	public static final byte FP_FN_ROUND_W = 0x0c;
+	public static final byte FP_FN_TRUNC_W = 0x0d;
+	public static final byte FP_FN_CEIL_W = 0x0e;
+	public static final byte FP_FN_FLOOR_W = 0x0f;
+	public static final byte FP_FN_MOVCF = 0x11;
+	public static final byte FP_FN_MOVZ = 0x12;
+	public static final byte FP_FN_MOVN = 0x13;
+	public static final byte FP_FN_RECIP = 0x15;
+	public static final byte FP_FN_RSQRT = 0x16;
+	public static final byte FP_FN_RECIP2 = 0x1c;
+	public static final byte FP_FN_RECIP1 = 0x1d;
+	public static final byte FP_FN_RSQRT1 = 0x1e;
+	public static final byte FP_FN_RSQRT2 = 0x1f;
 	/** convert to single */
 	public static final byte FP_FN_CVT_S = 0x20;
 	/** convert to double */
 	public static final byte FP_FN_CVT_D = 0x21;
 	/** convert to word */
 	public static final byte FP_FN_CVT_W = 0x24;
+	public static final byte FP_FN_CVT_L = 0x25;
+	public static final byte FP_FN_CVT_PS = 0x26;
+	public static final byte FP_FN_C_F = 0x30;
+	public static final byte FP_FN_C_UN = 0x31;
 	/** compare for equal */
 	public static final byte FP_FN_C_EQ = 0x32;
+	public static final byte FP_FN_C_UEQ = 0x33;
+	public static final byte FP_FN_C_OLT = 0x34;
 	/** unordered or less than */
 	public static final byte FP_FN_C_ULT = 0x35;
+	public static final byte FP_FN_C_OLE = 0x36;
+	public static final byte FP_FN_C_ULE = 0x37;
+	public static final byte FP_FN_C_SF = 0x38;
+	public static final byte FP_FN_C_NGLE = 0x39;
+	public static final byte FP_FN_C_SEQ = 0x3a;
+	public static final byte FP_FN_C_NGL = 0x3b;
 	/** compare for less than */
 	public static final byte FP_FN_C_LT = 0x3c;
+	public static final byte FP_FN_C_NGE = 0x3d;
 	/** less then or equal */
 	public static final byte FP_FN_C_LE = 0x3e;
+	public static final byte FP_FN_C_NGT = 0x3f;
 	
 	//
 	// floating point extension instructions
@@ -380,10 +450,46 @@ public final class MipsConstants {
 	/** access to floating point coprocessor */
 	public static final int CPR_STATUS_CU1 = 1 << 29;
 	
-	/** use general or special exception vector */
+	/** cause exception code (5 bits) */
+	public static final int CPR_CAUSE_EXCODE_SHL = 2;
+	public static final int CPR_CAUSE_EXCODE = 0x1f << CPR_CAUSE_EXCODE_SHL;
+	/** cause software interrupt (2 bits) */
+	public static final int CPR_CAUSE_IPSW = (3 << 8);
+	/** cause general or special exception vector */
 	public static final int CPR_CAUSE_IV = (1 << 23);
-	/** software interrupt */
-	public static final int CPR_CAUSE_IPSW = (3 << 1);
+	/** cause branch delay slot */
+	public static final int CPR_CAUSE_BD = (1 << 31);
+	
+	//
+	// exception vectors
+	//
+	
+	/** reset address is in boot rom... */
+	public static final int EXV_RESET = 0xbfc0_0000;
+	public static final int EXV_TLBREFILL = 0x8000_0000;
+	public static final int EXV_EXCEPTION = 0x8000_0180;
+	public static final int EXV_INTERRUPT_IV = 0x8000_0200;
+	
+	//
+	// exception types
+	//
+	
+	public static final int EX_INT = 0;
+	public static final int EX_MOD = 1;
+	public static final int EX_TLBL = 2;
+	public static final int EX_TLBS = 3;
+	public static final int EX_AdEL = 4;
+	public static final int EX_AdES = 5;
+	public static final int EX_IBE = 6;
+	public static final int EX_DBE = 7;
+	public static final int EX_Sys = 8;
+	public static final int EX_Bp = 9;
+	public static final int EX_RI = 10;
+	public static final int EX_CpU = 11;
+	public static final int EX_Ov = 12;
+	public static final int EX_Tr = 13;
+	public static final int EX_WATCH = 23;
+	public static final int EX_MCheck = 24;
 	
 	/** return the cpr index for the register and selection */
 	public static int cpr (int rd, int sel) {

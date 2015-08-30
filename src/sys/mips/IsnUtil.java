@@ -137,7 +137,7 @@ public class IsnUtil {
 	}
 	
 	/** get value of format code */
-	private static Object formatCode (final String name, final Cpu cpu, final int isn) {
+	private static String formatCode (final String name, final Cpu cpu, final int isn) {
 		final Memory mem = cpu.getMemory();
 		final int[] reg = cpu.getRegisters();
 		final int pc = cpu.getPc();
@@ -193,7 +193,7 @@ public class IsnUtil {
 			case "cprd":
 				return cpRegName(rd(isn), sel(isn));
 			case "imm":
-				return simm(isn);
+				return String.valueOf(simm(isn));
 			case "branch":
 				return syms.getName(branch(isn, pc));
 			case "hi":
@@ -231,7 +231,7 @@ public class IsnUtil {
 			case "fpcc":
 				return "cc" + fpcc(isn);
 			case "regfpcc":
-				return cpu.getFpCondition(fpcc(isn));
+				return String.valueOf(fccrFcc(cpu.getFpControlReg(), fpcc(isn)));
 			default:
 				throw new RuntimeException("unknown name " + name);
 		}
@@ -239,5 +239,27 @@ public class IsnUtil {
 	
 	private static String formatDouble(double d) {
 		return String.format("%.6f", d);
+	}
+	
+	public static String exceptionName (int ex) {
+		switch (ex) {
+			case EX_INT: return "Interrupt";
+			case EX_MOD: return "TLB modification";
+			case EX_TLBL: return "TLB (load/ifetch)";
+			case EX_TLBS: return "TLB  (store)";
+			case EX_AdEL: return "Address error (load/ifetch)";
+			case EX_AdES: return "Address error (store)";
+			case EX_IBE: return "Bus error (ifetch)";
+			case EX_DBE: return "Bus error (load/store)";
+			case EX_Sys: return "Syscall";
+			case EX_Bp: return "Breakpoint";
+			case EX_RI: return "Reserved instruction";
+			case EX_CpU: return "Coprocessor unusable";
+			case EX_Ov: return "Integer overflow";
+			case EX_Tr: return "Trap";
+			case EX_WATCH: return "Watch";
+			case EX_MCheck: return "Machine check";
+			default: return "Reserved " + ex;
+		}
 	}
 }

@@ -13,19 +13,20 @@ public class Malta implements Device {
 	
 	public static final int M_PCI1 = 0x0800_0000;
 	
-	// TODO not sure about this, connected with value of [GT_PCI0IOLD]
-	// these live in the PIIX4 southbridge
-	public static final int M_IOBASE = 0x1000_0000;
-	public static final int M_PIC_MASTER_CMD = M_IOBASE + 0x20;
-	public static final int M_PIC_MASTER_IMR = M_IOBASE + 0x21;
-	public static final int M_RTCADR = M_IOBASE + 0x70;
-	public static final int M_RTCDAT = M_IOBASE + 0x71;
-	public static final int M_PIC_SLAVE_CMD = M_IOBASE + 0xa0;
-	public static final int M_PIC_SLAVE_IMR = M_IOBASE + 0xa1;
-	public static final int M_DMA2_MASK_REG = M_IOBASE + 0xD4;
+	// connected with value of [GT_PCI0IOLD]
+	public static final int M_PIIX4 = 0x1000_0000;
+	
+	// 82371AB (PIIX4) 3.1.2. IO SPACE REGISTERS
+	public static final int M_PIC_MASTER_CMD = M_PIIX4 + 0x20;
+	public static final int M_PIC_MASTER_IMR = M_PIIX4 + 0x21;
+	public static final int M_RTCADR = M_PIIX4 + 0x70;
+	public static final int M_RTCDAT = M_PIIX4 + 0x71;
+	public static final int M_PIC_SLAVE_CMD = M_PIIX4 + 0xa0;
+	public static final int M_PIC_SLAVE_IMR = M_PIIX4 + 0xa1;
+	public static final int M_DMA2_MASK_REG = M_PIIX4 + 0xD4;
 	
 	// the first uart is on the isa bus connected to the PIIX4
-	public static final int M_PORT = M_IOBASE + 0x03f8;
+	public static final int M_PORT = M_PIIX4 + 0x03f8;
 	public static final int M_UART_TX = M_PORT;
 	public static final int M_UART_LSR = M_PORT + 5;
 	
@@ -78,7 +79,7 @@ public class Malta implements Device {
 		sym.put(offset + M_SDRAM, "M_SDRAM");
 		sym.put(offset + M_UNCACHED_EX_H, "M_UNCACHED_EX_H", 0x80);
 		sym.put(offset + M_PCI1, "M_PCI1");
-		sym.put(offset + M_IOBASE, "M_IOBASE");
+		sym.put(offset + M_PIIX4, "M_PIIX4");
 		sym.put(offset + M_PIC_MASTER_CMD, "M_PIC_MASTER_CMD", 1);
 		sym.put(offset + M_PIC_MASTER_IMR, "M_PIC_MASTER_IMR", 1);
 		sym.put(offset + M_RTCADR, "M_RTCADR");

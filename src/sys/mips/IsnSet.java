@@ -136,9 +136,7 @@ public class IsnSet {
 		addIsn(newFn2(FN2_CLZ, "clz", SF_REG2));
 		
 		addIsn(newCop0(CP_RS_MFC0, "mfc0", "{rt} <- {cprd}"));
-		addIsn(newCop0(CP_RS_MFH, "mfh", ""));
 		addIsn(newCop0(CP_RS_MTC0, "mtc0", "{cprd} <- {rt}: {regrt}"));
-		addIsn(newCop0(CP_RS_MTHC0, "mthc0", ""));
 		addIsn(newCop0(CP_RS_RDPGPR, "rdpgpr", ""));
 		addIsn(newCop0(CP_RS_WRPGPR, "wrpgpr", ""));
 		

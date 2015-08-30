@@ -1,4 +1,4 @@
-package sys.mips;
+package sys.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -13,6 +13,9 @@ import javax.swing.*;
 import javax.swing.Timer;
 import javax.swing.border.*;
 import javax.swing.text.*;
+
+import sys.mips.Cpu;
+import sys.mips.CpuUtil;
 
 public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	
@@ -29,16 +32,17 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	private final JLabel displayLabel = new JLabel(" ");
 	private final JLabel cycleLabel = new JLabel("");
 	private final JTextArea consoleArea = new JTextArea();
-	private final JButton startButton = new JButton("Start");
 	private final JButton fileButton = new JButton("...");
+	private final JButton runButton = new JButton("Run");
 	private final Timer timer;
 	
-	private volatile Cpu cpu;
+	private volatile Thread thread;
+	private Cpu cpu;
 	
 	public MaltaJFrame () {
 		super("Sysmips");
 		
-		timer = new Timer(100, e -> updateCycle(cpu));
+		timer = new Timer(100, e -> updateCycle());
 		timer.start();
 		
 		// should load these from prefs
@@ -49,7 +53,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		argsField.setText("console=ttyS0");
 		envField.setText("key=value");
 		
-		startButton.addActionListener(ae -> start());
+		runButton.addActionListener(ae -> start());
 		
 		displayLabel.setFont(MONO);
 		displayLabel.setBorder(new EtchedBorder());
@@ -66,7 +70,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		topPanel1.add(argsField);
 		topPanel1.add(new JLabel("Env"));
 		topPanel1.add(envField);
-		topPanel1.add(startButton);
+		topPanel1.add(runButton);
 		
 		JPanel topPanel2 = new JPanel();
 		topPanel2.add(displayLabel);
@@ -102,14 +106,14 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	}
 	
 	private void start () {
-		if (cpu != null) {
-			showErrorDialog("Start", "Already started");
+		if (thread != null) {
+			showErrorDialog("Run", "Already running");
 			return;
 		}
 		
 		final File file = new File(fileField.getText());
 		if (!file.isFile()) {
-			showErrorDialog("Start", "Invalid file: " + file);
+			showErrorDialog("Run", "Invalid file: " + file);
 			return;
 		}
 		
@@ -147,11 +151,15 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		
 		cpu.getMemory().print(System.out);
 		cpu.getMemory().getMalta().getSupport().addPropertyChangeListener(this);
-		updateCycle(cpu);
 		
 		this.cpu = cpu;
+		updateCycle();
 		
-		final Thread t = new Thread(() -> {
+		run();
+	}
+	
+	private void run() {
+		Thread t = new Thread(() -> {
 			try {
 				cpu.run();
 				
@@ -166,18 +174,21 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 				System.out.println("isn count " + l);
 				
 				SwingUtilities.invokeLater(() -> {
-					updateCycle(cpu);
+					updateCycle();
 					showErrorDialog("Start", e);
 				});
+				
 			} finally {
-				this.cpu = null;
+				this.thread = null;
 			}
 		});
 		
 		t.setPriority(Thread.MIN_PRIORITY);
 		t.start();
+		
+		thread = t;
 	}
-	
+
 	private void showErrorDialog(String title, Throwable t) {
 		StringBuilder sb = new StringBuilder();
 		while (t != null) {
@@ -232,7 +243,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		}
 	}
 	
-	private void updateCycle (Cpu cpu) {
+	private void updateCycle () {
 		if (cpu != null) {
 			cycleLabel.setText("Cycle " + cpu.getCycle());
 		}

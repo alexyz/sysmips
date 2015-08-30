@@ -10,6 +10,7 @@ public class Decoder {
 		return rs(isn);
 	}
 	
+	/** branch target */
 	public static int branch (final int isn, final int pc) {
 		return pc + (simm(isn) * 4);
 	}
@@ -127,6 +128,16 @@ public class Decoder {
 			fpReg[i + 1] = (int) (dl >>> 32);
 		} else {
 			throw new IllegalArgumentException("unaligned " + i);
+		}
+	}
+
+	/** floating point condition code register condition */
+	public static boolean fccrFcc (final int[] fpControlReg, final int cc) {
+		if (cc >= 0 && cc < 8) {
+			return (fpControlReg[MipsConstants.FPCR_FCCR] & (1 << cc)) != 0;
+			
+		} else {
+			throw new IllegalArgumentException("invalid fpu cc " + cc);
 		}
 	}
 	

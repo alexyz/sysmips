@@ -20,7 +20,6 @@ public class ELF32 {
 	public final List<ELF32Section> sections = new ArrayList<>();
 	public final List<ELF32Program> programs = new ArrayList<>();
 	public final List<ELF32Symbol> symbols = new ArrayList<>();
-	public final List<ELF32Relocation> relocations = new ArrayList<>();
 	
 	public ELF32 (RandomAccessFile file) throws Exception {
 		header = new ELF32Header(file);
@@ -51,8 +50,6 @@ public class ELF32 {
 		
 		// load symbols and relocations
 		for (ELF32Section section : sections) {
-			boolean addend = false;
-			
 			switch (section.type) {
 				case ELF32Section.SHT_SYMTAB: {
 					// load string table
@@ -65,20 +62,6 @@ public class ELF32 {
 					int length = section.fileSize / section.entrySize;
 					for (int s = 0; s < length; s++) {
 						symbols.add(new ELF32Symbol(header, file, strings));
-					}
-					break;
-				}
-					
-				case ELF32Section.SHT_RELA:
-					addend = true;
-					// fall through
-					
-				case ELF32Section.SHT_REL: {
-					// load relocations, these are not actually needed though
-					int length = section.fileSize / section.entrySize;
-					file.seek(section.fileOffset);
-					for (int r = 0; r < length; r++) {
-						relocations.add(new ELF32Relocation(header, file, addend));
 					}
 					break;
 				}
@@ -95,11 +78,10 @@ public class ELF32 {
 			ps.println("PROGRAM[" + n + "] " + programs.get(n));
 		}
 		ps.println("SYMBOLS " + symbols.size());
-		ps.println("RELOCATIONS " + relocations.size());
 	}
 	
 	@Override
 	public String toString () {
-		return "ELF[" + header.typeString() + " sections=" + sections.size() + " programs=" + programs.size() + " symbols=" + symbols.size() + " relocations=" + relocations.size() + "]";
+		return "ELF[" + header.typeString() + " sections=" + sections.size() + " programs=" + programs.size() + " symbols=" + symbols.size() + "]";
 	}
 }

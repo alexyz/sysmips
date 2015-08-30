@@ -20,11 +20,13 @@ public class Malta implements Device {
 	// 82371AB (PIIX4) 3.1.2. IO SPACE REGISTERS
 	public static final int M_PIC_MASTER_CMD = M_PIIX4 + 0x20;
 	public static final int M_PIC_MASTER_IMR = M_PIIX4 + 0x21;
-	// programmable interval timers
+	
+	// programmable interval timer
 	public static final int M_I8253_COUNTER_0 = M_PIIX4 + 0x40;
 	public static final int M_I8253_COUNTER_1 = M_PIIX4 + 0x41;
 	public static final int M_I8253_COUNTER_2 = M_PIIX4 + 0x42;
 	public static final int M_I8253_TCW = M_PIIX4 + 0x43;
+	
 	public static final int M_RTCADR = M_PIIX4 + 0x70;
 	public static final int M_RTCDAT = M_PIIX4 + 0x71;
 	public static final int M_PIC_SLAVE_CMD = M_PIIX4 + 0xa0;
@@ -77,8 +79,10 @@ public class Malta implements Device {
 	private final StringBuilder consoleSb = new StringBuilder();
 	// the GT is the northbridge
 	private final GT gt = new GT();
-	private IOMemory iomem = new IOMemory();
+	private final IOMemory iomem = new IOMemory();
+	
 	private int offset;
+	private int counter0;
 	
 	public Malta () {
 		iomem.putWord(M_REVISION, 1);
@@ -153,6 +157,23 @@ public class Malta implements Device {
 		iomem.put(addr, value, size);
 		
 		switch (addr) {
+			case M_I8253_TCW: {
+				// i8253.c init_pit_timer
+				log.info("tcw write " + Integer.toHexString(value));
+				// 34 = binary, rate generator, r/w lsb then msb
+				if (value != 0x34) {
+					throw new RuntimeException("unexpected tcw write " + Integer.toHexString(value));
+				}
+				return;
+			}
+			
+			case M_I8253_COUNTER_0: {
+				// lsb then msb
+				counter0 = ((value << 8) | (counter0 >>> 8)) & 0xffff;
+				log.info("counter 0 now " + Integer.toHexString(counter0));
+				return;
+			}
+			
 			case M_RTCADR: {
 				// mc146818rtc.h
 				// 0 = seconds, 2 = minutes, 4 = hours, 6 = dow, 7 = dom, 8 = month, 9 = year

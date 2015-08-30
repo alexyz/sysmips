@@ -7,10 +7,9 @@ public class CpuLogger {
 	
 	private final LinkedList<String> log = new LinkedList<>();
 	private final List<String> calls = new ArrayList<>();
-	private final Cpu cpu;
 	
-	public CpuLogger (Cpu cpu) {
-		this.cpu = cpu;
+	public CpuLogger () {
+		//
 	}
 	
 	public void print (PrintStream ps) {
@@ -32,7 +31,7 @@ public class CpuLogger {
 		while (log.size() > 50) {
 			log.removeFirst();
 		}
-		final String s = "[" + cpu.getCycle() + "] " + msg;
+		final String s = getCalls() + "\n[" + Cpu.getInstance().getCycle() + "] " + msg;
 		log.add(s);
 		if (print) {
 			System.out.println(s);
@@ -40,15 +39,20 @@ public class CpuLogger {
 	}
 	
 	public void call (int addr) {
-		calls.add(cpu.getMemory().getSymbols().getName(addr, false));
-		debug("call " + getCalls());
+		calls.add(Cpu.getInstance().getMemory().getSymbols().getName(addr, false));
+		//debug("call " + getCalls());
 	}
 
 	public String getCalls () {
-		StringBuilder sb = new StringBuilder();
+		final Cpu cpu = Cpu.getInstance();
+		final StringBuilder sb = new StringBuilder();
+		
 		for (String call : calls) {
 			sb.append("/").append(call);
 		}
+		
+		sb.append("/").append(cpu.getMemory().getSymbols().getName(cpu.getNextPc(), false));
+		
 		return sb.toString();
 	}
 	

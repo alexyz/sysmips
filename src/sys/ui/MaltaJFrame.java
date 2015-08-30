@@ -186,6 +186,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 				System.out.println("isn count " + l);
 				
 				SwingUtilities.invokeLater(() -> {
+					consoleArea.append(exceptionString(e));
 					updateCycle();
 					showErrorDialog("Start", e);
 				});
@@ -202,6 +203,10 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	}
 
 	private void showErrorDialog(String title, Throwable t) {
+		showErrorDialog(title, exceptionString(t));
+	}
+
+	private static String exceptionString (Throwable t) {
 		StringBuilder sb = new StringBuilder();
 		while (t != null) {
 			if (sb.length() > 0) {
@@ -210,7 +215,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 			sb.append(t);
 			t = t.getCause();
 		}
-		showErrorDialog(title, sb.toString());
+		return sb.toString();
 	}
 	
 	private void showErrorDialog(String title, String msg) {

@@ -221,6 +221,8 @@ public final class Memory {
 				throw new IllegalArgumentException("load unmapped " + Integer.toHexString(paddr), e);
 			}
 		} else {
+			// cpu.execExn(ex_addr) - doesn't stop execution
+			// throw new exn(ex_addr) - requires catch in run
 			throw new IllegalArgumentException("load unaligned " + Integer.toHexString(paddr));
 		}
 	}

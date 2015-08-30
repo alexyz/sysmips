@@ -23,13 +23,13 @@ public final class Cpu {
 	private final int[] fpReg = new int[32];
 	private final int[] fpControlReg = new int[32];
 	private final Entry[] tlb = Entry.create(16);
-	private final CpuLogger log = new CpuLogger(this);
+	private final CpuLogger log = new CpuLogger();
 	private final Map<String, int[]> isnCount = new HashMap<>();
 	private final Memory memory;
 	private final boolean littleEndian;
 	private final List<Exn> interrupts = new ArrayList<>();
 	
-	private volatile int cycle;
+	private volatile long cycle;
 	
 	/** address of current instruction */
 	private int pc;
@@ -68,6 +68,8 @@ public final class Cpu {
 		// should enable 3: watch registers and 1: ejtag, but we don't want them
 		cpReg[CPR_CONFIG1] = (15 << 25);
 		
+		cpReg[CPR_COMPARE] = -1;
+		
 		// support S, D, W, L (unlike the 4kc...)
 		fpControlReg[FPCR_FIR] = (1 << 16) | (1 << 17) | (1 << 20) | (1 << 21) | (1 << 8);
 		
@@ -78,7 +80,7 @@ public final class Cpu {
 		return cpReg;
 	}
 	
-	public int getCycle () {
+	public long getCycle () {
 		return cycle;
 	}
 	
@@ -153,12 +155,12 @@ public final class Cpu {
 	
 	/** never returns, throws runtime exception... */
 	public final void run () {
-		log.info("run " + cycle);
-		
 		final long t = System.nanoTime();
 		
 		try {
 			instance.set(this);
+			log.call(pc);
+			log.info("run " + cycle);
 			
 			while (true) {
 				for (int n = 0; n < 10000; n++) {
@@ -186,6 +188,13 @@ public final class Cpu {
 						isnCount.get(IsnSet.INSTANCE.getIsn(isn).name)[0]++;
 					}
 					
+					final int cmp = cpReg[CPR_COMPARE];
+					final int count = (int) (cycle >> 1);
+					if (cmp == count) {
+						log.debug("compare hit");
+//						throw new RuntimeException("compare hit");
+					}
+					
 					cycle++;
 				}
 				
@@ -198,7 +207,7 @@ public final class Cpu {
 			log.info("stop: " + e);
 			log.info("ns per isn: " + (d / cycle));
 			log.print(System.out);
-			throw new RuntimeException("stop in " + log.getCalls(), e);
+			throw new RuntimeException(log.getCalls(), e);
 			
 		} finally {
 			instance.remove();
@@ -702,7 +711,7 @@ public final class Cpu {
 				break;
 			case CPR_COUNT:
 				// update this only when read
-				cpReg[cpr] = cycle >>> 1;
+				cpReg[cpr] = (int) (cycle >>> 1);
 				break;
 			default:
 				throw new RuntimeException("move from unknown cp reg " + cpRegName(rd, sel));
@@ -735,7 +744,7 @@ public final class Cpu {
 				cpReg[cpr] = newValue & 0xffff_f0ff;
 				return;
 			case CPR_PAGEMASK:
-				cpReg[cpr] = oldValue & 0x00ff_f000;
+				cpReg[cpr] = newValue & 0x00ff_f000;
 				return;
 			case CPR_CONTEXT:
 			case CPR_WIRED:
@@ -753,6 +762,9 @@ public final class Cpu {
 				if (oldValue != newValue) {
 					throw new RuntimeException("unknown config value " + Integer.toHexString(newValue));
 				}
+				return;
+			case CPR_COMPARE:
+				cpReg[cpr] = newValue;
 				return;
 			default:
 				throw new RuntimeException("move to unknown cp reg " + cpRegName(rd, sel));
@@ -786,6 +798,7 @@ public final class Cpu {
 		final boolean exl = (status & CPR_STATUS_EXL) != 0;
 		final boolean erl = (status & CPR_STATUS_ERL) != 0;
 		final boolean um = (status & CPR_STATUS_UM) != 0;
+		//log.debug("ie=" + ie + " exl=" + exl + " erl=" + erl + " um=" + um);
 		
 		// kernel mode if UM = 0, or EXL = 1, or ERL = 1
 		kernelMode = !um || exl || erl;
@@ -794,6 +807,7 @@ public final class Cpu {
 		}
 		
 		// interrupts enabled if IE = 1 and EXL = 0 and ERL = 0
+		// asmmacro.h local_irq_enable
 		interruptsEnabled = ie && !exl && !erl;
 		if (interruptsEnabled) {
 			throw new RuntimeException("interrupts enabled");

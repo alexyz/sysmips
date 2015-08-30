@@ -6,7 +6,7 @@
 	<target name="jar">
 		<jar destfile="dist/${jarfile}">
 			<manifest>
-				<attribute name="Main-Class" value="sys.mips.MaltaJFrame" />
+				<attribute name="Main-Class" value="sys.ui.MaltaJFrame" />
 			</manifest>
 			<fileset dir="bin" />
 		</jar>

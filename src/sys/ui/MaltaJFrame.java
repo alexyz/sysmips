@@ -26,7 +26,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		frame.setVisible(true);
 	}
 	
-	private static final Font MONO = new Font("Monospaced", Font.BOLD, 12);
+	private static final Font MONO = new Font("Monospaced", Font.BOLD, 14);
 	
 	private final JTextField fileField = new JTextField(10);
 	private final JTextField argsField = new JTextField(10);
@@ -63,6 +63,8 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		displayLabel.setFont(MONO);
 		displayLabel.setBorder(new EtchedBorder());
 		
+		consoleArea.setColumns(100);
+		consoleArea.setRows(24);
 		consoleArea.setFont(MONO);
 		consoleArea.setLineWrap(true);
 		consoleArea.setEditable(false);
@@ -94,7 +96,6 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		p.add(consoleSp, BorderLayout.CENTER);
 		
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
-		setPreferredSize(new Dimension(640, 480));
 		setContentPane(p);
 		pack();
 	}
@@ -176,7 +177,13 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 				cpu.run();
 				
 			} catch (Exception e) {
+				System.out.println();
 				e.printStackTrace(System.out);
+				
+				System.out.println();
+				cpu.getLog().print(System.out);
+				
+				System.out.println();
 				final List<String> l = cpu.getIsnCount().entrySet()
 						.stream()
 						.filter(x -> x.getValue()[0] > 0)

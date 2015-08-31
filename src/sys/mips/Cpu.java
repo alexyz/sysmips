@@ -8,7 +8,7 @@ import static sys.mips.IsnUtil.*;
 
 public final class Cpu {
 	
-	private static ThreadLocal<Cpu> instance = new ThreadLocal<>();
+	private static final ThreadLocal<Cpu> instance = new ThreadLocal<>();
 	
 	/** allow other classes to access cpu */
 	public static Cpu getInstance() {
@@ -23,11 +23,12 @@ public final class Cpu {
 	private final int[] fpReg = new int[32];
 	private final int[] fpControlReg = new int[32];
 	private final Entry[] tlb = Entry.create(16);
-	private final CpuLogger log = new CpuLogger();
+	private final CpuLogger log = new CpuLogger(this);
 	private final Map<String, int[]> isnCount = new HashMap<>();
 	private final Memory memory;
 	private final boolean littleEndian;
 	private final List<Exn> interrupts = new ArrayList<>();
+	private final CallLogger calls = new CallLogger(this);
 	
 	private volatile long cycle;
 	
@@ -153,17 +154,22 @@ public final class Cpu {
 		return littleEndian;
 	}
 	
+	public CallLogger getCalls () {
+		return calls;
+	}
+	
 	/** never returns, throws runtime exception... */
 	public final void run () {
-		final long t = System.nanoTime();
+		final long startTime = System.nanoTime();
 		
 		try {
 			instance.set(this);
-			log.call(pc);
+			calls.call(pc);
 			log.info("run " + cycle);
+			long t = startTime;
 			
 			while (true) {
-				for (int n = 0; n < 10000; n++) {
+				for (int n = 0; n < 8192; n++) {
 					if (reg[0] != 0) {
 						reg[0] = 0;
 					}
@@ -181,9 +187,6 @@ public final class Cpu {
 					
 					execOp(isn);
 					
-					// pc is next isn
-					// nextpc is isn after (may have been moved by branch)
-					
 					if (countIsns) {
 						isnCount.get(IsnSet.INSTANCE.getIsn(isn).name)[0]++;
 					}
@@ -198,22 +201,36 @@ public final class Cpu {
 					cycle++;
 				}
 				
-				checkExn();
+				// XXX this is total hack
+				if (interruptsEnabled) {
+					long ct = System.nanoTime();
+					if (ct >= t + 4000000) {
+						log.info("fire timer");
+						t = ct;
+						execExn(EX_INT);
+					} else {
+						checkExn();
+					}
+				}
 			}
 			
 		} catch (Exception e) {
-			// can't print pc, it's wrong
-			long d = System.nanoTime() - t;
-			log.info("stop: " + e);
-			log.info("ns per isn: " + (d / cycle));
-			log.print(System.out);
-			throw new RuntimeException(log.getCalls(), e);
+			throw new RuntimeException(calls.callString(), e);
 			
 		} finally {
+			final long d = System.nanoTime() - startTime;
+			log.info("ns per isn: " + (d / cycle));
 			instance.remove();
 		}
 	}
 
+	public void interrupt (final Exn e) {
+		synchronized (interrupts) {
+			System.out.println("add exn " + e);
+			interrupts.add(e);
+		}
+	}
+	
 	private void checkExn () {
 		Exn e = null;
 		synchronized (interrupts) {
@@ -230,13 +247,6 @@ public final class Cpu {
 			} else {
 				log.info("ignore exn " + e);
 			}
-		}
-	}
-	
-	public void interrupt (final Exn e) {
-		synchronized (interrupts) {
-			System.out.println("add exn " + e);
-			interrupts.add(e);
 		}
 	}
 	
@@ -286,26 +296,26 @@ public final class Cpu {
 				memory.storeWord(reg[rs] + simm + 4, fpReg[rt]);
 				return;
 			case OP_J:
-				nextPc = jump(isn, pc);
+				execJump(isn);
 				return;
 			case OP_JAL:
-				reg[31] = nextPc;
-				nextPc = jump(isn, pc);
-				log.call(nextPc);
+				execLink();
+				execJump(isn);
+				calls.call(nextPc);
 				return;
 			case OP_BLEZ:
 				if (reg[rs] <= 0) {
-					nextPc = branch(isn, pc);
+					execBranch(isn);
 				}
 				return;
 			case OP_BEQ:
 				if (reg[rs] == reg[rt]) {
-					nextPc = branch(isn, pc);
+					execBranch(isn);
 				}
 				return;
 			case OP_BNE:
 				if (reg[rs] != reg[rt]) {
-					nextPc = branch(isn, pc);
+					execBranch(isn);
 				}
 				return;
 			case OP_ADDIU:
@@ -319,7 +329,7 @@ public final class Cpu {
 				return;
 			case OP_BGTZ:
 				if (reg[rs] > 0) {
-					nextPc = branch(isn, pc);
+					execBranch(isn);
 				}
 				return;
 			case OP_SLTI:
@@ -431,32 +441,51 @@ public final class Cpu {
 		}
 	}
 	
+	/** update nextpc with jump */
+	private void execJump (final int isn) {
+		nextPc = jump(isn, pc);
+	}
+
+	/** update nextpc with branch */
+	private void execBranch (final int isn) {
+		nextPc = branch(isn, pc);
+	}
+
+	/** skip branch delay */
+	private void execBranchSkip () {
+		nextPc += 4;
+	}
+
+	private void execLink () {
+		reg[31] = nextPc;
+	}
+	
 	private final void execRegimm (final int isn) {
 		final int rs = rs(isn);
 		final int rt = rt(isn);
 		
 		switch (rt) {
 			case RT_BGEZAL:
-				reg[31] = nextPc;
+				execLink();
 				//$FALL-THROUGH$
 			case RT_BGEZ:
 				if (reg[rs] >= 0) {
-					nextPc = branch(isn, pc);
+					execBranch(isn);
 				}
 				return;
 			case RT_BLTZAL:
-				reg[31] = nextPc;
+				execLink();
 				//$FALL-THROUGH$
 			case RT_BLTZ:
 				if (reg[rs] < 0) {
-					nextPc = branch(isn, pc);
+					execBranch(isn);
 				}
 				return;
 			default:
 				throw new RuntimeException("invalid regimm " + opString(rt));
 		}
 	}
-	
+
 	private final void execFn (final int isn) {
 		final int rd = rd(isn);
 		final int rt = rt(isn);
@@ -465,7 +494,9 @@ public final class Cpu {
 		
 		switch (fn) {
 			case FN_SLL:
-				reg[rd] = reg[rt] << sa(isn);
+				if (rd != 0) {
+					reg[rd] = reg[rt] << sa(isn);
+				}
 				return;
 			case FN_SRL:
 				reg[rd] = reg[rt] >>> sa(isn);
@@ -485,13 +516,13 @@ public final class Cpu {
 			case FN_JR:
 				nextPc = reg[rs];
 				if (rs == 31) {
-					log.ret();
+					calls.ret();
 				}
 				return;
 			case FN_JALR:
 				reg[rd] = nextPc;
 				nextPc = reg[rs];
-				log.call(nextPc);
+				calls.call(nextPc);
 				return;
 			case FN_MOVZ:
 				if (reg[rt] == 0) {
@@ -601,6 +632,9 @@ public final class Cpu {
 	
 	private void execExn (int ex) {
 		log.info("exec exception " + exceptionName(ex));
+		// traps.c trap_init
+		// genex.S
+		// malta-int.c plat_irq_dispatch
 		
 		final int status = cpReg[CPR_STATUS];
 		final int cause = cpReg[CPR_CAUSE];
@@ -610,7 +644,7 @@ public final class Cpu {
 		final boolean iv = (cause & CPR_CAUSE_IV) != 0;
 		
 		if (bev) {
-			// OS hasn't installed a handler yet...
+			// we don't have a boot rom...
 			throw new RuntimeException("bootstrap exception");
 		}
 		
@@ -633,6 +667,7 @@ public final class Cpu {
 		
 		newcause |= (ex << CPR_CAUSE_EXCODE_SHL);
 		
+		// FIXME unsigned int pending = read_c0_cause() & read_c0_status() & ST0_IM;
 		cpReg[CPR_CAUSE] = newcause;
 		cpReg[CPR_STATUS] = newstatus;
 		cpReg[CPR_EPC] = newepc;
@@ -640,13 +675,18 @@ public final class Cpu {
 		statusUpdated();
 		
 		if (ex == EX_INT && iv) {
+			log.info("jump to interrupt iv");
 			setPc(EXV_INTERRUPT_IV);
 			
 		} else {
+			log.info("jump to exception");
 			setPc(EXV_EXCEPTION);
 		}
 		
-		throw new RuntimeException("some other exception...");
+		calls.push();
+		calls.call(pc);
+		
+		//throw new RuntimeException("some other exception...");
 	}
 	
 	private void execFn2 (final int isn) {
@@ -708,6 +748,7 @@ public final class Cpu {
 			case CPR_CAUSE:
 			case CPR_ENTRYHI:
 			case CPR_WIRED:
+			case CPR_EPC:
 				break;
 			case CPR_COUNT:
 				// update this only when read
@@ -810,7 +851,8 @@ public final class Cpu {
 		// asmmacro.h local_irq_enable
 		interruptsEnabled = ie && !exl && !erl;
 		if (interruptsEnabled) {
-			throw new RuntimeException("interrupts enabled");
+//			throw new RuntimeException("interrupts enabled");
+			disasm = true;
 		}
 	}
 	
@@ -872,10 +914,9 @@ public final class Cpu {
 				
 			case FP_RS_BC1:
 				if (fptf(isn) == fccrFcc(fpControlReg, fpcc(isn))) {
-					nextPc = branch(isn, pc);
+					execBranch(isn);
 				} else {
-					// don't execute delay slot
-					nextPc += 4;
+					execBranchSkip();
 				}
 				return;
 				

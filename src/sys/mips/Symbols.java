@@ -19,6 +19,10 @@ public final class Symbols {
 		}
 	}
 	
+	public static Symbols getInstance() {
+		return Cpu.getInstance().getMemory().getSymbols();
+	}
+
 	// needs to be long so it can naturally sort
 	private final TreeMap<Long, Symbol> map = new TreeMap<>();
 	

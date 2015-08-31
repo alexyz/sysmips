@@ -150,7 +150,8 @@ public class GT implements Device {
 	
 	@Override
 	public void systemWrite (int addr, int value, int size) {
-		CpuLogger log = Cpu.getInstance().getLog();
+		final CpuLogger log = CpuLogger.getInstance();
+		
 		// XXX swap here?
 		value = swap(value);
 		log.info("gt write " + Integer.toHexString(addr) + " <= " + Integer.toHexString(value));
@@ -183,7 +184,8 @@ public class GT implements Device {
 	}
 	
 	private void setAddr (final int cfgaddr) {
-		CpuLogger log = Cpu.getInstance().getLog();
+		final CpuLogger log = CpuLogger.getInstance();
+		
 		// pci configuration space
 		int en = (cfgaddr >>> 31) & 0x1;
 		int bus = (cfgaddr >>> 16) & 0xff;
@@ -201,7 +203,8 @@ public class GT implements Device {
 	}
 	
 	private void setData (int value) {
-		CpuLogger log = Cpu.getInstance().getLog();
+		final CpuLogger log = CpuLogger.getInstance();
+		
 		int cfgaddr = iomem.getWord(GT_PCI0_CFGADDR);
 		int en = (cfgaddr >>> 31) & 0x1;
 		int bus = (cfgaddr >>> 16) & 0xff;

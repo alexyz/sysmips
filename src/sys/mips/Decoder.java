@@ -10,7 +10,7 @@ public class Decoder {
 		return rs(isn);
 	}
 	
-	/** branch target */
+	/** calculate branch target */
 	public static int branch (final int isn, final int pc) {
 		return pc + (simm(isn) * 4);
 	}

@@ -92,8 +92,8 @@ public class IsnUtil {
 	 */
 	public static String isnString (final Cpu cpu, final int isn) {
 		final Memory mem = cpu.getMemory();
-		final Symbols syms = mem.getSymbols();
-		final int pc = cpu.getPc();
+		//final Symbols syms = mem.getSymbols();
+		//final int pc = cpu.getPc();
 		final int op = op(isn);
 		final int rs = rs(isn);
 		final int rt = rt(isn);
@@ -114,8 +114,9 @@ public class IsnUtil {
 			isnValue = "op=" + op + " rt=" + rt + " rs=" + rs + " fn=" + fn;
 		}
 		
-		final String addr = syms.getName(pc);
-		return String.format("%-40s %08x %s", addr, isn, isnValue);
+		//final String addr = syms.getName(pc);
+		//return String.format("%-40s %08x %s", addr, isn, isnValue);
+		return String.format("%08x %s", isn, isnValue);
 	}
 	
 	public static String formatIsn (final Isn isnObj, final Cpu cpu, final int isn) {

@@ -63,14 +63,23 @@ public class Malta implements Device {
 	
 	private static int indexToCalendar (int index) {
 		switch (index) {
-			case 0: return Calendar.SECOND;
-			case 2: return Calendar.MINUTE;
-			case 4: return Calendar.HOUR_OF_DAY;
-			case 6: return Calendar.DAY_OF_WEEK;
-			case 7: return Calendar.DAY_OF_MONTH;
-			case 8: return Calendar.MONTH;
-			case 9: return Calendar.YEAR;
-			default: throw new RuntimeException("invalid index " + index);
+			case 0: 
+				return Calendar.SECOND;
+			case 2: 
+				return Calendar.MINUTE;
+			case 4:
+				// depends on control register b hour format
+				return Calendar.HOUR;
+			case 6: 
+				return Calendar.DAY_OF_WEEK;
+			case 7: 
+				return Calendar.DAY_OF_MONTH;
+			case 8: 
+				return Calendar.MONTH;
+			case 9: 
+				return Calendar.YEAR;
+			default: 
+				throw new RuntimeException("invalid index " + index);
 		}
 	}
 	
@@ -151,7 +160,7 @@ public class Malta implements Device {
 			return;
 		}
 		
-		CpuLogger log = Cpu.getInstance().getLog();
+		final CpuLogger log = CpuLogger.getInstance();
 		//log.debug("malta write " + getName(addr) + " <= " + Integer.toHexString(value) + " size " + size);
 		
 		iomem.put(addr, value, size);
@@ -169,6 +178,10 @@ public class Malta implements Device {
 			
 			case M_I8253_COUNTER_0: {
 				// lsb then msb
+				// #define CLOCK_TICK_RATE 1193182
+				// #define LATCH  ((CLOCK_TICK_RATE + HZ/2) / HZ)
+				// default HZ_250
+				// linux sets this to 12a5 (4773 decimal) = ((1193182 + 250/2) / 250)
 				counter0 = ((value << 8) | (counter0 >>> 8)) & 0xffff;
 				log.info("counter 0 now " + Integer.toHexString(counter0));
 				return;
@@ -191,11 +204,12 @@ public class Malta implements Device {
 			}
 			
 			case M_RTCDAT: {
-				if (value == 4) {
+				int adr = iomem.getByte(M_RTCADR);
+				if (adr == 0xb && value == 4) {
 					// set mode binary
 					return;
 				}
-				throw new RuntimeException("unexpected rtc dat write: " + value);
+				throw new RuntimeException("unexpected rtc adr " + adr + " dat write: " + value);
 			}
 			
 			case M_DMA2_MASK_REG:
@@ -225,7 +239,7 @@ public class Malta implements Device {
 				
 			default:
 				if (addr >= M_UNCACHED_EX_H && addr < M_UNCACHED_EX_H + 0x100) {
-					log.debug("set uncached exception handler " + getName(addr) + " <= " + Integer.toHexString(value));
+					log.debug("set uncached exception handler " + Symbols.getInstance().getName(offset + addr) + " <= " + Integer.toHexString(value));
 					break;
 					
 				} else if (addr >= M_DISPLAY && addr < M_DISPLAY + 0x100) {
@@ -233,13 +247,9 @@ public class Malta implements Device {
 					break;
 				}
 				
-				throw new RuntimeException("unknown system write " + getName(addr) + " <= " + Integer.toHexString(value));
+				throw new RuntimeException("unknown system write " + Symbols.getInstance().getName(offset + addr) + " <= " + Integer.toHexString(value));
 		}
 		
-	}
-	
-	private String getName (final int addr) {
-		return Cpu.getInstance().getMemory().getSymbols().getName(offset + addr);
 	}
 	
 	private void consoleWrite (int value) {

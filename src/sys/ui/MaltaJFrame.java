@@ -102,7 +102,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 
 	private void stop () {
 		if (cpu != null) {
-			cpu.interrupt(new Exn(-1));
+			cpu.interrupt(new Exn(-1, 0));
 		}
 	}
 

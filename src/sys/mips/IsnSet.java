@@ -20,15 +20,15 @@ public class IsnSet {
 	private static final String SF_STORE = "[{base}+{offset}] <- {rt}: [{baseoffset}] <- {regrt}";
 	private static final String SF_JUMP = "{jump}";
 	private static final String SF_CONDBRA = "{rs} ~ {rt}, {branch}: {regrs} ~ {regrt}";
-	private static final String SF_IMM = "{rt} <- {rs} * {imm}";
-	private static final String SF_REG = "{rd} <- {rs} * {rt}";
-	private static final String SF_REG2 = "{rd} <- {rs}";
-	private static final String SF_COND = "{rs} ~ {rt}";
-	private static final String SF_SHIFT = "{rd} <- {rt} * {sa}";
-	private static final String SF_SHIFTREG = "{rd} <- {rt} * {rs}";
+	private static final String SF_IMM = "{rt} <- {rs} * {imm}: {regrs}";
+	private static final String SF_REG = "{rd} <- {rs} * {rt}: {regrs} * {regrt}";
+	private static final String SF_REG2 = "{rd} <- {rs}: {regrs}";
+	private static final String SF_COND = "{rs} ~ {rt}: {regrs} ~ {regrt}";
+	private static final String SF_SHIFT = "{rd} <- {rt} * {sa}: {regrt}";
+	private static final String SF_SHIFTREG = "{rd} <- {rt} * {rs}: {regrt} * {regrs}";
 	private static final String SF_ZCONDBRA = "{rs} ~ 0, {branch}: {regrs} ~ 0";
 	private static final String SF_ZCONDMOV = "{rd} <- {rs}, {rt} ~ 0: {regrs}, {regrt} ~ 0";
-	private static final String SF_HILO = "hi:lo <- {rs} * {rt}";
+	private static final String SF_HILO = "hi:lo <- {rs} * {rt}: {regrs} * {regrt}";
 	private static final String SF_FP_COND = "{fs} ~ {ft}: {regfs} ~ {regft}";
 	private static final String SF_FP_REG = "{fd} <- {fs} * {ft}: {regfs} * {regft}";
 	private static final String SF_FP_REG2 = "{fd} <- {fs}: {regfs}";
@@ -135,7 +135,7 @@ public class IsnSet {
 		addIsn(newFn2(FN2_MUL, "mul", SF_REG));
 		addIsn(newFn2(FN2_CLZ, "clz", SF_REG2));
 		
-		addIsn(newCop0(CP_RS_MFC0, "mfc0", "{rt} <- {cprd}"));
+		addIsn(newCop0(CP_RS_MFC0, "mfc0", "{rt} <- {cprd}: {cpregrd}"));
 		addIsn(newCop0(CP_RS_MTC0, "mtc0", "{cprd} <- {rt}: {regrt}"));
 		addIsn(newCop0(CP_RS_RDPGPR, "rdpgpr", ""));
 		addIsn(newCop0(CP_RS_WRPGPR, "wrpgpr", ""));

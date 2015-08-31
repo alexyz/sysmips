@@ -169,7 +169,7 @@ public final class Cpu {
 			long t = startTime;
 			
 			while (true) {
-				for (int n = 0; n < 8192; n++) {
+				for (int n = 0; n < 10000; n++) {
 					if (reg[0] != 0) {
 						reg[0] = 0;
 					}
@@ -201,15 +201,15 @@ public final class Cpu {
 					cycle++;
 				}
 				
-				// XXX this is total hack
+				// XXX this is total hack, should really be externally driven
 				if (interruptsEnabled) {
 					long ct = System.nanoTime();
 					if (ct >= t + 4000000) {
-						log.info("fire timer");
+						log.info("fire programmable interrupt timer");
 						t = ct;
-						execExn(EX_INT);
+						execException(EX_INTERRUPT, Malta.INT_SB_INTR, Malta.IRQ_TIMER);
 					} else {
-						checkExn();
+						//checkExn();
 					}
 				}
 			}
@@ -231,24 +231,24 @@ public final class Cpu {
 		}
 	}
 	
-	private void checkExn () {
-		Exn e = null;
-		synchronized (interrupts) {
-			if (interrupts.size() > 0) {
-				e = interrupts.remove(0);
-				System.out.println("got interrupt " + e);
-			}
-		}
-		if (e != null) {
-			if (e.type < 0) {
-				throw new RuntimeException("stop");
-			} else if (interruptsEnabled) {
-				execExn(e.type);
-			} else {
-				log.info("ignore exn " + e);
-			}
-		}
-	}
+//	private void checkExn () {
+//		Exn e = null;
+//		synchronized (interrupts) {
+//			if (interrupts.size() > 0) {
+//				e = interrupts.remove(0);
+//				System.out.println("got interrupt " + e);
+//			}
+//		}
+//		if (e != null) {
+//			if (e.type < 0) {
+//				throw new RuntimeException("stop");
+//			} else if (interruptsEnabled) {
+//				execException(e.type, e.in);
+//			} else {
+//				log.info("ignore exn " + e);
+//			}
+//		}
+//	}
 	
 	private final void execOp (final int isn) {
 		final int op = op(isn);
@@ -258,16 +258,16 @@ public final class Cpu {
 		
 		switch (op) {
 			case OP_SPECIAL:
-				execFn(isn);
+				execFunction(isn);
 				return;
 			case OP_REGIMM:
-				execRegimm(isn);
+				execRegImm(isn);
 				return;
 			case OP_COP0:
 				if (rs < 16) {
 					execCpRs(isn);
 				} else {
-					execCpFn(isn);
+					execCpFunction(isn);
 				}
 				return;
 			case OP_COP1:
@@ -277,7 +277,7 @@ public final class Cpu {
 				execFpuFnX(isn);
 				return;
 			case OP_SPECIAL2:
-				execFn2(isn);
+				execFunction2(isn);
 				return;
 			case OP_LWC1:
 				fpReg[rt] = memory.loadWord(reg[rs] + simm);
@@ -460,7 +460,7 @@ public final class Cpu {
 		reg[31] = nextPc;
 	}
 	
-	private final void execRegimm (final int isn) {
+	private final void execRegImm (final int isn) {
 		final int rs = rs(isn);
 		final int rt = rt(isn);
 		
@@ -486,7 +486,7 @@ public final class Cpu {
 		}
 	}
 
-	private final void execFn (final int isn) {
+	private final void execFunction (final int isn) {
 		final int rd = rd(isn);
 		final int rt = rt(isn);
 		final int rs = rs(isn);
@@ -535,10 +535,10 @@ public final class Cpu {
 				}
 				return;
 			case FN_SYSCALL:
-				execExn(EX_Sys);
+				execException(EX_SYSCALL, 0, 0);
 				return;
 			case FN_BREAK:
-				execExn(EX_Bp);
+				execException(EX_BREAKPOINT, 0, 0);
 				return;
 			case FN_MFHI:
 				reg[rd] = regHi;
@@ -622,7 +622,7 @@ public final class Cpu {
 			}
 			case FN_TNE:
 				if (reg[rs] != reg[rt]) {
-					execExn(EX_Tr);
+					execException(EX_TRAP, 0, 0);
 				}
 				return;
 			default:
@@ -630,15 +630,33 @@ public final class Cpu {
 		}
 	}
 	
-	private void execExn (int ex) {
-		log.info("exec exception " + exceptionName(ex));
-		// traps.c trap_init
-		// genex.S
-		// malta-int.c plat_irq_dispatch
+	/**
+	 * execute exception.
+	 * if excode is interrupt, interrupt code must be provided.
+	 * if interrupt code is south bridge interrupt, irq must be provided.
+	 */
+	// traps.c trap_init
+	// genex.S
+	// malta-int.c plat_irq_dispatch (deals with hardware interrupts)
+	private void execException (final int excode, final int interrupt, final int irq) {
+		log.info("exec exception " + excode + " " + exceptionName(excode) + " interrupt " + interrupt + " " + interruptName(interrupt) + " irq " + irq);
+		final boolean isInterrupt = excode == EX_INTERRUPT;
+		final boolean isSbIntr = isInterrupt && interrupt == Malta.INT_SB_INTR;
+		
+		if (excode < 0 || excode >= 32) {
+			throw new RuntimeException("invalid excode " + excode);
+		}
+
+		if (isInterrupt && (interrupt < 0 || interrupt >= 8)) {
+			throw new RuntimeException("invalid interrupt " + interrupt);
+		}
+		
+		if (isSbIntr && (irq < 0 || irq >= 16)) {
+			throw new RuntimeException("invalid irq " + irq);
+		}
 		
 		final int status = cpReg[CPR_STATUS];
 		final int cause = cpReg[CPR_CAUSE];
-		
 		final boolean bev = (status & CPR_STATUS_BEV) != 0;
 		final boolean exl = (status & CPR_STATUS_EXL) != 0;
 		final boolean iv = (cause & CPR_CAUSE_IV) != 0;
@@ -650,46 +668,44 @@ public final class Cpu {
 		
 		if (exl) {
 			// eh...
-			throw new RuntimeException("exl exception");
+			throw new RuntimeException("exception in exception...");
+		}
+
+		// this is same for status and cause register
+		final int interruptmask = isInterrupt ? 1 << (CPR_STATUS_IM_SHL + interrupt) : 0;
+		
+		if (isInterrupt && (status & interruptmask) == 0) {
+			throw new RuntimeException("masked interrupt " + interrupt);
 		}
 		
-		int newstatus = status | CPR_STATUS_EXL;
-		int newcause = cause & ~(CPR_CAUSE_EXCODE | CPR_CAUSE_BD);
-		int newepc;
+		final int bdmask = nextPc == pc + 4 ? 0 : CPR_CAUSE_BD;
+		final int excodemask = excode << CPR_CAUSE_EXCODE_SHL;
 		
-		if (nextPc == pc + 4) {
-			newepc = pc;
-			
-		} else {
-			newepc = pc - 4;
-			newcause |= CPR_CAUSE_BD;
-		}
-		
-		newcause |= (ex << CPR_CAUSE_EXCODE_SHL);
-		
-		// FIXME unsigned int pending = read_c0_cause() & read_c0_status() & ST0_IM;
-		cpReg[CPR_CAUSE] = newcause;
-		cpReg[CPR_STATUS] = newstatus;
-		cpReg[CPR_EPC] = newepc;
+		cpReg[CPR_STATUS] = status | CPR_STATUS_EXL;
+		cpReg[CPR_CAUSE] = (cause & ~(CPR_CAUSE_EXCODE | CPR_CAUSE_IP | CPR_CAUSE_BD)) | excodemask | interruptmask | bdmask;
+		cpReg[CPR_EPC] = nextPc == pc + 4 ? pc : pc - 4;
 		
 		statusUpdated();
 		
-		if (ex == EX_INT && iv) {
-			log.info("jump to interrupt iv");
-			setPc(EXV_INTERRUPT_IV);
+		if (isSbIntr) {
+			// FIXME update pci with irq?
+			//memory.getMalta().
+		}
+		
+		if (isInterrupt && iv) {
+			log.info("jump to interrupt vector");
+			setPc(EXV_INTERRUPT);
 			
 		} else {
-			log.info("jump to exception");
+			log.info("jump to exception vector");
 			setPc(EXV_EXCEPTION);
 		}
 		
-		calls.push();
+		calls.push("ex" + excode + "int" + interrupt + "irq" + irq);
 		calls.call(pc);
-		
-		//throw new RuntimeException("some other exception...");
 	}
 	
-	private void execFn2 (final int isn) {
+	private void execFunction2 (final int isn) {
 		final int rs = rs(isn);
 		final int rt = rt(isn);
 		final int rd = rd(isn);
@@ -856,7 +872,7 @@ public final class Cpu {
 		}
 	}
 	
-	private final void execCpFn (final int isn) {
+	private final void execCpFunction (final int isn) {
 		final int fn = fn(isn);
 		
 		switch (fn) {

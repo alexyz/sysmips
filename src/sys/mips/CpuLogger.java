@@ -5,7 +5,7 @@ import java.util.*;
 
 public class CpuLogger {
 	
-	private static final int MAX = 100;
+	private static final int MAX = 200;
 
 	public static final CpuLogger getInstance() {
 		return Cpu.getInstance().getLog();

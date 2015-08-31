@@ -441,20 +441,25 @@ public final class MipsConstants {
 	public static final int CPR_STATUS_ERL = 1 << 2;
 	/** user mode */
 	public static final int CPR_STATUS_UM = 1 << 4;
-	/** interrupt mask (7 bits) */
-	public static final int CPR_STATUS_IM = 0x7f << 8;
-	/** bootstrap exception vectors */
+	/** status register interrupt mask shift left (8 bits max) */
+	public static final int CPR_STATUS_IM_SHL = 8;
+	/** status register interrupt mask (8 bits) */
+	public static final int CPR_STATUS_IM = 0xff << CPR_STATUS_IM_SHL;
+	/** status register bootstrap exception vectors */
 	public static final int CPR_STATUS_BEV = 1 << 22;
-	/** access to system coprocessor */
+	/** status register access to system coprocessor */
 	public static final int CPR_STATUS_CU0 = 1 << 28;
-	/** access to floating point coprocessor */
+	/** status register access to floating point coprocessor */
 	public static final int CPR_STATUS_CU1 = 1 << 29;
 	
-	/** cause exception code (5 bits) */
+	/** cause register exception code shift left (5 bits max) */
 	public static final int CPR_CAUSE_EXCODE_SHL = 2;
+	/** cause register exception code */
 	public static final int CPR_CAUSE_EXCODE = 0x1f << CPR_CAUSE_EXCODE_SHL;
-	/** cause software interrupt (2 bits) */
-	public static final int CPR_CAUSE_IPSW = (3 << 8);
+	/** cause register interrupt pending shift left (8 bits max) */
+	public static final int CPR_CAUSE_IP_SHL = 8;
+	/** cause register interrupt pending mask */
+	public static final int CPR_CAUSE_IP = 0xff << CPR_CAUSE_IP_SHL;
 	/** cause general or special exception vector */
 	public static final int CPR_CAUSE_IV = (1 << 23);
 	/** cause branch delay slot */
@@ -468,28 +473,28 @@ public final class MipsConstants {
 	public static final int EXV_RESET = 0xbfc0_0000;
 	public static final int EXV_TLBREFILL = 0x8000_0000;
 	public static final int EXV_EXCEPTION = 0x8000_0180;
-	public static final int EXV_INTERRUPT_IV = 0x8000_0200;
+	public static final int EXV_INTERRUPT = 0x8000_0200;
 	
 	//
-	// exception types
+	// exception types (NOT interrupt types!)
 	//
 	
-	public static final int EX_INT = 0;
-	public static final int EX_MOD = 1;
-	public static final int EX_TLBL = 2;
-	public static final int EX_TLBS = 3;
-	public static final int EX_AdEL = 4;
-	public static final int EX_AdES = 5;
-	public static final int EX_IBE = 6;
-	public static final int EX_DBE = 7;
-	public static final int EX_Sys = 8;
-	public static final int EX_Bp = 9;
-	public static final int EX_RI = 10;
-	public static final int EX_CpU = 11;
-	public static final int EX_Ov = 12;
-	public static final int EX_Tr = 13;
+	public static final int EX_INTERRUPT = 0;
+	public static final int EX_TLB_MODIFICATION = 1;
+	public static final int EX_TLB_LOAD = 2;
+	public static final int EX_TLB_STORE = 3;
+	public static final int EX_ADDR_ERROR_LOAD = 4;
+	public static final int EX_ADDR_ERROR_STORE = 5;
+	public static final int EX_ISN_BUS_ERROR = 6;
+	public static final int EX_DATA_BUS_ERROR = 7;
+	public static final int EX_SYSCALL = 8;
+	public static final int EX_BREAKPOINT = 9;
+	public static final int EX_RESERVED_ISN = 10;
+	public static final int EX_COPROC_UNUSABLE = 11;
+	public static final int EX_OVERFLOW = 12;
+	public static final int EX_TRAP = 13;
 	public static final int EX_WATCH = 23;
-	public static final int EX_MCheck = 24;
+	public static final int EX_MCHECK = 24;
 	
 	/** return the cpr index for the register and selection */
 	public static int cpr (int rd, int sel) {

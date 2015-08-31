@@ -143,6 +143,7 @@ public class IsnUtil {
 		final int[] reg = cpu.getRegisters();
 		final int pc = cpu.getPc();
 		final Symbols syms = mem.getSymbols();
+		final int[] cpreg = cpu.getCpRegisters();
 		
 		switch (name) {
 			case "fr":
@@ -184,15 +185,20 @@ public class IsnUtil {
 			case "base":
 				return gpRegName(base(isn));
 			case "regrd":
-				return syms.getName(reg[rd(isn)]);
+				return Integer.toHexString(reg[rd(isn)]);
+				//return syms.getName(reg[rd(isn)]);
 			case "regrt":
-				return syms.getName(reg[rt(isn)]);
+				return Integer.toHexString(reg[rt(isn)]);
+				//return syms.getName(reg[rt(isn)]);
 			case "regrs":
-				return syms.getName(reg[rs(isn)]);
+				return Integer.toHexString(reg[rs(isn)]);
+				//return syms.getName(reg[rs(isn)]);
 			case "offset":
 				return Integer.toString(simm(isn));
 			case "cprd":
 				return cpRegName(rd(isn), sel(isn));
+			case "cpregrd":
+				return Integer.toHexString(cpreg[cpr(rd(isn), sel(isn))]);
 			case "imm":
 				return String.valueOf(simm(isn));
 			case "branch":
@@ -244,23 +250,38 @@ public class IsnUtil {
 	
 	public static String exceptionName (int ex) {
 		switch (ex) {
-			case EX_INT: return "Interrupt";
-			case EX_MOD: return "TLB modification";
-			case EX_TLBL: return "TLB (load/ifetch)";
-			case EX_TLBS: return "TLB  (store)";
-			case EX_AdEL: return "Address error (load/ifetch)";
-			case EX_AdES: return "Address error (store)";
-			case EX_IBE: return "Bus error (ifetch)";
-			case EX_DBE: return "Bus error (load/store)";
-			case EX_Sys: return "Syscall";
-			case EX_Bp: return "Breakpoint";
-			case EX_RI: return "Reserved instruction";
-			case EX_CpU: return "Coprocessor unusable";
-			case EX_Ov: return "Integer overflow";
-			case EX_Tr: return "Trap";
+			case EX_INTERRUPT: return "Interrupt";
+			case EX_TLB_MODIFICATION: return "TLB modification";
+			case EX_TLB_LOAD: return "TLB (load/ifetch)";
+			case EX_TLB_STORE: return "TLB  (store)";
+			case EX_ADDR_ERROR_LOAD: return "Address error (load/ifetch)";
+			case EX_ADDR_ERROR_STORE: return "Address error (store)";
+			case EX_ISN_BUS_ERROR: return "Bus error (ifetch)";
+			case EX_DATA_BUS_ERROR: return "Bus error (load/store)";
+			case EX_SYSCALL: return "Syscall";
+			case EX_BREAKPOINT: return "Breakpoint";
+			case EX_RESERVED_ISN: return "Reserved instruction";
+			case EX_COPROC_UNUSABLE: return "Coprocessor unusable";
+			case EX_OVERFLOW: return "Integer overflow";
+			case EX_TRAP: return "Trap";
 			case EX_WATCH: return "Watch";
-			case EX_MCheck: return "Machine check";
-			default: return "Reserved " + ex;
+			case EX_MCHECK: return "Machine check";
+			default: return "unknown exception " + ex;
+		}
+	}
+	
+	public static String interruptName (int interrupt) {
+		switch (interrupt) {
+			case 0:
+			case 1: return "Software " + interrupt;
+			// the Malta user guide calls these INT0 to INT5
+			case 2: return "South Bridge INTR";
+			case 3: return "South Bridge SMI";
+			case 4: return "CBUS UART";
+			case 5: return "COREHI";
+			case 6: return "CORELO";
+			case 7: return "R4K Timer";
+			default: return "unknown interrupt " + interrupt;
 		}
 	}
 }

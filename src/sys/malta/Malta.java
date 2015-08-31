@@ -1,37 +1,16 @@
-package sys.mips;
+package sys.malta;
 
 import java.beans.PropertyChangeSupport;
 import java.util.Calendar;
+
+import sys.mips.CpuLogger;
+import sys.util.Symbols;
 
 /**
  * this class kind-of represents the southbridge, but it is also doing device
  * mapping
  */
 public class Malta implements Device {
-	
-	public static final int IRQ_TIMER = 0;
-	public static final int IRQ_KEYBOARD = 1;
-	public static final int IRQ_CASCADE = 2;
-	public static final int IRQ_UART0 = 3;
-	public static final int IRQ_UART1 = 4;
-	public static final int IRQ_FLOPPY = 6;
-	public static final int IRQ_PARALLEL = 7;
-	public static final int IRQ_RTC = 8;
-	public static final int IRQ_I2C = 9;
-	public static final int IRQ_PCI_AB = 10;
-	public static final int IRQ_PCI_CD = 11;
-	public static final int IRQ_MOUSE = 12;
-	public static final int IRQ_IDE0 = 14;
-	public static final int IRQ_IDE1 = 15;
-	
-	public static final int INT_SW0 = 0;
-	public static final int INT_SW1 = 1;
-	public static final int INT_SB_INTR = 2;
-	public static final int INT_SB_SMI = 3;
-	public static final int INT_CBUS_UART = 4;
-	public static final int INT_COREHI = 5;
-	public static final int INT_CORELO = 6;
-	public static final int INT_R4KTIMER = 7;
 	
 	public static final int M_SDRAM = 0x0;
 	public static final int M_UNCACHED_EX_H = 0x100;

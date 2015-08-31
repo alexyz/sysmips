@@ -3,7 +3,7 @@ package sys.mips;
 /**
  * mips constants
  */
-public final class MipsConstants {
+public final class Constants {
 	
 	//
 	// instructions
@@ -501,7 +501,7 @@ public final class MipsConstants {
 		return rd + sel * 32;
 	}
 	
-	private MipsConstants () {
+	private Constants () {
 		//
 	}
 	

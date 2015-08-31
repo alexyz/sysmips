@@ -1,8 +1,11 @@
-package sys.mips;
+package sys.malta;
 
 import java.lang.reflect.*;
 
-import static sys.ByteOrder.*;
+import sys.mips.CpuLogger;
+import sys.util.Symbols;
+
+import static sys.util.ByteOrder.*;
 
 /**
  * this class kind-of represents the northbridge, but doesn't really handle any

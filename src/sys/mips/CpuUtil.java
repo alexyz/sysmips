@@ -4,9 +4,10 @@ import java.io.RandomAccessFile;
 import java.util.*;
 
 import sys.elf.*;
+import sys.util.Symbols;
 
 import static sys.mips.MemoryUtil.*;
-import static sys.mips.MipsConstants.*;
+import static sys.mips.Constants.*;
 import static sys.mips.IsnUtil.*;
 
 /**

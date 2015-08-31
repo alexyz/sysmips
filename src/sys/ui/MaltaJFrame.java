@@ -1,7 +1,6 @@
 package sys.ui;
 
 import java.awt.BorderLayout;
-import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.beans.*;

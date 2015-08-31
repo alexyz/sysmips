@@ -1,23 +1,10 @@
-package sys.mips;
+package sys.util;
 
 import java.util.*;
 
+import sys.mips.Cpu;
+
 public final class Symbols {
-	
-	private static class Symbol {
-		public final String name;
-		public final int size;
-		
-		public Symbol (String name, int size) {
-			this.name = name;
-			this.size = size;
-		}
-		
-		@Override
-		public String toString () {
-			return name;
-		}
-	}
 	
 	public static Symbols getInstance() {
 		return Cpu.getInstance().getMemory().getSymbols();

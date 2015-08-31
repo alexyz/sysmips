@@ -134,7 +134,7 @@ public class Decoder {
 	/** floating point condition code register condition */
 	public static boolean fccrFcc (final int[] fpControlReg, final int cc) {
 		if (cc >= 0 && cc < 8) {
-			return (fpControlReg[MipsConstants.FPCR_FCCR] & (1 << cc)) != 0;
+			return (fpControlReg[Constants.FPCR_FCCR] & (1 << cc)) != 0;
 			
 		} else {
 			throw new IllegalArgumentException("invalid fpu cc " + cc);

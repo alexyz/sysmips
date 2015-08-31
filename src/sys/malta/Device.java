@@ -1,4 +1,6 @@
-package sys.mips;
+package sys.malta;
+
+import sys.util.Symbols;
 
 public interface Device {
 	

@@ -2,7 +2,7 @@ package sys.elf;
 
 import java.io.*;
 
-import sys.ByteOrder;
+import sys.util.ByteOrder;
 
 /**
  * ELF header file

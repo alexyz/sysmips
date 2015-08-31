@@ -1,7 +1,9 @@
 package sys.mips;
 
-import static sys.mips.MipsConstants.*;
+import static sys.mips.Constants.*;
 import static sys.mips.Decoder.*;
+
+import sys.util.Symbols;
 
 /**
  * disassembly and Isn utils
@@ -91,7 +93,7 @@ public class IsnUtil {
 	 * Disassemble an instruction
 	 */
 	public static String isnString (final Cpu cpu, final int isn) {
-		final Memory mem = cpu.getMemory();
+		//final Memory mem = cpu.getMemory();
 		//final Symbols syms = mem.getSymbols();
 		//final int pc = cpu.getPc();
 		final int op = op(isn);
@@ -251,37 +253,23 @@ public class IsnUtil {
 	public static String exceptionName (int ex) {
 		switch (ex) {
 			case EX_INTERRUPT: return "Interrupt";
-			case EX_TLB_MODIFICATION: return "TLB modification";
-			case EX_TLB_LOAD: return "TLB (load/ifetch)";
-			case EX_TLB_STORE: return "TLB  (store)";
-			case EX_ADDR_ERROR_LOAD: return "Address error (load/ifetch)";
-			case EX_ADDR_ERROR_STORE: return "Address error (store)";
-			case EX_ISN_BUS_ERROR: return "Bus error (ifetch)";
-			case EX_DATA_BUS_ERROR: return "Bus error (load/store)";
+			case EX_TLB_MODIFICATION: return "TLBModification";
+			case EX_TLB_LOAD: return "TLBLoad";
+			case EX_TLB_STORE: return "TLBStore";
+			case EX_ADDR_ERROR_LOAD: return "AddressErrorLoad";
+			case EX_ADDR_ERROR_STORE: return "AddressErrorStore";
+			case EX_ISN_BUS_ERROR: return "BusErrorInstruction";
+			case EX_DATA_BUS_ERROR: return "BusErrorData";
 			case EX_SYSCALL: return "Syscall";
 			case EX_BREAKPOINT: return "Breakpoint";
-			case EX_RESERVED_ISN: return "Reserved instruction";
-			case EX_COPROC_UNUSABLE: return "Coprocessor unusable";
-			case EX_OVERFLOW: return "Integer overflow";
+			case EX_RESERVED_ISN: return "ReservedInstruction";
+			case EX_COPROC_UNUSABLE: return "CoprocessorUnusable";
+			case EX_OVERFLOW: return "IntegerOverflow";
 			case EX_TRAP: return "Trap";
 			case EX_WATCH: return "Watch";
-			case EX_MCHECK: return "Machine check";
-			default: return "unknown exception " + ex;
+			case EX_MCHECK: return "MachineCheck";
+			default: return "Exception" + ex;
 		}
 	}
 	
-	public static String interruptName (int interrupt) {
-		switch (interrupt) {
-			case 0:
-			case 1: return "Software " + interrupt;
-			// the Malta user guide calls these INT0 to INT5
-			case 2: return "South Bridge INTR";
-			case 3: return "South Bridge SMI";
-			case 4: return "CBUS UART";
-			case 5: return "COREHI";
-			case 6: return "CORELO";
-			case 7: return "R4K Timer";
-			default: return "unknown interrupt " + interrupt;
-		}
-	}
 }

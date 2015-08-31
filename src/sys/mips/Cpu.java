@@ -2,7 +2,10 @@ package sys.mips;
 
 import java.util.*;
 
-import static sys.mips.MipsConstants.*;
+import sys.malta.Malta;
+import sys.malta.MaltaUtil;
+
+import static sys.mips.Constants.*;
 import static sys.mips.Decoder.*;
 import static sys.mips.IsnUtil.*;
 
@@ -207,7 +210,7 @@ public final class Cpu {
 					if (ct >= t + 4000000) {
 						log.info("fire programmable interrupt timer");
 						t = ct;
-						execException(EX_INTERRUPT, Malta.INT_SB_INTR, Malta.IRQ_TIMER);
+						execException(EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER);
 					} else {
 						//checkExn();
 					}
@@ -563,8 +566,8 @@ public final class Cpu {
 			}
 			case FN_MULTU: {
 				// zero extend
-				final long rsValue = reg[rs] & 0xffffffffL;
-				final long rtValue = reg[rt] & 0xffffffffL;
+				final long rsValue = reg[rs] & 0xffff_ffffL;
+				final long rtValue = reg[rt] & 0xffff_ffffL;
 				final long result = rsValue * rtValue;
 				regLo = (int) result;
 				regHi = (int) (result >>> 32);
@@ -584,8 +587,8 @@ public final class Cpu {
 			case FN_DIVU: {
 				// unpredictable result and no exception for zero
 				// zero extend
-				final long rsValue = reg[rs] & 0xffffffffL;
-				final long rtValue = reg[rt] & 0xffffffffL;
+				final long rsValue = reg[rs] & 0xffff_ffffL;
+				final long rtValue = reg[rt] & 0xffff_ffffL;
 				if (rtValue != 0) {
 					regLo = (int) (rsValue / rtValue);
 					regHi = (int) (rsValue % rtValue);
@@ -615,8 +618,8 @@ public final class Cpu {
 				return;
 			case FN_SLTU: {
 				// zero extend
-				long rsValue = reg[rs] & 0xffffffffL;
-				long rtValue = reg[rt] & 0xffffffffL;
+				long rsValue = reg[rs] & 0xffff_ffffL;
+				long rtValue = reg[rt] & 0xffff_ffffL;
 				reg[rd] = rsValue < rtValue ? 1 : 0;
 				return;
 			}
@@ -639,9 +642,9 @@ public final class Cpu {
 	// genex.S
 	// malta-int.c plat_irq_dispatch (deals with hardware interrupts)
 	private void execException (final int excode, final int interrupt, final int irq) {
-		log.info("exec exception " + excode + " " + exceptionName(excode) + " interrupt " + interrupt + " " + interruptName(interrupt) + " irq " + irq);
+		log.info("exec exception " + excode + " " + exceptionName(excode) + " interrupt " + interrupt + " " + MaltaUtil.interruptName(interrupt) + " irq " + MaltaUtil.irqName(irq));
 		final boolean isInterrupt = excode == EX_INTERRUPT;
-		final boolean isSbIntr = isInterrupt && interrupt == Malta.INT_SB_INTR;
+		final boolean isSbIntr = isInterrupt && interrupt == MaltaUtil.INT_SB_INTR;
 		
 		if (excode < 0 || excode >= 32) {
 			throw new RuntimeException("invalid excode " + excode);

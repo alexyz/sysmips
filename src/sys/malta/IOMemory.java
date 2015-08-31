@@ -1,4 +1,4 @@
-package sys.mips;
+package sys.malta;
 
 import java.util.HashMap;
 import java.util.Map;

@@ -2,6 +2,9 @@ package sys.mips;
 
 import java.io.PrintStream;
 
+import sys.malta.Malta;
+import sys.util.Symbols;
+
 public final class Memory {
 	
 	private static final int KSEG0 = 0x8000_0000;

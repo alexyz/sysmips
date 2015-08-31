@@ -4,7 +4,7 @@ import java.io.*;
 import java.util.*;
 
 public class ELF32 {
-		
+	
 	/**
 	 * Load a string from a string table byte array
 	 */
@@ -50,21 +50,19 @@ public class ELF32 {
 		
 		// load symbols and relocations
 		for (ELF32Section section : sections) {
-			switch (section.type) {
-				case ELF32Section.SHT_SYMTAB: {
-					// load string table
-					ELF32Section stringSection = sections.get(section.linkedSection);
-					byte[] strings = new byte[stringSection.fileSize];
-					file.seek(stringSection.fileOffset);
-					file.read(strings, 0, strings.length);
-					// now load symbol table
-					file.seek(section.fileOffset);
-					int length = section.fileSize / section.entrySize;
-					for (int s = 0; s < length; s++) {
-						symbols.add(new ELF32Symbol(header, file, strings));
-					}
-					break;
+			if (section.type == ELF32Section.SHT_SYMTAB) {
+				// load string table
+				ELF32Section stringSection = sections.get(section.linkedSection);
+				byte[] strings = new byte[stringSection.fileSize];
+				file.seek(stringSection.fileOffset);
+				file.read(strings, 0, strings.length);
+				// now load symbol table
+				file.seek(section.fileOffset);
+				int length = section.fileSize / section.entrySize;
+				for (int s = 0; s < length; s++) {
+					symbols.add(new ELF32Symbol(header, file, strings));
 				}
+				break;
 			}
 		}
 	}

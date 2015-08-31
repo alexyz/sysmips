@@ -2,8 +2,7 @@ package sys.mips;
 
 import java.util.*;
 
-import static sys.mips.MipsConstants.*;
-import static sys.mips.Isn.*;
+import static sys.mips.Constants.*;
 import static sys.mips.Decoder.*;
 import static sys.mips.IsnUtil.*;
 
@@ -61,123 +60,168 @@ public class IsnSet {
 	private final Isn[] fpuFnX = new Isn[64];
 	
 	private IsnSet () {
-		addIsn(newOp(OP_J, "j", SF_JUMP));
-		addIsn(newOp(OP_JAL, "jal", SF_JUMP));
-		addIsn(newOp(OP_BEQ, "beq", SF_CONDBRA));
-		addIsn(newOp(OP_BNE, "bne", SF_CONDBRA));
-		addIsn(newOp(OP_BLEZ, "blez", SF_ZCONDBRA));
-		addIsn(newOp(OP_BGTZ, "bgtz", SF_ZCONDBRA));
-		addIsn(newOp(OP_ADDI, "addi", SF_IMM));
-		addIsn(newOp(OP_ADDIU, "addiu", SF_IMM));
-		addIsn(newOp(OP_SLTI, "slti", SF_IMM));
-		addIsn(newOp(OP_SLTIU, "sltiu", SF_IMM));
-		addIsn(newOp(OP_ANDI, "andi", SF_IMM));
-		addIsn(newOp(OP_ORI, "ori", SF_IMM));
-		addIsn(newOp(OP_XORI, "xori", SF_IMM));
-		addIsn(newOp(OP_LUI, "lui", "{rt} <- {imm}"));
-		addIsn(newOp(OP_BEQL, "beql", ""));
-		addIsn(newOp(OP_LB, "lb", SF_LOAD));
-		addIsn(newOp(OP_LH, "lh", SF_LOAD));
-		addIsn(newOp(OP_LWL, "lwl", SF_LOAD));
-		addIsn(newOp(OP_LW, "lw", SF_LOAD));
-		addIsn(newOp(OP_LBU, "lbu", SF_LOAD));
-		addIsn(newOp(OP_LHU, "lhu", SF_LOAD));
-		addIsn(newOp(OP_LWR, "lwr", SF_LOAD));
-		addIsn(newOp(OP_SB, "sb", SF_STORE));
-		addIsn(newOp(OP_SH, "sh", SF_STORE));
-		addIsn(newOp(OP_SWL, "swl", SF_STORE));
-		addIsn(newOp(OP_SW, "sw", SF_STORE));
-		addIsn(newOp(OP_SC, "sc", SF_STORE));
-		addIsn(newOp(OP_SWR, "swr", SF_STORE));
-		addIsn(newOp(OP_LL, "ll", SF_LOAD));
-		addIsn(newOp(OP_LWC1, "lwc1", "{ft} <- [{base}+{offset}]: {membaseoffsets} <- {baseoffset}"));
-		addIsn(newOp(OP_PREF, "pref", "{rt}, [{base}+{offset}]: {baseoffset}"));
-		addIsn(newOp(OP_LDC1, "ldc1",  "{ft} <- [{base}+{offset}]: {membaseoffsetd} <- {baseoffset}"));
-		addIsn(newOp(OP_SWC1, "swc1", "[{base}+{offset}] <- {ft}: [{baseoffset}] <- {regfts}"));
-		addIsn(newOp(OP_SDC1, "sdc1", "[{base}+{offset}] <- {ft}: [{baseoffset}] <- {regftd}"));
+		addOp(OP_J, "j", SF_JUMP);
+		addOp(OP_JAL, "jal", SF_JUMP);
+		addOp(OP_BEQ, "beq", SF_CONDBRA);
+		addOp(OP_BNE, "bne", SF_CONDBRA);
+		addOp(OP_BLEZ, "blez", SF_ZCONDBRA);
+		addOp(OP_BGTZ, "bgtz", SF_ZCONDBRA);
+		addOp(OP_ADDI, "addi", SF_IMM);
+		addOp(OP_ADDIU, "addiu", SF_IMM);
+		addOp(OP_SLTI, "slti", SF_IMM);
+		addOp(OP_SLTIU, "sltiu", SF_IMM);
+		addOp(OP_ANDI, "andi", SF_IMM);
+		addOp(OP_ORI, "ori", SF_IMM);
+		addOp(OP_XORI, "xori", SF_IMM);
+		addOp(OP_LUI, "lui", "{rt} <- {imm}");
+		addOp(OP_BEQL, "beql", "");
+		addOp(OP_BNEL, "bnel", "");
+		addOp(OP_BLEZL, "blezl", "");
+		addOp(OP_BGTZL, "bgtzl", "");
+		addOp(OP_JALX, "jalx", "");
+		addOp(OP_LB, "lb", SF_LOAD);
+		addOp(OP_LH, "lh", SF_LOAD);
+		addOp(OP_LWL, "lwl", SF_LOAD);
+		addOp(OP_LW, "lw", SF_LOAD);
+		addOp(OP_LBU, "lbu", SF_LOAD);
+		addOp(OP_LHU, "lhu", SF_LOAD);
+		addOp(OP_LWR, "lwr", SF_LOAD);
+		addOp(OP_SB, "sb", SF_STORE);
+		addOp(OP_SH, "sh", SF_STORE);
+		addOp(OP_SWL, "swl", SF_STORE);
+		addOp(OP_SW, "sw", SF_STORE);
+		addOp(OP_SC, "sc", SF_STORE);
+		addOp(OP_SWR, "swr", SF_STORE);
+		addOp(OP_CACHE, "cache", "");
+		addOp(OP_LL, "ll", SF_LOAD);
+		addOp(OP_LWC1, "lwc1", "{ft} <- [{base}+{offset}]: {membaseoffsets} <- {baseoffset}");
+		addOp(OP_LWC2, "lwc2", "");
+		addOp(OP_PREF, "pref", "{rt}, [{base}+{offset}]: {baseoffset}");
+		addOp(OP_LDC1, "ldc1",  "{ft} <- [{base}+{offset}]: {membaseoffsetd} <- {baseoffset}");
+		addOp(OP_LDC2, "ldc2", "");
+		addOp(OP_SWC1, "swc1", "[{base}+{offset}] <- {ft}: [{baseoffset}] <- {regfts}");
+		addOp(OP_SWC2, "swc2", "");
+		addOp(OP_SDC1, "sdc1", "[{base}+{offset}] <- {ft}: [{baseoffset}] <- {regftd}");
+		addOp(OP_SDC2, "sdc2", "");
 		
-		addIsn(newRegimm(RT_BLTZ, "bltz", SF_ZCONDBRA));
-		addIsn(newRegimm(RT_BGEZ, "bgez", SF_ZCONDBRA));
-		addIsn(newRegimm(RT_BLTZAL, "bltzal", SF_ZCONDBRA));
-		addIsn(newRegimm(RT_BGEZAL, "bgezal", SF_ZCONDBRA));
+		addRegImm(RT_BLTZ, "bltz", SF_ZCONDBRA);
+		addRegImm(RT_BGEZ, "bgez", SF_ZCONDBRA);
+		addRegImm(RT_BLTZAL, "bltzal", SF_ZCONDBRA);
+		addRegImm(RT_BGEZAL, "bgezal", SF_ZCONDBRA);
 		
-		addIsn(newFn(FN_SLL, "sll", SF_SHIFT));
-		addIsn(newFn(FN_SRL, "srl", SF_SHIFT));
-		addIsn(newFn(FN_SRA, "sra", SF_SHIFT));
-		addIsn(newFn(FN_SLLV, "sllv", SF_SHIFTREG));
-		addIsn(newFn(FN_SRLV, "srlv", SF_SHIFTREG));
-		addIsn(newFn(FN_SRAV, "srav", SF_SHIFTREG));
-		addIsn(newFn(FN_JR, "jr", "{rs}: {regrs}"));
-		addIsn(newFn(FN_JALR, "jalr", "{rd}, {rs}: {regrs}"));
-		addIsn(newFn(FN_MOVZ, "movz", SF_ZCONDMOV));
-		addIsn(newFn(FN_MOVN, "movn", SF_ZCONDMOV));
-		addIsn(newFn(FN_SYSCALL, "syscall", "{syscall}"));
-		addIsn(newFn(FN_BREAK, "break", "{syscall}"));
-		addIsn(newFn(FN_MFHI, "mfhi", "{rd} <- hi : {hi}"));
-		addIsn(newFn(FN_MFLO, "mflo", "{rd} <- lo : {lo}"));
-		addIsn(newFn(FN_MTHI, "mthi", "hi <- {rs} : {regrs}"));
-		addIsn(newFn(FN_MTLO, "mtlo", "lo <- {rs} : {regrs}"));
-		addIsn(newFn(FN_MULT, "mult", SF_HILO));
-		addIsn(newFn(FN_MULTU, "multu", SF_HILO));
-		addIsn(newFn(FN_DIV, "div", SF_HILO));
-		addIsn(newFn(FN_DIVU, "divu", SF_HILO));
-		addIsn(newFn(FN_ADD, "add", SF_REG));
-		addIsn(newFn(FN_ADDU, "addu", SF_REG));
-		addIsn(newFn(FN_SUBU, "subu", SF_REG));
-		addIsn(newFn(FN_AND, "and", SF_REG));
-		addIsn(newFn(FN_OR, "or", SF_REG));
-		addIsn(newFn(FN_XOR, "xor", SF_REG));
-		addIsn(newFn(FN_NOR, "nor", SF_REG));
-		addIsn(newFn(FN_SLT, "slt", SF_REG));
-		addIsn(newFn(FN_SLTU, "sltu", SF_REG));
-		addIsn(newFn(FN_TNE, "tne", SF_COND));
+		addFn(FN_SLL, "sll", SF_SHIFT);
+		addFn(FN_SRL, "srl", SF_SHIFT);
+		addFn(FN_SRA, "sra", SF_SHIFT);
+		addFn(FN_SLLV, "sllv", SF_SHIFTREG);
+		addFn(FN_SRLV, "srlv", SF_SHIFTREG);
+		addFn(FN_SRAV, "srav", SF_SHIFTREG);
+		addFn(FN_JR, "jr", "{rs}: {regrs}");
+		addFn(FN_JALR, "jalr", "{rd}, {rs}: {regrs}");
+		addFn(FN_MOVZ, "movz", SF_ZCONDMOV);
+		addFn(FN_MOVN, "movn", SF_ZCONDMOV);
+		addFn(FN_SYSCALL, "syscall", "{syscall}");
+		addFn(FN_BREAK, "break", "{syscall}");
+		addFn(FN_MFHI, "mfhi", "{rd} <- hi : {hi}");
+		addFn(FN_MFLO, "mflo", "{rd} <- lo : {lo}");
+		addFn(FN_MTHI, "mthi", "hi <- {rs} : {regrs}");
+		addFn(FN_MTLO, "mtlo", "lo <- {rs} : {regrs}");
+		addFn(FN_MULT, "mult", SF_HILO);
+		addFn(FN_MULTU, "multu", SF_HILO);
+		addFn(FN_DIV, "div", SF_HILO);
+		addFn(FN_DIVU, "divu", SF_HILO);
+		addFn(FN_ADD, "add", SF_REG);
+		addFn(FN_ADDU, "addu", SF_REG);
+		addFn(FN_SUBU, "subu", SF_REG);
+		addFn(FN_AND, "and", SF_REG);
+		addFn(FN_OR, "or", SF_REG);
+		addFn(FN_XOR, "xor", SF_REG);
+		addFn(FN_NOR, "nor", SF_REG);
+		addFn(FN_SLT, "slt", SF_REG);
+		addFn(FN_SLTU, "sltu", SF_REG);
+		addFn(FN_TNE, "tne", SF_COND);
 		
-		addIsn(newFn2(FN2_MUL, "mul", SF_REG));
-		addIsn(newFn2(FN2_CLZ, "clz", SF_REG2));
+		addFn2(FN2_MUL, "mul", SF_REG);
+		addFn2(FN2_CLZ, "clz", SF_REG2);
 		
-		addIsn(newCop0(CP_RS_MFC0, "mfc0", "{rt} <- {cprd}: {cpregrd}"));
-		addIsn(newCop0(CP_RS_MTC0, "mtc0", "{cprd} <- {rt}: {regrt}"));
-		addIsn(newCop0(CP_RS_RDPGPR, "rdpgpr", ""));
-		addIsn(newCop0(CP_RS_WRPGPR, "wrpgpr", ""));
+		addCop0(CP_RS_MFC0, "mfc0", "{rt} <- {cprd}: {cpregrd}");
+		addCop0(CP_RS_MTC0, "mtc0", "{cprd} <- {rt}: {regrt}");
+		addCop0(CP_RS_RDPGPR, "rdpgpr", "");
+		addCop0(CP_RS_WRPGPR, "wrpgpr", "");
 		
-		addIsn(newCop0Fn(CP_FN_TLBR, "tlbr", ""));
-		addIsn(newCop0Fn(CP_FN_TLBWI, "tlbwi", ""));
-		addIsn(newCop0Fn(CP_FN_TLBINV, "tlbinv", ""));
-		addIsn(newCop0Fn(CP_FN_TLBINVF, "tlbinvf", ""));
-		addIsn(newCop0Fn(CP_FN_TLBWR, "tlbiwr", ""));
-		addIsn(newCop0Fn(CP_FN_TLBP, "tlbp", ""));
+		addCop0Fn(CP_FN_TLBR, "tlbr", "");
+		addCop0Fn(CP_FN_TLBWI, "tlbwi", "");
+		addCop0Fn(CP_FN_TLBINV, "tlbinv", "");
+		addCop0Fn(CP_FN_TLBINVF, "tlbinvf", "");
+		addCop0Fn(CP_FN_TLBWR, "tlbiwr", "");
+		addCop0Fn(CP_FN_TLBP, "tlbp", "");
 		
-		addIsn(newCop1(FP_RS_MFC1, "mfc1", "{rt} <- {fs}: {regfsx}"));
-		addIsn(newCop1(FP_RS_CFC1, "cfc1", "{rt} <- {fscw}"));
-		addIsn(newCop1(FP_RS_MTC1, "mtc1", "{fs} <- {rt}: {regrtx}"));
-		addIsn(newCop1(FP_RS_CTC1, "ctc1", "{fscw} <- {rt}"));
-		addIsn(newCop1(FP_RS_BC1, "bc1", "{fptf}, {fpcc}, {branch} : {regfpcc}"));
+		addCop1(FP_RS_MFC1, "mfc1", "{rt} <- {fs}: {regfsx}");
+		addCop1(FP_RS_CFC1, "cfc1", "{rt} <- {fscw}");
+		addCop1(FP_RS_MTC1, "mtc1", "{fs} <- {rt}: {regrtx}");
+		addCop1(FP_RS_CTC1, "ctc1", "{fscw} <- {rt}");
+		addCop1(FP_RS_BC1, "bc1", "{fptf}, {fpcc}, {branch} : {regfpcc}");
 		
 		for (int rs : new int[] { FP_RS_S, FP_RS_D }) {
 			String f = fpFormatString(rs);
-			addIsn(newCop1Fn(rs, FP_FN_ABS, "abs." + f, SF_FP_REG2));
-			addIsn(newCop1Fn(rs, FP_FN_ADD, "add." + f, SF_FP_REG));
-			addIsn(newCop1Fn(rs, FP_FN_SUB, "sub." + f, SF_FP_REG));
-			addIsn(newCop1Fn(rs, FP_FN_MUL, "mul." + f, SF_FP_REG));
-			addIsn(newCop1Fn(rs, FP_FN_DIV, "div." + f, SF_FP_REG));
-			addIsn(newCop1Fn(rs, FP_FN_MOV, "mov." + f, SF_FP_REG2));
-			addIsn(newCop1Fn(rs, FP_FN_NEG, "neg." + f, SF_FP_REG2));
-			addIsn(newCop1Fn(rs, FP_FN_C_ULT, "c.ult." + f, SF_FP_COND));
-			addIsn(newCop1Fn(rs, FP_FN_C_EQ, "c.eq." + f, SF_FP_COND));
-			addIsn(newCop1Fn(rs, FP_FN_C_LT, "c.lt." + f, SF_FP_COND));
-			addIsn(newCop1Fn(rs, FP_FN_C_LE, "c.le." + f, SF_FP_COND));
+			addCop1Fn(rs, FP_FN_ABS, "abs." + f, SF_FP_REG2);
+			addCop1Fn(rs, FP_FN_ADD, "add." + f, SF_FP_REG);
+			addCop1Fn(rs, FP_FN_SUB, "sub." + f, SF_FP_REG);
+			addCop1Fn(rs, FP_FN_MUL, "mul." + f, SF_FP_REG);
+			addCop1Fn(rs, FP_FN_DIV, "div." + f, SF_FP_REG);
+			addCop1Fn(rs, FP_FN_MOV, "mov." + f, SF_FP_REG2);
+			addCop1Fn(rs, FP_FN_NEG, "neg." + f, SF_FP_REG2);
+			addCop1Fn(rs, FP_FN_C_ULT, "c.ult." + f, SF_FP_COND);
+			addCop1Fn(rs, FP_FN_C_EQ, "c.eq." + f, SF_FP_COND);
+			addCop1Fn(rs, FP_FN_C_LT, "c.lt." + f, SF_FP_COND);
+			addCop1Fn(rs, FP_FN_C_LE, "c.le." + f, SF_FP_COND);
 		}
 		
 		for (int rs : new int[] { FP_RS_S, FP_RS_D, FP_RS_W, FP_RS_L }) {
 			String f = fpFormatString(rs);
-			addIsn(newCop1Fn(rs, FP_FN_CVT_S, "cvt.s." + f, SF_FP_REG2));
-			addIsn(newCop1Fn(rs, FP_FN_CVT_D, "cvt.d." + f, SF_FP_REG2));
-			addIsn(newCop1Fn(rs, FP_FN_CVT_W, "cvt.w." + f, SF_FP_REG2));
+			addCop1Fn(rs, FP_FN_CVT_S, "cvt.s." + f, SF_FP_REG2);
+			addCop1Fn(rs, FP_FN_CVT_D, "cvt.d." + f, SF_FP_REG2);
+			addCop1Fn(rs, FP_FN_CVT_W, "cvt.w." + f, SF_FP_REG2);
 		}
 		
-		addIsn(newCop1FnX(FP_FNX_MADDS, "madd.s", "{fd} <- {fs} * {ft} + {fr}: {regfss} * {regfts} + {regfrs}"));
+		addCop1FnX(FP_FNX_MADDS, "madd.s", "{fd} <- {fs} * {ft} + {fr}: {regfss} * {regfts} + {regfrs}");
 	}
 
+	private void addOp (int op, String name, String format) {
+		addIsn(new Isn(op, 0, 0, 0, name, format));
+	}
+	
+	private void addRegImm (int rt, String name, String format) {
+		addIsn(new Isn(OP_REGIMM, 0, rt, 0, name, format));
+	}
+	
+	private void addFn (int fn, String name, String format) {
+		addIsn(new Isn(OP_SPECIAL, 0, 0, fn, name, format));
+	}
+	
+	private void addFn2 (int fn, String name, String format) {
+		addIsn(new Isn(OP_SPECIAL2, 0, 0, fn, name, format));
+	}
+	
+	private void addCop0 (int rs, String name, String format) {
+		addIsn(new Isn(OP_COP0, rs, 0, 0, name, format));
+	}
+	
+	private void addCop0Fn (int fn, String name, String format) {
+		addIsn(new Isn(OP_COP0, CP_RS_CO, 0, fn, name, format));
+	}
+	
+	private void addCop1 (int rs, String name, String format) {
+		addIsn(new Isn(OP_COP1, rs, 0, 0, name, format));
+	}
+	
+	private void addCop1Fn (int rs, int fn, String name, String format) {
+		addIsn(new Isn(OP_COP1, rs, 0, fn, name, format));
+	}
+	
+	private void addCop1FnX (int fn, String name, String format) {
+		addIsn(new Isn(OP_COP1X, 0, 0, fn, name, format));
+	}
+	
 	public Isn getIsn (int isn) {
 		final int op = op(isn);
 		final int rs = rs(isn);

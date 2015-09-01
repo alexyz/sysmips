@@ -225,7 +225,7 @@ public class Malta implements Device {
 				break;
 				
 			case M_UART_TX:
-				consoleWrite(value);
+				consoleWrite(value & 0xff);
 				break;
 				
 			case M_PIC_MASTER_CMD:

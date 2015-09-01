@@ -18,6 +18,7 @@ public final class Memory {
 	private final int wordAddrXor;
 	private final int halfWordAddrXor;
 	private final boolean littleEndian;
+	private final Entry[] entries = new Entry[16];
 	
 	private Malta malta;
 	private boolean kernelMode;
@@ -28,6 +29,13 @@ public final class Memory {
 		this.littleEndian = littleEndian;
 		this.wordAddrXor = littleEndian ? 0 : 3;
 		this.halfWordAddrXor = littleEndian ? 0 : 2;
+		for (int n = 0; n < entries.length; n++) {
+			entries[n] = new Entry();
+		}
+	}
+	
+	public Entry getEntry (int n) {
+		return entries[n];
 	}
 	
 	public void init () {
@@ -143,6 +151,9 @@ public final class Memory {
 	 * translate virtual address to physical
 	 */
 	private final int lookup (int vaddr) {
+		for (int n = 0; n < entries.length; n++) {
+			System.out.println("entry[" + n + "]=" + entries[n]);
+		}
 		throw new RuntimeException("unimplemented lookup " + Integer.toHexString(vaddr));
 	}
 	

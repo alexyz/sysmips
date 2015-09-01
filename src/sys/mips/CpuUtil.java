@@ -39,16 +39,6 @@ public class CpuUtil {
 		
 		System.out.println("top=" + Integer.toHexString(top[0]));
 		
-		// only need this for user-level...
-//		int gp;
-//	    for (ELF32Section section : elf.sections) {
-//	      if (section.type == ELF32Section.SHT_MIPS_REGINFO) {
-//	        file.seek(section.fileOffset + 20);
-//	        gp = elf.header.decode(file.readInt());
-//	        break;
-//	      }
-//	    }
-		
 		for (ELF32Symbol symbol : elf.symbols) {
 			if (symbol.getBind() == ELF32Symbol.STB_GLOBAL && symbol.size > 0) {
 				sym.put(symbol.value, symbol.name);
@@ -68,6 +58,7 @@ public class CpuUtil {
 	 * call to a main() function
 	 */
 	public static void setMainArgs (final Cpu cpu, final int addr, final List<String> argsList, final List<String> envList) {
+		System.out.println("set args=" + argsList + " env=" + envList);
 		final Memory mem = cpu.getMemory();
 		int p = addr;
 		
@@ -80,8 +71,19 @@ public class CpuUtil {
 		final int envAddr = nextWord(p);
 		p = storeWords(mem, envAddr, env);
 		
+		System.out.println("argc=" + argsList.size());
 		cpu.setRegister(REG_A0, argsList.size());
+		System.out.println("argv=" + Integer.toHexString(argvAddr));
+		for (int n = 0; n < 10; n++) {
+			// argv -> p -> value
+			int x = mem.loadWord(argvAddr + n*4);
+			System.out.println("argv[" + n + "]=" + Integer.toHexString(x) + " -> " + (x != 0 ? loadString(mem, x) : "<null>"));
+			if (x == 0) {
+				break;
+			}
+		}
 		cpu.setRegister(REG_A1, argvAddr);
+		System.out.println("env=" + Integer.toHexString(envAddr));
 		cpu.setRegister(REG_A2, envAddr);
 	}
 	

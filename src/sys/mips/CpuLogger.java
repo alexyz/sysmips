@@ -40,7 +40,7 @@ public class CpuLogger {
 		final String ie = cpu.isInterruptsEnabled() ? "i" : "";
 		final String km = cpu.isKernelMode() ? "k" : "";
 		final String ex = cpu.isExecException() ? "x" : "";
-		final String s = "[" + cpu.getCycle() + ":" + ex + km + ie + "] " + msg;
+		final String s = "[" + cpu.getCycle() + ":" + km + ie + ex + "] " + msg;
 		log.add(s);
 		if (print) {
 			System.out.println(s);

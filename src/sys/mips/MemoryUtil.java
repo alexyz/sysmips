@@ -43,9 +43,22 @@ public class MemoryUtil {
 		return p;
 	}
 	
+	public static final String loadString (final Memory mem, final int addr) {
+		StringBuilder sb = new StringBuilder();
+		for (int n = 0;; n++) {
+			byte b = mem.loadByte(addr+n);
+			if (b != 0) {
+				sb.append((char)b);
+			} else {
+				break;
+			}
+		}
+		return sb.toString();
+	}
+	
 	/** store null terminated string, return pointer to first byte after data */
 	public static final int storeString (final Memory mem, final int addr, String value) {
-		System.out.println("memory store string " + value);
+		System.out.println("store string " + Integer.toHexString(addr) + ": " + value);
 		return storeBytes(mem, addr, (value + "\0").getBytes(StandardCharsets.US_ASCII));
 	}
 	

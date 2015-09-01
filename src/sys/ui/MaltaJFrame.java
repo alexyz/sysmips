@@ -52,8 +52,8 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		// environment keys: ethaddr, modetty0, memsize (defaults to 32MB)
 		fileField.setText("images/vmlinux-3.2.0-4-4kc-malta");
 		fileButton.addActionListener(ae -> selectFile());
-		argsField.setText("console=ttyS0");
-		envField.setText("key=value");
+		argsField.setText("debug initcall_debug ignore_loglevel");
+		envField.setText("memsize=33554432");
 		
 		runButton.addActionListener(ae -> start());
 		
@@ -129,19 +129,29 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 			return;
 		}
 		
-		List<String> args = Collections.singletonList(argsField.getText());
+		List<String> args = new ArrayList<>();
+		// linux ignores first arg...
+		args.add("linux");
+		{
+			StringTokenizer st = new StringTokenizer(argsField.getText());
+			while (st.hasMoreTokens()) {
+				args.add(st.nextToken());
+			}
+		}
 		
 		List<String> env = new ArrayList<>();
-		StringTokenizer envSt = new StringTokenizer(envField.getText());
-		while (envSt.hasMoreTokens()) {
-			String t = envSt.nextToken();
-			int i = t.indexOf("=");
-			if (i > 1) {
-				env.add(t.substring(0, i));
-				env.add(t.substring(i + 1));
-			} else {
-				showErrorDialog("Start", "Invalid environment: " + t);
-				return;
+		{
+			StringTokenizer st = new StringTokenizer(envField.getText());
+			while (st.hasMoreTokens()) {
+				String t = st.nextToken();
+				int i = t.indexOf("=");
+				if (i > 1) {
+					env.add(t.substring(0, i));
+					env.add(t.substring(i + 1));
+				} else {
+					showErrorDialog("Start", "Invalid environment: " + t);
+					return;
+				}
 			}
 		}
 		

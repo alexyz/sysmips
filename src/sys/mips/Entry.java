@@ -15,14 +15,6 @@ public class Entry {
 		}
 	}
 	
-	public static Entry[] create (int entries) {
-		Entry[] a = new Entry[entries];
-		for (int n = 0; n < a.length; n++) {
-			a[n] = new Entry();
-		}
-		return a;
-	}
-	
 	public final Data data0 = new Data();
 	public final Data data1 = new Data();
 	

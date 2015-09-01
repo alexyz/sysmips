@@ -26,7 +26,6 @@ public final class Cpu {
 	/** coprocessor 1 registers (longs/doubles in consecutive registers) */
 	private final int[] fpReg = new int[32];
 	private final int[] fpControlReg = new int[32];
-	private final Entry[] tlb = Entry.create(16);
 	private final CpuLogger log = new CpuLogger(this);
 	private final Map<String, int[]> isnCount = new HashMap<>();
 	private final Memory memory;
@@ -936,7 +935,7 @@ public final class Cpu {
 				int lo1 = cpReg[CPR_ENTRYLO1];
 				int pm = cpReg[CPR_PAGEMASK];
 				int hi = cpReg[CPR_ENTRYHI];
-				Entry e = tlb[i];
+				Entry e = memory.getEntry(i);
 				e.pageMask = pm >>> 12;
 				e.virtualPageNumber = hi >>> 12;
 				e.addressSpaceId = (hi >>> 12) & 0xff;

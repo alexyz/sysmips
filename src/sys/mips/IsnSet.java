@@ -27,7 +27,8 @@ public class IsnSet {
 	private static final String SF_SHIFTREG = "{rd} <- {rt} * {rs}: {regrt} * {regrs}";
 	private static final String SF_ZCONDBRA = "{rs} ~ 0, {branch}: {regrs} ~ 0";
 	private static final String SF_ZCONDMOV = "{rd} <- {rs}, {rt} ~ 0: {regrs}, {regrt} ~ 0";
-	private static final String SF_HILO = "hi:lo <- {rs} * {rt}: {regrs} * {regrt}";
+	private static final String SF_HILO = "hilo <- {rs} * {rt}: {regrs} * {regrt}";
+	private static final String SF_HILOAND = "hilo <- {rs} * {rt} + hilo: {regrs} * {regrt} * {hilo}";
 	private static final String SF_FP_COND = "{fs} ~ {ft}: {regfs} ~ {regft}";
 	private static final String SF_FP_REG = "{fd} <- {fs} * {ft}: {regfs} * {regft}";
 	private static final String SF_FP_REG2 = "{fd} <- {fs}: {regfs}";
@@ -106,8 +107,19 @@ public class IsnSet {
 		
 		addRegImm(RT_BLTZ, "bltz", SF_ZCONDBRA);
 		addRegImm(RT_BGEZ, "bgez", SF_ZCONDBRA);
+		addRegImm(RT_BLTZL, "bltzl", "");
+		addRegImm(RT_BGEZL, "bgezl", "");
+		addRegImm(RT_TGEI, "tgei", "");
+		addRegImm(RT_TGEIU, "tgeiu", "");
+		addRegImm(RT_TLTI, "tlti", "");
+		addRegImm(RT_TLTIU, "tltiu", "");
+		addRegImm(RT_TEQI, "teqi", "");
+		addRegImm(RT_TNEI, "tnei", "");
 		addRegImm(RT_BLTZAL, "bltzal", SF_ZCONDBRA);
 		addRegImm(RT_BGEZAL, "bgezal", SF_ZCONDBRA);
+		addRegImm(RT_BLTZALL, "bltzall", "");
+		addRegImm(RT_BGEZALL, "bgezall", "");
+		addRegImm(RT_SYNCI, "synci", "");
 		
 		addFn(FN_SLL, "sll", SF_SHIFT);
 		addFn(FN_SRL, "srl", SF_SHIFT);
@@ -121,6 +133,7 @@ public class IsnSet {
 		addFn(FN_MOVN, "movn", SF_ZCONDMOV);
 		addFn(FN_SYSCALL, "syscall", "{syscall}");
 		addFn(FN_BREAK, "break", "{syscall}");
+		addFn(FN_SYNC, "sync", "");
 		addFn(FN_MFHI, "mfhi", "{rd} <- hi : {hi}");
 		addFn(FN_MFLO, "mflo", "{rd} <- lo : {lo}");
 		addFn(FN_MTHI, "mthi", "hi <- {rs} : {regrs}");
@@ -140,12 +153,19 @@ public class IsnSet {
 		addFn(FN_SLTU, "sltu", SF_REG);
 		addFn(FN_TNE, "tne", SF_COND);
 		
+		addFn2(FN2_MADD, "madd", SF_HILOAND);
+		addFn2(FN2_MADDU, "maddu", SF_HILOAND);
 		addFn2(FN2_MUL, "mul", SF_REG);
+		addFn2(FN2_MSUB, "msub", SF_HILOAND);
+		addFn2(FN2_MSUBU, "msubu", SF_HILOAND);
 		addFn2(FN2_CLZ, "clz", SF_REG2);
+		addFn2(FN2_CLO, "clo", "");
+		addFn2(FN2_SDBBP, "sdbbp", "");
 		
 		addCop0(CP_RS_MFC0, "mfc0", "{rt} <- {cprd}: {cpregrd}");
 		addCop0(CP_RS_MTC0, "mtc0", "{cprd} <- {rt}: {regrt}");
 		addCop0(CP_RS_RDPGPR, "rdpgpr", "");
+		addCop0(CP_RS_MFMC0, "mfmc0", "");
 		addCop0(CP_RS_WRPGPR, "wrpgpr", "");
 		
 		addCop0Fn(CP_FN_TLBR, "tlbr", "");
@@ -154,6 +174,9 @@ public class IsnSet {
 		addCop0Fn(CP_FN_TLBINVF, "tlbinvf", "");
 		addCop0Fn(CP_FN_TLBWR, "tlbiwr", "");
 		addCop0Fn(CP_FN_TLBP, "tlbp", "");
+		addCop0Fn(CP_FN_ERET, "eret", "");
+		addCop0Fn(CP_FN_DERET, "deret", "");
+		addCop0Fn(CP_FN_WAIT, "wait", "");
 		
 		addCop1(FP_RS_MFC1, "mfc1", "{rt} <- {fs}: {regfsx}");
 		addCop1(FP_RS_CFC1, "cfc1", "{rt} <- {fscw}");

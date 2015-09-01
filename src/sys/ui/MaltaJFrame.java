@@ -177,9 +177,6 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 				
 			} catch (Exception e) {
 				System.out.println();
-				e.printStackTrace(System.out);
-				
-				System.out.println();
 				cpu.getLog().print(System.out);
 				
 				System.out.println();
@@ -190,6 +187,9 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 						.map(x -> x.getKey() + "=" + x.getValue()[0])
 						.collect(Collectors.toList());
 				System.out.println("isn count " + l);
+				
+				System.out.println();
+				e.printStackTrace(System.out);
 				
 				SwingUtilities.invokeLater(() -> {
 					consoleArea.append(exceptionString(e));

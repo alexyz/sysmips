@@ -19,6 +19,7 @@ public class CallLogger {
 	public void call (int addr) {
 		final List<String> calls = threads.get(0);
 		calls.add(cpu.getMemory().getSymbols().getName(addr, false));
+		cpu.getLog().debug("call " + callString());
 	}
 	
 	public void ret () {
@@ -34,19 +35,24 @@ public class CallLogger {
 	}
 	
 	public void pop () {
-		threadNames.remove(0);
-		threads.remove(0);
+		// could be multiple returns
+		if (threads.size() > 1) {
+			threadNames.remove(0);
+			threads.remove(0);
+		} else {
+			threads.get(0).clear();
+		}
 	}
 	
 	public String callString () {
-		final StringBuilder sb = new StringBuilder(threads.size() + "-" + threadNames.get(0));
+		final StringBuilder sb = new StringBuilder(threads.size() + ":" + threadNames.get(0));
 		final List<String> calls = threads.get(0);
 		
 		for (String call : calls) {
 			sb.append("/").append(call);
 		}
 		
-		sb.append("/").append(cpu.getMemory().getSymbols().getName(cpu.getPc(), false));
+		sb.append(":").append(cpu.getMemory().getSymbols().getName(cpu.getPc(), true));
 		
 		return sb.toString();
 	}

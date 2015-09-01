@@ -198,6 +198,7 @@ public final class Constants {
 	// SPECIAL2 instructions
 	//
 	
+	/** signed multiply and add to hilo */
 	public static final byte FN2_MADD = 0x00;
 	public static final byte FN2_MADDU = 0x01;
 	/** multiply word to gpr */
@@ -206,7 +207,7 @@ public final class Constants {
 	public static final byte FN2_MSUBU = 0x05;
 	/** count leading zeros in word */
 	public static final byte FN2_CLZ = 0x20;
-	public static final byte FN2_MLO = 0x21;
+	public static final byte FN2_CLO = 0x21;
 	public static final byte FN2_SDBBP = 0x3f;
 	
 	//
@@ -234,6 +235,7 @@ public final class Constants {
 	public static final byte CP_FN_TLBINVF = 0x04;
 	public static final byte CP_FN_TLBWR = 0x06;
 	public static final byte CP_FN_TLBP = 0x08;
+	/** exception return */
 	public static final byte CP_FN_ERET = 0x18;
 	public static final byte CP_FN_DERET = 0x1f;
 	public static final byte CP_FN_WAIT = 0x20;
@@ -433,13 +435,13 @@ public final class Constants {
 	// system coprocessor register bitmasks
 	//
 	
-	/** interrupt enable */
+	/** status register interrupt enable */
 	public static final int CPR_STATUS_IE = 1 << 0;
-	/** exception level */
+	/** status register exception level */
 	public static final int CPR_STATUS_EXL = 1 << 1;
-	/** reset error level */
+	/** status register reset error level */
 	public static final int CPR_STATUS_ERL = 1 << 2;
-	/** user mode */
+	/** status register user mode */
 	public static final int CPR_STATUS_UM = 1 << 4;
 	/** status register interrupt mask shift left (8 bits max) */
 	public static final int CPR_STATUS_IM_SHL = 8;

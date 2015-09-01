@@ -93,9 +93,6 @@ public class IsnUtil {
 	 * Disassemble an instruction
 	 */
 	public static String isnString (final Cpu cpu, final int isn) {
-		//final Memory mem = cpu.getMemory();
-		//final Symbols syms = mem.getSymbols();
-		//final int pc = cpu.getPc();
 		final int op = op(isn);
 		final int rs = rs(isn);
 		final int rt = rt(isn);
@@ -116,9 +113,8 @@ public class IsnUtil {
 			isnValue = "op=" + op + " rt=" + rt + " rs=" + rs + " fn=" + fn;
 		}
 		
-		//final String addr = syms.getName(pc);
-		//return String.format("%-40s %08x %s", addr, isn, isnValue);
-		return String.format("%08x %s", isn, isnValue);
+		final String addr = cpu.getMemory().getSymbols().getName(cpu.getPc());
+		return String.format("%-40s %08x %s", addr, isn, isnValue);
 	}
 	
 	public static String formatIsn (final Isn isnObj, final Cpu cpu, final int isn) {
@@ -182,7 +178,7 @@ public class IsnUtil {
 				return gpRegName(rt(isn));
 			case "regrtx": {
 				int v = reg[rt(isn)];
-				return "0x" + Integer.toHexString(v) + "(" + formatDouble(Float.intBitsToFloat(v)) + ")";
+				return Integer.toHexString(v) + "(" + formatDouble(Float.intBitsToFloat(v)) + ")";
 			}
 			case "base":
 				return gpRegName(base(isn));
@@ -206,16 +202,18 @@ public class IsnUtil {
 			case "branch":
 				return syms.getName(branch(isn, pc));
 			case "hi":
-				return "0x" + Integer.toHexString(cpu.getRegHi());
+				return Integer.toHexString(cpu.getHi());
 			case "lo":
-				return "0x" + Integer.toHexString(cpu.getRegLo());
+				return Integer.toHexString(cpu.getLo());
+			case "hilo":
+				return String.valueOf(cpu.getHilo());
 			case "baseoffset":
 				return syms.getName(reg[base(isn)] + simm(isn));
 			case "syscall":
-				return "0x" + Integer.toHexString(syscall(isn));
+				return Integer.toHexString(syscall(isn));
 			case "membaseoffset": {
 				Integer w = mem.loadWordSafe((reg[base(isn)] + simm(isn)));
-				return w != null ? "0x" + Integer.toHexString(w) : null;
+				return w != null ? Integer.toHexString(w) : null;
 			}
 			case "membaseoffsets": {
 				Integer w = mem.loadWordSafe((reg[base(isn)] + simm(isn)));

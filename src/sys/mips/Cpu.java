@@ -11,6 +11,7 @@ import static sys.mips.IsnUtil.*;
 
 public final class Cpu {
 	
+	private static final int INTERVAL_NS = 4000000;
 	private static final ThreadLocal<Cpu> instance = new ThreadLocal<>();
 	
 	/** allow other classes to access cpu */
@@ -39,14 +40,17 @@ public final class Cpu {
 	private int pc;
 	/** address of current instruction + 4 (unless changed by branch) */
 	private int nextPc;
-	private int rmwPhysicalAddress;
+	private int loadLinkedVAddr;
+	private int loadLinkedPAddr;
+	private boolean loadLinkedBit;
 	private FpRound roundingMode = FpRound.NONE;
 	private boolean kernelMode;
-	private int regHi;
-	private int regLo;
+	private int hi;
+	private int lo;
 	private boolean countIsns; 
 	private boolean disasm;
 	private boolean interruptsEnabled;
+	private boolean execException;
 	
 	public Cpu (boolean littleEndian) {
 		this.littleEndian = littleEndian;
@@ -80,85 +84,101 @@ public final class Cpu {
 		setPc(EXV_RESET);
 	}
 	
-	public int[] getCpRegisters () {
+	public final int[] getCpRegisters () {
 		return cpReg;
 	}
 	
-	public long getCycle () {
+	public final long getCycle () {
 		return cycle;
 	}
 	
-	public Memory getMemory () {
+	public final Memory getMemory () {
 		return memory;
 	}
 	
-	public int getPc () {
+	public final int getPc () {
 		return pc;
 	}
 	
-	public void setPc (int pc) {
+	public final void setPc (int pc) {
 		this.pc = pc;
 		this.nextPc = pc + 4;
 	}
 	
-	public int getNextPc () {
+	public final int getNextPc () {
 		return nextPc;
 	}
 	
-	public int[] getRegisters () {
+	public final int[] getRegisters () {
 		return reg;
 	}
 	
-	public int getRegister (int n) {
+	public final int getRegister (int n) {
 		return reg[n];
 	}
 	
-	public void setRegister (int n, int value) {
+	public final void setRegister (int n, int value) {
 		reg[n] = value;
 	}
 	
-	public int getFpRegister (int n) {
+	public final int getFpRegister (int n) {
 		return fpReg[n];
 	}
 	
-	public double getFpRegister (int n, FpFormat fmt) {
+	public final double getFpRegister (int n, FpFormat fmt) {
 		return fmt.load(fpReg, n);
 	}
 	
-	public CpuLogger getLog () {
+	public final CpuLogger getLog () {
 		return log;
 	}
 	
-	public int getRegHi () {
-		return regHi;
+	public final long getHilo () {
+		return (hi & 0xffff_ffffL) << 32 | (lo & 0xffff_ffffL);
 	}
 	
-	public int getRegLo () {
-		return regLo;
+	public final int getHi () {
+		return hi;
 	}
 	
-	public boolean isCountIsns () {
+	public final int getLo () {
+		return lo;
+	}
+	
+	public final boolean isCountIsns () {
 		return countIsns;
 	}
 	
-	public void setCountIsns (boolean countIsns) {
+	public final void setCountIsns (boolean countIsns) {
 		this.countIsns = countIsns;
 	}
 	
-	public Map<String, int[]> getIsnCount () {
+	public final Map<String, int[]> getIsnCount () {
 		return isnCount;
 	}
 	
-	public int[] getFpControlReg () {
+	public final int[] getFpControlReg () {
 		return fpControlReg;
 	}
 	
-	public boolean isLittleEndian () {
+	public final boolean isLittleEndian () {
 		return littleEndian;
 	}
 	
-	public CallLogger getCalls () {
+	public final CallLogger getCalls () {
 		return calls;
+	}
+	
+	public final boolean isInterruptsEnabled () {
+		return interruptsEnabled;
+	}
+	
+	public final boolean isKernelMode () {
+		return kernelMode;
+	}
+	
+	public final boolean isExecException () {
+		return execException;
 	}
 	
 	/** never returns, throws runtime exception... */
@@ -170,6 +190,7 @@ public final class Cpu {
 			calls.call(pc);
 			log.info("run " + cycle);
 			long t = startTime;
+			int da = 0;
 			
 			while (true) {
 				for (int n = 0; n < 10000; n++) {
@@ -185,6 +206,11 @@ public final class Cpu {
 						log.debug(IsnUtil.isnString(this, isn));
 					}
 					
+					if (pc == 0x803a94a0 && reg[REG_A0] > da) {
+						log.info("delay " + Integer.toHexString(reg[REG_A0]));
+						da = reg[REG_A0];
+					}
+					
 					pc = nextPc;
 					nextPc += 4;
 					
@@ -197,28 +223,34 @@ public final class Cpu {
 					final int cmp = cpReg[CPR_COMPARE];
 					final int count = (int) (cycle >> 1);
 					if (cmp == count) {
-						log.debug("compare hit");
-//						throw new RuntimeException("compare hit");
+						if (interruptsEnabled) {
+							throw new RuntimeException("compare hit");
+						}
 					}
 					
 					cycle++;
 				}
 				
+				
+				if (cycle > 1000000000) {
+					throw new RuntimeException("timeout");
+				}
+				
 				// XXX this is total hack, should really be externally driven
-				if (interruptsEnabled) {
-					long ct = System.nanoTime();
-					if (ct >= t + 4000000) {
+				long ct = System.nanoTime();
+				if (ct >= t + INTERVAL_NS) {
+					t += INTERVAL_NS;
+					if (interruptsEnabled) {
 						log.info("fire programmable interrupt timer");
-						t = ct;
 						execException(EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER);
-					} else {
-						//checkExn();
 					}
+				} else {
+					//checkExn();
 				}
 			}
 			
 		} catch (Exception e) {
-			throw new RuntimeException(calls.callString(), e);
+			throw new RuntimeException("cycle " + cycle + " kernel mode " + kernelMode + " interrupts enabled " + interruptsEnabled + " stack " + calls.callString(), e);
 			
 		} finally {
 			final long d = System.nanoTime() - startTime;
@@ -227,7 +259,7 @@ public final class Cpu {
 		}
 	}
 
-	public void interrupt (final Exn e) {
+	public final void interrupt (final Exn e) {
 		synchronized (interrupts) {
 			System.out.println("add exn " + e);
 			interrupts.add(e);
@@ -363,24 +395,22 @@ public final class Cpu {
 				reg[rt] = simm << 16;
 				return;
 			case OP_LL: {
-				// begin rmw
 				final int va = reg[rs] + simm;
-				rmwPhysicalAddress = memory.translate(va);
+				final int pa =  memory.translate(va);
+				loadLinkedVAddr = va;
+				loadLinkedPAddr = pa;
+				loadLinkedBit = true;
 				reg[rt] = memory.loadWord(va);
 				return;
 			}
 			case OP_SC: {
 				final int va = reg[rs] + simm;
 				final int pa = memory.translate(va);
-				// should also fail if another cpu does a store to the same
-				// block of memory in same page
-				// or the same processor if Config5LLB=1
-				if (pa == rmwPhysicalAddress) {
+				if (va == loadLinkedVAddr && pa == loadLinkedPAddr && loadLinkedBit) {
 					memory.storeWord(va, reg[rt]);
 					reg[rt] = 1;
-					rmwPhysicalAddress = 0;
 				} else {
-					log.info("sc fail: va=" + Integer.toHexString(va) + " pa=" + Integer.toHexString(pa) + " rmwAddress=" + rmwPhysicalAddress);
+					log.info("sc fail: va=" + Integer.toHexString(va) + " pa=" + Integer.toHexString(pa) + " ll=" + loadLinkedBit);
 					reg[rt] = 0;
 				}
 				return;
@@ -445,21 +475,21 @@ public final class Cpu {
 	}
 	
 	/** update nextpc with jump */
-	private void execJump (final int isn) {
+	private final void execJump (final int isn) {
 		nextPc = jump(isn, pc);
 	}
 
 	/** update nextpc with branch */
-	private void execBranch (final int isn) {
+	private final void execBranch (final int isn) {
 		nextPc = branch(isn, pc);
 	}
 
 	/** skip branch delay */
-	private void execBranchSkip () {
+	private final void execBranchSkip () {
 		nextPc += 4;
 	}
 
-	private void execLink () {
+	private final void execLink () {
 		reg[31] = nextPc;
 	}
 	
@@ -543,25 +573,28 @@ public final class Cpu {
 			case FN_BREAK:
 				execException(EX_BREAKPOINT, 0, 0);
 				return;
+			case FN_SYNC:
+				log.debug("sync");
+				return;
 			case FN_MFHI:
-				reg[rd] = regHi;
+				reg[rd] = hi;
 				return;
 			case FN_MTHI:
-				regHi = reg[rs];
+				hi = reg[rs];
 				return;
 			case FN_MFLO:
-				reg[rd] = regLo;
+				reg[rd] = lo;
 				return;
 			case FN_MTLO:
-				regLo = reg[rd];
+				lo = reg[rd];
 				return;
 			case FN_MULT: {
 				// sign extend
 				final long rsValue = reg[rs];
 				final long rtValue = reg[rt];
 				final long result = rsValue * rtValue;
-				regLo = (int) result;
-				regHi = (int) (result >>> 32);
+				lo = (int) result;
+				hi = (int) (result >>> 32);
 				return;
 			}
 			case FN_MULTU: {
@@ -569,8 +602,8 @@ public final class Cpu {
 				final long rsValue = reg[rs] & 0xffff_ffffL;
 				final long rtValue = reg[rt] & 0xffff_ffffL;
 				final long result = rsValue * rtValue;
-				regLo = (int) result;
-				regHi = (int) (result >>> 32);
+				lo = (int) result;
+				hi = (int) (result >>> 32);
 				return;
 			}
 			case FN_DIV: {
@@ -579,8 +612,8 @@ public final class Cpu {
 				int rsValue = reg[rs];
 				int rtValue = reg[rt];
 				if (rt != 0) {
-					regLo = rsValue / rtValue;
-					regHi = rsValue % rtValue;
+					lo = rsValue / rtValue;
+					hi = rsValue % rtValue;
 				}
 				return;
 			}
@@ -590,8 +623,8 @@ public final class Cpu {
 				final long rsValue = reg[rs] & 0xffff_ffffL;
 				final long rtValue = reg[rt] & 0xffff_ffffL;
 				if (rtValue != 0) {
-					regLo = (int) (rsValue / rtValue);
-					regHi = (int) (rsValue % rtValue);
+					lo = (int) (rsValue / rtValue);
+					hi = (int) (rsValue % rtValue);
 				}
 				return;
 			}
@@ -641,10 +674,14 @@ public final class Cpu {
 	// traps.c trap_init
 	// genex.S
 	// malta-int.c plat_irq_dispatch (deals with hardware interrupts)
-	private void execException (final int excode, final int interrupt, final int irq) {
+	private final void execException (final int excode, final int interrupt, final int irq) {
 		log.info("exec exception " + excode + " " + exceptionName(excode) + " interrupt " + interrupt + " " + MaltaUtil.interruptName(interrupt) + " irq " + MaltaUtil.irqName(irq));
 		final boolean isInterrupt = excode == EX_INTERRUPT;
 		final boolean isSbIntr = isInterrupt && interrupt == MaltaUtil.INT_SB_INTR;
+		
+		if (execException) {
+			throw new RuntimeException("exception in exception handler");
+		}
 		
 		if (excode < 0 || excode >= 32) {
 			throw new RuntimeException("invalid excode " + excode);
@@ -681,6 +718,7 @@ public final class Cpu {
 			throw new RuntimeException("masked interrupt " + interrupt);
 		}
 		
+		// pc is next instruction, nextpc is one after (maybe jumped)
 		final int bdmask = nextPc == pc + 4 ? 0 : CPR_CAUSE_BD;
 		final int excodemask = excode << CPR_CAUSE_EXCODE_SHL;
 		
@@ -688,11 +726,13 @@ public final class Cpu {
 		cpReg[CPR_CAUSE] = (cause & ~(CPR_CAUSE_EXCODE | CPR_CAUSE_IP | CPR_CAUSE_BD)) | excodemask | interruptmask | bdmask;
 		cpReg[CPR_EPC] = nextPc == pc + 4 ? pc : pc - 4;
 		
+		log.info("epc=" + memory.getSymbols().getName(cpReg[CPR_EPC], true) + " bd=" + (bdmask != 0));
+		
 		statusUpdated();
 		
 		if (isSbIntr) {
-			// FIXME update pci with irq?
-			//memory.getMalta().
+			// uh....
+			memory.getMalta().getGt().setIrq(irq);
 		}
 		
 		if (isInterrupt && iv) {
@@ -704,17 +744,26 @@ public final class Cpu {
 			setPc(EXV_EXCEPTION);
 		}
 		
+		execException = true;
 		calls.push("ex" + excode + "int" + interrupt + "irq" + irq);
 		calls.call(pc);
 	}
 	
-	private void execFunction2 (final int isn) {
+	private final void execFunction2 (final int isn) {
 		final int rs = rs(isn);
 		final int rt = rt(isn);
 		final int rd = rd(isn);
 		final int fn = fn(isn);
 		
 		switch (fn) {
+			case FN2_MADD: {
+				long rsValue = reg[rs];
+				long rtValue = reg[rt];
+				long result = rsValue * rtValue + getHilo();
+				lo = (int) result;
+				hi = (int) (result >>> 32);
+				return;
+			}
 			case FN2_MUL: {
 				// sign extend, return bottom 32 bits of result
 				long rsValue = reg[rs];
@@ -737,7 +786,7 @@ public final class Cpu {
 	}
 	
 	/** execute system coprocessor instruction */
-	private void execCpRs (final int isn) {
+	private final void execCpRs (final int isn) {
 		final int rs = rs(isn);
 		// should check if cp0 enabled/kernel mode?
 		
@@ -789,7 +838,7 @@ public final class Cpu {
 		final int oldValue = cpReg[cpr];
 		final int newValue = reg[rt(isn)];
 		if (oldValue != newValue) {
-			log.info("mtc0 " + cpRegName(rd, sel) + " 0x" + Integer.toHexString(oldValue) + " <- 0x" + Integer.toHexString(newValue));
+			log.debug("mtc0 " + cpRegName(rd, sel) + " 0x" + Integer.toHexString(oldValue) + " <- 0x" + Integer.toHexString(newValue));
 		}
 		
 		switch (cpr) {
@@ -824,6 +873,7 @@ public final class Cpu {
 				}
 				return;
 			case CPR_COMPARE:
+			case CPR_EPC:
 				cpReg[cpr] = newValue;
 				return;
 			default:
@@ -831,7 +881,7 @@ public final class Cpu {
 		}
 	}
 	
-	private void setCpCause (final int newValue) {
+	private final void setCpCause (final int newValue) {
 		final int value = cpReg[CPR_CAUSE];
 		int mask = CPR_CAUSE_IV;
 		if ((newValue & ~mask) != 0) {
@@ -840,7 +890,7 @@ public final class Cpu {
 		cpReg[CPR_CAUSE] = (value & ~mask) | (newValue & mask);
 	}
 	
-	private void setCpStatus (final int newValue) {
+	private final void setCpStatus (final int newValue) {
 		final int mask = CPR_STATUS_CU1 | CPR_STATUS_CU0 | CPR_STATUS_BEV | CPR_STATUS_IM | CPR_STATUS_UM | CPR_STATUS_ERL | CPR_STATUS_EXL | CPR_STATUS_IE;
 		if ((newValue & ~mask) != 0) {
 			throw new RuntimeException("unknown status value " + Integer.toHexString(newValue));
@@ -852,7 +902,7 @@ public final class Cpu {
 		statusUpdated();
 	}
 	
-	private void statusUpdated() {
+	private final void statusUpdated () {
 		final int status = cpReg[CPR_STATUS];
 		final boolean ie = (status & CPR_STATUS_IE) != 0;
 		final boolean exl = (status & CPR_STATUS_EXL) != 0;
@@ -868,11 +918,11 @@ public final class Cpu {
 		
 		// interrupts enabled if IE = 1 and EXL = 0 and ERL = 0
 		// asmmacro.h local_irq_enable
-		interruptsEnabled = ie && !exl && !erl;
-		if (interruptsEnabled) {
-//			throw new RuntimeException("interrupts enabled");
-			disasm = true;
+		boolean interruptsEnabled = ie && !exl && !erl;
+		if (this.interruptsEnabled != interruptsEnabled) {
+			log.info("interrupts " + (interruptsEnabled ? "enabled" : "disabled") + " in " + calls.callString());
 		}
+		this.interruptsEnabled = interruptsEnabled;
 	}
 	
 	private final void execCpFunction (final int isn) {
@@ -900,12 +950,28 @@ public final class Cpu {
 				log.info("updated tlb[" + i + "]=" + e);
 				return;
 			}
+			case CP_FN_ERET: {
+				final int epc = cpReg[CPR_EPC];
+				final int status = cpReg[CPR_STATUS];
+				log.info("exception return " + memory.getSymbols().getName(epc, true));
+				if ((status & CPR_STATUS_ERL) != 0) {
+					throw new RuntimeException("eret with erl");
+				}
+				// no delay slot
+				setPc(epc);
+				cpReg[CPR_STATUS] = status & ~CPR_STATUS_EXL;
+				loadLinkedBit = false;
+				execException = false;
+				statusUpdated();
+				calls.pop();
+				return;
+			}
 			default:
 				throw new RuntimeException("invalid coprocessor fn " + opString(fn));
 		}
 	}
 	
-	private void execFpuRs (final int isn) {
+	private final void execFpuRs (final int isn) {
 		final int rs = rs(isn);
 		final int rt = rt(isn);
 		final int fs = fs(isn);
@@ -953,7 +1019,7 @@ public final class Cpu {
 		
 	}
 	
-	private void execFpuCopyFrom (final int isn) {
+	private final void execFpuCopyFrom (final int isn) {
 		final int rt = rt(isn);
 		final int fs = fs(isn);
 		
@@ -969,7 +1035,7 @@ public final class Cpu {
 		}
 	}
 	
-	private void execFpuCopyTo (final int isn) {
+	private final void execFpuCopyTo (final int isn) {
 		final int rtValue = reg[rt(isn)];
 		final int fs = fs(isn);
 		
@@ -988,7 +1054,7 @@ public final class Cpu {
 		roundingMode = FpRound.getInstance(fpControlReg[FPCR_FCSR]);
 	}
 	
-	private void execFpuFn (final int isn, final FpFormat fmt) {
+	private final void execFpuFn (final int isn, final FpFormat fmt) {
 		final int[] fpReg = this.fpReg;
 		final int fs = fs(isn);
 		final int ft = ft(isn);
@@ -1046,7 +1112,7 @@ public final class Cpu {
 		}
 	}
 	
-	private void execFpuFnWord (final int isn) {
+	private final void execFpuFnWord (final int isn) {
 		final int fn = fn(isn);
 		final int fs = fs(isn);
 		final int fd = fd(isn);
@@ -1063,7 +1129,7 @@ public final class Cpu {
 		}
 	}
 	
-	private void execFpuFnX (final int isn) {
+	private final void execFpuFnX (final int isn) {
 		final int fn = fn(isn);
 		final int fr = fr(isn);
 		final int ft = ft(isn);
@@ -1079,7 +1145,7 @@ public final class Cpu {
 		}
 	}
 	
-	private void setFpCondition (final int cc, final boolean cond) {
+	private final void setFpCondition (final int cc, final boolean cond) {
 		if (cc >= 0 && cc < 8) {
 			// oh my god
 			final int ccMask = 1 << cc;

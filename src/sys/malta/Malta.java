@@ -106,6 +106,10 @@ public class Malta implements Device {
 		}
 	}
 	
+	public GT getGt () {
+		return gt;
+	}
+	
 	@Override
 	public void init (Symbols sym, int offset) {
 		System.out.println("init malta at " + Integer.toHexString(offset));
@@ -171,7 +175,7 @@ public class Malta implements Device {
 		switch (addr) {
 			case M_I8253_TCW: {
 				// i8253.c init_pit_timer
-				log.info("tcw write " + Integer.toHexString(value));
+				log.info("timer control word write " + Integer.toHexString(value));
 				// 34 = binary, rate generator, r/w lsb then msb
 				if (value != 0x34) {
 					throw new RuntimeException("unexpected tcw write " + Integer.toHexString(value));
@@ -186,7 +190,7 @@ public class Malta implements Device {
 				// default HZ_250
 				// linux sets this to 12a5 (4773 decimal) = ((1193182 + 250/2) / 250)
 				counter0 = ((value << 8) | (counter0 >>> 8)) & 0xffff;
-				log.info("counter 0 now " + Integer.toHexString(counter0));
+				log.info("timer counter 0 now " + Integer.toHexString(counter0));
 				return;
 			}
 			
@@ -212,7 +216,7 @@ public class Malta implements Device {
 					// set mode binary
 					return;
 				}
-				throw new RuntimeException("unexpected rtc adr " + adr + " dat write: " + value);
+				throw new RuntimeException("unexpected rtc write adr " + adr + " dat " + value);
 			}
 			
 			case M_DMA2_MASK_REG:
@@ -225,19 +229,20 @@ public class Malta implements Device {
 				break;
 				
 			case M_PIC_MASTER_CMD:
-				log.info("pic master cmd " + Integer.toHexString(value & 0xff));
+				log.info("pic master write command " + Integer.toHexString(value & 0xff));
 				break;
 				
 			case M_PIC_MASTER_IMR:
-				log.info("pic master imr " + Integer.toHexString(value & 0xff));
+				log.info("pic master write interrupt mask register " + Integer.toHexString(value & 0xff));
+				// should probably do something here...
 				break;
 				
 			case M_PIC_SLAVE_CMD:
-				log.info("pic slave cmd " + Integer.toHexString(value & 0xff));
+				log.info("pic slave write command " + Integer.toHexString(value & 0xff));
 				break;
 				
 			case M_PIC_SLAVE_IMR:
-				log.info("pic slave imr " + Integer.toHexString(value & 0xff));
+				log.info("pic slave write interrupt mask register " + Integer.toHexString(value & 0xff));
 				break;
 				
 			default:

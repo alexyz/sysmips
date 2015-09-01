@@ -37,7 +37,10 @@ public class CpuLogger {
 		while (log.size() > MAX) {
 			log.removeFirst();
 		}
-		final String s = "[" + cpu.getCycle() + ":" + cpu.getCalls().callString() + "] " + msg;
+		final String ie = cpu.isInterruptsEnabled() ? "i" : "";
+		final String km = cpu.isKernelMode() ? "k" : "";
+		final String ex = cpu.isExecException() ? "x" : "";
+		final String s = "[" + cpu.getCycle() + ":" + ex + km + ie + "] " + msg;
 		log.add(s);
 		if (print) {
 			System.out.println(s);

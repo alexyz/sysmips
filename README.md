@@ -15,18 +15,18 @@ This project is NOT officially associated with Imagination Technologies, Galileo
 * MIPS32 4K Processor Core Family Software User's Manual (c. 2001-2002)
 * Tool Interface Standard (TIS) Executable and Linking Format (ELF) Specification Version 1.2 (1995)
 * MIPS Malta User's Manual (c. 2001-2002)
-* MIPS YAMON User's Manual, Reference Manual and source code
-* Linux 3.2.68 source code, particularly arch/mips/include/asm and arch/mips/mti-malta
-* GRUB source code
-* Galileo GT-64120 System Controller Datasheet (1999)
+* MIPS YAMON User's Manual
+* MIPS YAMON Reference Manual (c. 2001)
 * Galileo GT-64120A System Controller Datasheet (2001)
 * Intel 82371AB PCI-TO-ISA / IDE XCELERATOR (PIIX4) (1997)
 * System V Application Binary Interface MIPS RISC Processor Supplement 3rd Edition (1996)
 
 ## Suggested Software
 
-* [Linux kernel image](https://packages.debian.org/stable/kernel/linux-image-3.2.0-4-4kc-malta) 
-* Sourcery CodeBench Lite Edition for MIPS ELF (a MIPS compiler for Windows) 
+* [Linux 3.2 kernel image](https://packages.debian.org/stable/kernel/linux-image-3.2.0-4-4kc-malta) 
+* Linux 3.2.68 source code, particularly arch/mips/include/asm and arch/mips/mti-malta
+* MIPS YAMON source code
+* GRUB source code
 
 ## Screenshot
 

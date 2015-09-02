@@ -3,6 +3,7 @@ package sys.malta;
 import java.beans.PropertyChangeSupport;
 import java.util.Calendar;
 
+import sys.mips.Cpu;
 import sys.mips.CpuLogger;
 import sys.util.Symbols;
 
@@ -247,7 +248,7 @@ public class Malta implements Device {
 				
 			default:
 				if (addr >= M_UNCACHED_EX_H && addr < M_UNCACHED_EX_H + 0x100) {
-					log.debug("set uncached exception handler " + Symbols.getInstance().getName(offset + addr) + " <= " + Integer.toHexString(value));
+					log.debug("set uncached exception handler " + Symbols.getInstance().getNameOffset(offset + addr) + " <= " + Integer.toHexString(value));
 					break;
 					
 				} else if (addr >= M_DISPLAY && addr < M_DISPLAY + 0x100) {
@@ -255,7 +256,7 @@ public class Malta implements Device {
 					break;
 				}
 				
-				throw new RuntimeException("unknown system write " + Symbols.getInstance().getName(offset + addr) + " <= " + Integer.toHexString(value));
+				throw new RuntimeException("unknown system write " + Symbols.getInstance().getNameOffset(offset + addr) + " <= " + Integer.toHexString(value));
 		}
 		
 	}
@@ -266,8 +267,13 @@ public class Malta implements Device {
 		} else if (value != '\r') {
 			consoleSb.append("{" + Integer.toHexString(value) + "}");
 		}
-		if (value == '\n' || consoleSb.length() > 80) {
-			support.firePropertyChange("console", null, consoleSb.toString());
+		if (value == '\n' || consoleSb.length() > 160) {
+			final String line = consoleSb.toString();
+			Cpu.getInstance().getLog().info("# " + line.trim());
+			if (line.contains("WARNING")) {
+				Cpu.getInstance().getLog().info("calls=" + Cpu.getInstance().getCalls().callString());
+			}
+			support.firePropertyChange("console", null, line);
 			consoleSb.delete(0, consoleSb.length());
 		}
 	}

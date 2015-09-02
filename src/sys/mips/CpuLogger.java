@@ -26,11 +26,11 @@ public class CpuLogger {
 	}
 	
 	public void debug (String msg, Object... args) {
-		log(String.format(msg, args), false);
+		log(args.length == 0 ? msg : String.format(msg, args), false);
 	}
 	
 	public void info (String msg, Object... args) {
-		log(String.format(msg, args), true);
+		log(args.length == 0 ? msg : String.format(msg, args), true);
 	}
 	
 	private void log (String msg, boolean print) {

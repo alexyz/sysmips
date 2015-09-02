@@ -113,7 +113,7 @@ public class IsnUtil {
 			isnValue = "op=" + op + " rt=" + rt + " rs=" + rs + " fn=" + fn;
 		}
 		
-		final String addr = cpu.getMemory().getSymbols().getName(cpu.getPc());
+		final String addr = cpu.getMemory().getSymbols().getNameOffset(cpu.getPc());
 		return String.format("%-40s %08x %s", addr, isn, isnValue);
 	}
 	
@@ -200,7 +200,7 @@ public class IsnUtil {
 			case "imm":
 				return String.valueOf(simm(isn));
 			case "branch":
-				return syms.getName(branch(isn, pc));
+				return syms.getNameAddrOffset(branch(isn, pc));
 			case "hi":
 				return Integer.toHexString(cpu.getHi());
 			case "lo":
@@ -208,7 +208,7 @@ public class IsnUtil {
 			case "hilo":
 				return String.valueOf(cpu.getHilo());
 			case "baseoffset":
-				return syms.getName(reg[base(isn)] + simm(isn));
+				return syms.getNameAddrOffset(reg[base(isn)] + simm(isn));
 			case "syscall":
 				return Integer.toHexString(syscall(isn));
 			case "membaseoffset": {
@@ -230,7 +230,7 @@ public class IsnUtil {
 				return null;
 			}
 			case "jump":
-				return syms.getName(jump(isn, pc));
+				return syms.getNameAddrOffset(jump(isn, pc));
 			case "sa":
 				return String.valueOf(sa(isn));
 			case "fptf":

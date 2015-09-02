@@ -257,7 +257,9 @@ public final class Memory {
 	
 	/** load boxed word, null if unmapped */
 	public Integer loadWordSafe (final int paddr) {
-		final int i = paddr >> 2;
+		// hack to translate addr
+		final int vaddr = paddr & KSEG_MASK;
+		final int i = vaddr >> 2;
 		if (i >= 0 && i < data.length) {
 			final int w = data[i];
 			return Integer.valueOf(w);

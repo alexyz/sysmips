@@ -18,7 +18,8 @@ public class CpuUtil {
 	/** load elf file into cpu, set entry point, return max address */
 	public static Cpu loadElf (final RandomAccessFile file, final int[] top) throws Exception {
 		ELF32 elf = new ELF32(file);
-		System.out.println("elf=" + elf);
+		//System.out.println("elf=" + elf);
+		elf.print(System.out);
 		
 		Cpu cpu = new Cpu(elf.header.data == ELF32Header.ELFDATA2LSB);
 		Memory mem = cpu.getMemory();
@@ -39,6 +40,12 @@ public class CpuUtil {
 		
 		System.out.println("top=" + Integer.toHexString(top[0]));
 		
+		// bit of a hack, put the non global symbols in first, then let the global ones overwrite them
+		for (ELF32Symbol symbol : elf.symbols) {
+			if (symbol.getBind() != ELF32Symbol.STB_GLOBAL) {
+				sym.put(symbol.value, symbol.name);
+			}
+		}
 		for (ELF32Symbol symbol : elf.symbols) {
 			if (symbol.getBind() == ELF32Symbol.STB_GLOBAL && symbol.size > 0) {
 				sym.put(symbol.value, symbol.name);
@@ -46,7 +53,7 @@ public class CpuUtil {
 		}
 		
 		System.out.println("symbols=" + sym);
-		System.out.println("entry=" + sym.getName(elf.header.entryAddress));
+		System.out.println("entry=" + sym.getNameOffset(elf.header.entryAddress));
 		
 		cpu.setPc(elf.header.entryAddress);
 		
@@ -87,17 +94,22 @@ public class CpuUtil {
 		cpu.setRegister(REG_A2, envAddr);
 	}
 	
-	private static String gpRegString (final Cpu cpu) {
+	public static String gpRegString (final Cpu cpu, String[] prev) {
 		final int pc = cpu.getPc();
 		final int[] reg = cpu.getRegisters();
 		final Memory mem = cpu.getMemory();
 		final Symbols syms = mem.getSymbols();
 		
 		final StringBuilder sb = new StringBuilder(256);
-		sb.append("pc=").append(syms.getName(pc));
 		for (int n = 0; n < reg.length; n++) {
-			if (reg[n] != 0) {
-				sb.append(" ").append(gpRegName(n)).append("=").append(syms.getName(reg[n]));
+			final String value = syms.getNameAddrOffset(reg[n]);
+			if (prev[n] == null || !prev[n].equals(value)) {
+				final String name = gpRegName(n);
+				if (sb.length() > 0) {
+					sb.append(" ");
+				}
+				sb.append(name).append("=").append(value);
+				prev[n] = value;
 			}
 		}
 		return sb.toString();
@@ -113,7 +125,7 @@ public class CpuUtil {
 		for (int n = 0; n < reg.length; n++) {
 			final int v = reg[n];
 			if (v != 0) {
-				sb.append(" ").append(cpRegName(n / 8, n % 8)).append("=").append(syms.getName(v));
+				sb.append(" ").append(cpRegName(n / 8, n % 8)).append("=").append(syms.getNameOffset(v));
 			}
 		}
 		return sb.toString();

@@ -48,7 +48,7 @@ public class ELF32 {
 			programs.add(new ELF32Program(header, file));
 		}
 		
-		// load symbols and relocations
+		// load symbols
 		for (ELF32Section section : sections) {
 			if (section.type == ELF32Section.SHT_SYMTAB) {
 				// load string table

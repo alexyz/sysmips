@@ -4,6 +4,7 @@ import java.util.*;
 
 import sys.malta.Malta;
 import sys.malta.MaltaUtil;
+import sys.util.Symbols;
 
 import static sys.mips.Constants.*;
 import static sys.mips.Decoder.*;
@@ -19,8 +20,8 @@ public final class Cpu {
 		return instance.get();
 	}
 	
-	/** general purpose registers, and hi/lo */
-	private final int[] reg = new int[34];
+	/** general purpose registers */
+	private final int[] register = new int[32];
 	/** coprocessor 0 registers (register+selection*32) */
 	private final int[] cpReg = new int[64];
 	/** coprocessor 1 registers (longs/doubles in consecutive registers) */
@@ -32,6 +33,8 @@ public final class Cpu {
 	private final boolean littleEndian;
 	private final List<Exn> interrupts = new ArrayList<>();
 	private final CallLogger calls = new CallLogger(this);
+	/** 0 for le, 3 for be */
+	private final int wordAddrXor;
 	
 	private volatile long cycle;
 	
@@ -50,9 +53,12 @@ public final class Cpu {
 	private boolean disasm;
 	private boolean interruptsEnabled;
 	private boolean execException;
+	private boolean singleStep;
 	
 	public Cpu (boolean littleEndian) {
 		this.littleEndian = littleEndian;
+		this.wordAddrXor = littleEndian ? 0 : 3;
+		
 		memory = new Memory(0x2000000, littleEndian);
 		memory.setMalta(new Malta());
 		memory.setKernelMode(true);
@@ -109,15 +115,15 @@ public final class Cpu {
 	}
 	
 	public final int[] getRegisters () {
-		return reg;
+		return register;
 	}
 	
 	public final int getRegister (int n) {
-		return reg[n];
+		return register[n];
 	}
 	
 	public final void setRegister (int n, int value) {
-		reg[n] = value;
+		register[n] = value;
 	}
 	
 	public final int getFpRegister (int n) {
@@ -180,6 +186,18 @@ public final class Cpu {
 		return execException;
 	}
 	
+	public boolean isSingleStep () {
+		return singleStep;
+	}
+
+	public void setSingleStep (boolean singleStep) {
+		this.singleStep = singleStep;
+	}
+	
+	public void setDisasm (boolean disasm) {
+		this.disasm = disasm;
+	}
+
 	/** never returns, throws runtime exception... */
 	public final void run () {
 		final long startTime = System.nanoTime();
@@ -190,30 +208,50 @@ public final class Cpu {
 			log.info("run " + cycle);
 			long t = startTime;
 			int da = 0;
+			int f = 0;
+			String[] regstr = new String[32];
+			//memory.getSymbols().getAddr("proc_tty_init");
+//			if (f == 0) {
+//				throw new RuntimeException();
+//			}
 			
 			while (true) {
 				for (int n = 0; n < 10000; n++) {
-					if (reg[0] != 0) {
-						reg[0] = 0;
+					if (register[0] != 0) {
+						register[0] = 0;
 					}
 					
 					final int isn = memory.loadWord(pc);
 					
-					if (disasm) {
-						// log.debug(cpRegString(this));
-						// log.debug(gpRegString(this));
-						log.debug(IsnUtil.isnString(this, isn));
+					if (pc == f) {
+						log.info("single step...");
+						disasm = true;
+						singleStep = true;
 					}
 					
-					if (pc == 0x803a94a0 && reg[REG_A0] > da) {
-						log.info("delay " + Integer.toHexString(reg[REG_A0]));
-						da = reg[REG_A0];
+					if (disasm) {
+						// log.debug(cpRegString(this));
+						final String x = CpuUtil.gpRegString(this, regstr);
+						if (x.length() > 0) {
+							log.info(x);
+						}
+						log.info(IsnUtil.isnString(this, isn));
+					}
+					
+					if (pc == 0x803a94a0 && register[REG_A0] > da) {
+						log.info("delay " + Integer.toHexString(register[REG_A0]));
+						da = register[REG_A0];
 					}
 					
 					pc = nextPc;
 					nextPc += 4;
+					boolean printCall = calls.isPrintCall();
 					
 					execOp(isn);
+					
+					if (printCall) {
+						calls.printCall();
+					}
 					
 					if (countIsns) {
 						isnCount.get(IsnSet.INSTANCE.getIsn(isn).name)[0]++;
@@ -225,6 +263,10 @@ public final class Cpu {
 						if (interruptsEnabled) {
 							throw new RuntimeException("compare hit");
 						}
+					}
+					
+					if (singleStep) {
+						while (System.in.read() != 10);
 					}
 					
 					cycle++;
@@ -314,23 +356,33 @@ public final class Cpu {
 				execFunction2(isn);
 				return;
 			case OP_LWC1:
-				fpReg[rt] = memory.loadWord(reg[rs] + simm);
+				fpReg[rt] = memory.loadWord(register[rs] + simm);
 				return;
 			case OP_LDC1:
 				// least significant word first...
-				fpReg[rt + 1] = memory.loadWord(reg[rs] + simm);
-				fpReg[rt] = memory.loadWord(reg[rs] + simm + 4);
+				fpReg[rt + 1] = memory.loadWord(register[rs] + simm);
+				fpReg[rt] = memory.loadWord(register[rs] + simm + 4);
 				return;
 			case OP_SWC1:
-				memory.storeWord(reg[rs] + simm, fpReg[rt]);
+				memory.storeWord(register[rs] + simm, fpReg[rt]);
 				return;
 			case OP_SDC1:
 				// least significant word first...
-				memory.storeWord(reg[rs] + simm, fpReg[rt + 1]);
-				memory.storeWord(reg[rs] + simm + 4, fpReg[rt]);
+				memory.storeWord(register[rs] + simm, fpReg[rt + 1]);
+				memory.storeWord(register[rs] + simm + 4, fpReg[rt]);
 				return;
 			case OP_J:
 				execJump(isn);
+				{
+					// [85960839:ki] 0x80269124<proc_mkdir+0x4>               0809a42d j       0x802690b4<proc_mkdir_mode>
+					Symbols sym = memory.getSymbols();
+					String pcname = sym.getName(pc);
+					String nextpcname = sym.getName(nextPc);
+					if (!pcname.equals(nextpcname)) {
+						//log.debug("implicit call " + pcname + " -> " + nextpcname);
+						calls.callNoRet(nextPc);
+					}
+				}
 				return;
 			case OP_JAL:
 				execLink();
@@ -338,132 +390,151 @@ public final class Cpu {
 				calls.call(nextPc);
 				return;
 			case OP_BLEZ:
-				if (reg[rs] <= 0) {
+				if (register[rs] <= 0) {
 					execBranch(isn);
 				}
 				return;
 			case OP_BEQ:
-				if (reg[rs] == reg[rt]) {
+				if (register[rs] == register[rt]) {
 					execBranch(isn);
 				}
 				return;
 			case OP_BNE:
-				if (reg[rs] != reg[rt]) {
+				if (register[rs] != register[rt]) {
 					execBranch(isn);
 				}
 				return;
 			case OP_ADDIU:
-				reg[rt] = reg[rs] + simm;
+				register[rt] = register[rs] + simm;
 				return;
 			case OP_ANDI:
-				reg[rt] = reg[rs] & (simm & 0xffff);
+				register[rt] = register[rs] & (simm & 0xffff);
 				return;
 			case OP_XORI:
-				reg[rt] = reg[rs] ^ (simm & 0xffff);
+				register[rt] = register[rs] ^ (simm & 0xffff);
 				return;
 			case OP_BGTZ:
-				if (reg[rs] > 0) {
+				if (register[rs] > 0) {
 					execBranch(isn);
 				}
 				return;
 			case OP_SLTI:
-				reg[rt] = reg[rs] < simm ? 1 : 0;
+				register[rt] = register[rs] < simm ? 1 : 0;
 				return;
 			case OP_SLTIU: {
 				// zero extend
-				long rsValue = reg[rs] & 0xffffffffL;
+				long rsValue = register[rs] & 0xffffffffL;
 				// zero extend the sign extended imm so it represents ends of
 				// unsigned range
 				long immValue = simm & 0xffffffffL;
-				reg[rt] = (rsValue < immValue) ? 1 : 0;
+				register[rt] = (rsValue < immValue) ? 1 : 0;
 				return;
 			}
 			case OP_ORI:
-				reg[rt] = reg[rs] | (simm & 0xffff);
+				register[rt] = register[rs] | (simm & 0xffff);
 				return;
 			case OP_SW:
-				memory.storeWord(reg[rs] + simm, reg[rt]);
+				memory.storeWord(register[rs] + simm, register[rt]);
 				return;
 			case OP_SH:
-				memory.storeHalfWord(reg[rs] + simm, (short) reg[rt]);
+				memory.storeHalfWord(register[rs] + simm, (short) register[rt]);
 				return;
 			case OP_SB:
-				memory.storeByte(reg[rs] + simm, (byte) reg[rt]);
+				memory.storeByte(register[rs] + simm, (byte) register[rt]);
 				return;
 			case OP_LUI:
-				reg[rt] = simm << 16;
+				register[rt] = simm << 16;
 				return;
 			case OP_LL: {
-				final int va = reg[rs] + simm;
+				final int va = register[rs] + simm;
 				final int pa =  memory.translate(va);
 				loadLinkedVAddr = va;
 				loadLinkedPAddr = pa;
 				loadLinkedBit = true;
-				reg[rt] = memory.loadWord(va);
+				register[rt] = memory.loadWord(va);
 				return;
 			}
 			case OP_SC: {
-				final int va = reg[rs] + simm;
+				final int va = register[rs] + simm;
 				final int pa = memory.translate(va);
 				if (va == loadLinkedVAddr && pa == loadLinkedPAddr && loadLinkedBit) {
-					memory.storeWord(va, reg[rt]);
-					reg[rt] = 1;
+					memory.storeWord(va, register[rt]);
+					register[rt] = 1;
 				} else {
 					log.info("sc fail: va=" + Integer.toHexString(va) + " pa=" + Integer.toHexString(pa) + " ll=" + loadLinkedBit);
-					reg[rt] = 0;
+					register[rt] = 0;
 				}
 				return;
 			}
 			case OP_LW:
-				reg[rt] = memory.loadWord(reg[rs] + simm);
+				register[rt] = memory.loadWord(register[rs] + simm);
 				return;
 			case OP_LB:
-				reg[rt] = memory.loadByte(reg[rs] + simm);
+				register[rt] = memory.loadByte(register[rs] + simm);
 				return;
 			case OP_LBU:
-				reg[rt] = memory.loadByte(reg[rs] + simm) & 0xff;
+				register[rt] = memory.loadByte(register[rs] + simm) & 0xff;
 				return;
 			case OP_LHU:
-				reg[rt] = memory.loadHalfWord(reg[rs] + simm) & 0xffff;
+				register[rt] = memory.loadHalfWord(register[rs] + simm) & 0xffff;
 				return;
 			case OP_LH:
-				reg[rt] = memory.loadHalfWord(reg[rs] + simm);
+				register[rt] = memory.loadHalfWord(register[rs] + simm);
 				return;
 			case OP_LWL: {
-				// unaligned address
-				final int a = reg[rs] + simm;
-				// 0,1,2,3 -> 0,8,16,24
-				final int s = (a & 3) << 3;
-				final int w = memory.loadWord(a & ~3);
-				reg[rt] = (w << s) | (reg[rt] & (0xffffffff >>> (32 - s)));
+				// lealign 0: mem << 24 | regmask >> 8
+				// lealign 1: mem << 16 | regmask >> 16
+				// lealign 2: mem << 8 | regmask >> 24
+				// lealign 3: mem << 0 | regmask >> 32
+				final int a = register[rs] + simm;
+				final int lealign = (a & 3) ^ wordAddrXor;
+				final int mem = memory.loadWord(a & ~3);
+				final int rsh = (lealign + 1) * 8;
+				final int lsh = 32 - rsh;
+				final long mask = 0xffff_ffffL;
+				register[rt] = (mem << lsh) | (register[rt] & (int) (mask >>> rsh));
 				return;
 			}
 			case OP_LWR: {
-				final int a = reg[rs] + simm;
-				// 0,1,2,3 -> 8,16,24,32
-				final int s = ((a & 3) + 1) << 3;
-				final int w = memory.loadWord(a & ~3);
-				reg[rt] = (w >>> (32 - s)) | (reg[rt] & (0xffffffff << s));
+				// lealign 0: regmask << 32 | mem >> 0
+				// lealign 1: regmask << 24 | mem >> 8
+				// lealign 2: regmask << 16 | mem >> 16
+				// lealign 3: regmask << 8 | mem >> 24
+				final int a = register[rs] + simm;
+				final int lealign = (a & 3) ^ wordAddrXor;
+				final int mem = memory.loadWord(a & ~3);
+				final int rsh = lealign * 8;
+				final int lsh = 32 - rsh;
+				final long mask = 0xffff_ffffL;
+				register[rt] = (register[rt] & (int) (mask << lsh)) | (mem >>> rsh);
 				return;
 			}
 			case OP_SWL: {
-				// unaligned addr
-				final int a = reg[rs] + simm;
-				// aligned address
-				final int aa = a & ~3;
-				final int s = (a & 3) << 3;
-				final int w = memory.loadWord(aa);
-				memory.storeWord(aa, (reg[rt] >>> s) | (w & (0xffffffff << (32 - s))));
+				// lealign 0: memmask << 8 | reg >> 24
+				// lealign 1: memmask << 16 | reg >> 16
+				// lealign 2: memmask << 24 | reg >> 8
+				// lealign 3: memmask << 32 | reg >> 0
+				final int a = register[rs] + simm;
+				final int lealign = (a & 3) ^ wordAddrXor;
+				final int word = memory.loadWord(a & ~3);
+				final int lsh = (lealign + 1) * 8;
+				final int rsh = 32 - lsh;
+				final long mask = 0xffff_ffffL;
+				memory.storeWord(a & ~3, (word & (int) (mask << lsh)) | (register[rt] >>> rsh));
 				return;
 			}
 			case OP_SWR: {
-				// unaligned addr
-				final int a = reg[rs] + simm;
-				// aligned addr
-				final int aa = a & ~3;
-				final int s = ((a & 3) + 1) << 3;
-				final int w = memory.loadWord(aa);
-				memory.storeWord(aa, (reg[rt] << (32 - s)) | (w & (0xffffffff >>> s)));
+				// lealign 0: reg << 0 | memmask >> 32
+				// lealign 1: reg << 8 | memmask >> 24
+				// lealign 2: reg << 16 | memmask >> 16
+				// lealign 3: reg << 24 | memmask >> 8
+				final int a = register[rs] + simm;
+				final int lealign = (a & 3) ^ wordAddrXor;
+				final int word = memory.loadWord(a & ~3);
+				final int lsh = lealign * 8;
+				final int rsh = 32 - lsh;
+				final long mask = 0xffff_ffffL;
+				memory.storeWord(a & ~3, (register[rt] << lsh) | (word & (int) (mask >>> rsh)));
 				return;
 			}
 			case OP_PREF:
@@ -489,7 +560,7 @@ public final class Cpu {
 	}
 
 	private final void execLink () {
-		reg[31] = nextPc;
+		register[31] = nextPc;
 	}
 	
 	private final void execRegImm (final int isn) {
@@ -501,7 +572,7 @@ public final class Cpu {
 				execLink();
 				//$FALL-THROUGH$
 			case RT_BGEZ:
-				if (reg[rs] >= 0) {
+				if (register[rs] >= 0) {
 					execBranch(isn);
 				}
 				return;
@@ -509,7 +580,7 @@ public final class Cpu {
 				execLink();
 				//$FALL-THROUGH$
 			case RT_BLTZ:
-				if (reg[rs] < 0) {
+				if (register[rs] < 0) {
 					execBranch(isn);
 				}
 				return;
@@ -527,43 +598,43 @@ public final class Cpu {
 		switch (fn) {
 			case FN_SLL:
 				if (rd != 0) {
-					reg[rd] = reg[rt] << sa(isn);
+					register[rd] = register[rt] << sa(isn);
 				}
 				return;
 			case FN_SRL:
-				reg[rd] = reg[rt] >>> sa(isn);
+				register[rd] = register[rt] >>> sa(isn);
 				return;
 			case FN_SRA:
-				reg[rd] = reg[rt] >> sa(isn);
+				register[rd] = register[rt] >> sa(isn);
 				return;
 			case FN_SRLV:
-				reg[rd] = reg[rt] >>> (reg[rs] & 0x1f);
+				register[rd] = register[rt] >>> (register[rs] & 0x1f);
 				return;
 			case FN_SRAV:
-				reg[rd] = reg[rt] >> (reg[rs] & 0x1f);
+				register[rd] = register[rt] >> (register[rs] & 0x1f);
 				return;
 			case FN_SLLV:
-				reg[rd] = reg[rt] << (reg[rs] & 0x1f);
+				register[rd] = register[rt] << (register[rs] & 0x1f);
 				return;
 			case FN_JR:
-				nextPc = reg[rs];
+				nextPc = register[rs];
 				if (rs == 31) {
 					calls.ret();
 				}
 				return;
 			case FN_JALR:
-				reg[rd] = nextPc;
-				nextPc = reg[rs];
+				register[rd] = nextPc;
+				nextPc = register[rs];
 				calls.call(nextPc);
 				return;
 			case FN_MOVZ:
-				if (reg[rt] == 0) {
-					reg[rd] = reg[rs];
+				if (register[rt] == 0) {
+					register[rd] = register[rs];
 				}
 				return;
 			case FN_MOVN:
-				if (reg[rt] != 0) {
-					reg[rd] = reg[rs];
+				if (register[rt] != 0) {
+					register[rd] = register[rs];
 				}
 				return;
 			case FN_SYSCALL:
@@ -576,21 +647,21 @@ public final class Cpu {
 				log.debug("sync");
 				return;
 			case FN_MFHI:
-				reg[rd] = hi;
+				register[rd] = hi;
 				return;
 			case FN_MTHI:
-				hi = reg[rs];
+				hi = register[rs];
 				return;
 			case FN_MFLO:
-				reg[rd] = lo;
+				register[rd] = lo;
 				return;
 			case FN_MTLO:
-				lo = reg[rd];
+				lo = register[rd];
 				return;
 			case FN_MULT: {
 				// sign extend
-				final long rsValue = reg[rs];
-				final long rtValue = reg[rt];
+				final long rsValue = register[rs];
+				final long rtValue = register[rt];
 				final long result = rsValue * rtValue;
 				lo = (int) result;
 				hi = (int) (result >>> 32);
@@ -598,8 +669,8 @@ public final class Cpu {
 			}
 			case FN_MULTU: {
 				// zero extend
-				final long rsValue = reg[rs] & 0xffff_ffffL;
-				final long rtValue = reg[rt] & 0xffff_ffffL;
+				final long rsValue = register[rs] & 0xffff_ffffL;
+				final long rtValue = register[rt] & 0xffff_ffffL;
 				final long result = rsValue * rtValue;
 				lo = (int) result;
 				hi = (int) (result >>> 32);
@@ -608,8 +679,8 @@ public final class Cpu {
 			case FN_DIV: {
 				// divide as signed
 				// result is unpredictable for zero, no exceptions thrown
-				int rsValue = reg[rs];
-				int rtValue = reg[rt];
+				int rsValue = register[rs];
+				int rtValue = register[rt];
 				if (rt != 0) {
 					lo = rsValue / rtValue;
 					hi = rsValue % rtValue;
@@ -619,8 +690,8 @@ public final class Cpu {
 			case FN_DIVU: {
 				// unpredictable result and no exception for zero
 				// zero extend
-				final long rsValue = reg[rs] & 0xffff_ffffL;
-				final long rtValue = reg[rt] & 0xffff_ffffL;
+				final long rsValue = register[rs] & 0xffff_ffffL;
+				final long rtValue = register[rt] & 0xffff_ffffL;
 				if (rtValue != 0) {
 					lo = (int) (rsValue / rtValue);
 					hi = (int) (rsValue % rtValue);
@@ -628,35 +699,35 @@ public final class Cpu {
 				return;
 			}
 			case FN_ADDU:
-				reg[rd] = reg[rs] + reg[rt];
+				register[rd] = register[rs] + register[rt];
 				return;
 			case FN_SUBU:
-				reg[rd] = reg[rs] - reg[rt];
+				register[rd] = register[rs] - register[rt];
 				return;
 			case FN_AND:
-				reg[rd] = reg[rs] & reg[rt];
+				register[rd] = register[rs] & register[rt];
 				return;
 			case FN_OR:
-				reg[rd] = reg[rs] | reg[rt];
+				register[rd] = register[rs] | register[rt];
 				return;
 			case FN_XOR:
-				reg[rd] = reg[rs] ^ reg[rt];
+				register[rd] = register[rs] ^ register[rt];
 				return;
 			case FN_NOR:
-				reg[rd] = ~(reg[rs] | reg[rt]);
+				register[rd] = ~(register[rs] | register[rt]);
 				return;
 			case FN_SLT:
-				reg[rd] = (reg[rs] < reg[rt]) ? 1 : 0;
+				register[rd] = (register[rs] < register[rt]) ? 1 : 0;
 				return;
 			case FN_SLTU: {
 				// zero extend
-				long rsValue = reg[rs] & 0xffff_ffffL;
-				long rtValue = reg[rt] & 0xffff_ffffL;
-				reg[rd] = rsValue < rtValue ? 1 : 0;
+				long rsValue = register[rs] & 0xffff_ffffL;
+				long rtValue = register[rt] & 0xffff_ffffL;
+				register[rd] = rsValue < rtValue ? 1 : 0;
 				return;
 			}
 			case FN_TNE:
-				if (reg[rs] != reg[rt]) {
+				if (register[rs] != register[rt]) {
 					execException(EX_TRAP, 0, 0);
 				}
 				return;
@@ -725,7 +796,7 @@ public final class Cpu {
 		cpReg[CPR_CAUSE] = (cause & ~(CPR_CAUSE_EXCODE | CPR_CAUSE_IP | CPR_CAUSE_BD)) | excodemask | interruptmask | bdmask;
 		cpReg[CPR_EPC] = nextPc == pc + 4 ? pc : pc - 4;
 		
-		log.info("epc=" + memory.getSymbols().getName(cpReg[CPR_EPC], true) + " bd=" + (bdmask != 0));
+		log.info("epc=" + memory.getSymbols().getNameAddrOffset(cpReg[CPR_EPC]) + " bd=" + (bdmask != 0));
 		
 		statusUpdated();
 		
@@ -756,8 +827,8 @@ public final class Cpu {
 		
 		switch (fn) {
 			case FN2_MADD: {
-				long rsValue = reg[rs];
-				long rtValue = reg[rt];
+				long rsValue = register[rs];
+				long rtValue = register[rt];
 				long result = rsValue * rtValue + getHilo();
 				lo = (int) result;
 				hi = (int) (result >>> 32);
@@ -765,18 +836,18 @@ public final class Cpu {
 			}
 			case FN2_MUL: {
 				// sign extend, return bottom 32 bits of result
-				long rsValue = reg[rs];
-				long rtValue = reg[rt];
-				reg[rd] = (int) (rsValue * rtValue);
+				long rsValue = register[rs];
+				long rtValue = register[rt];
+				register[rd] = (int) (rsValue * rtValue);
 				return;
 			}
 			case FN2_CLZ: {
-				int value = reg[rs];
+				int value = register[rs];
 				int n = 0;
 				while (n < 32 && (value & (1 << (31 - n))) == 0) {
 					n++;
 				}
-				reg[rd] = n;
+				register[rd] = n;
 				return;
 			}
 			default:
@@ -825,7 +896,7 @@ public final class Cpu {
 				throw new RuntimeException("move from unknown cp reg " + cpRegName(rd, sel));
 		}
 		
-		reg[rt] = cpReg[cpr];
+		register[rt] = cpReg[cpr];
 		return;
 	}
 	
@@ -835,9 +906,9 @@ public final class Cpu {
 		final int sel = sel(isn);
 		final int cpr = cpr(rd, sel);
 		final int oldValue = cpReg[cpr];
-		final int newValue = reg[rt(isn)];
+		final int newValue = register[rt(isn)];
 		if (oldValue != newValue) {
-			log.debug("mtc0 " + cpRegName(rd, sel) + " 0x" + Integer.toHexString(oldValue) + " <- 0x" + Integer.toHexString(newValue));
+			//log.debug("mtc0 " + cpRegName(rd, sel) + " 0x" + Integer.toHexString(oldValue) + " <- 0x" + Integer.toHexString(newValue));
 		}
 		
 		switch (cpr) {
@@ -919,7 +990,7 @@ public final class Cpu {
 		// asmmacro.h local_irq_enable
 		boolean interruptsEnabled = ie && !exl && !erl;
 		if (this.interruptsEnabled != interruptsEnabled) {
-			log.info("interrupts " + (interruptsEnabled ? "enabled" : "disabled") + " in " + calls.callString());
+			//log.info("interrupts " + (interruptsEnabled ? "enabled" : "disabled") + " in " + calls.callString());
 		}
 		this.interruptsEnabled = interruptsEnabled;
 	}
@@ -952,7 +1023,7 @@ public final class Cpu {
 			case CP_FN_ERET: {
 				final int epc = cpReg[CPR_EPC];
 				final int status = cpReg[CPR_STATUS];
-				log.info("exception return " + memory.getSymbols().getName(epc, true));
+				log.info("exception return " + memory.getSymbols().getNameAddrOffset(epc));
 				if ((status & CPR_STATUS_ERL) != 0) {
 					throw new RuntimeException("eret with erl");
 				}
@@ -977,11 +1048,11 @@ public final class Cpu {
 		
 		switch (rs) {
 			case FP_RS_MFC1:
-				reg[rt] = fpReg[fs];
+				register[rt] = fpReg[fs];
 				return;
 				
 			case FP_RS_MTC1:
-				fpReg[fs] = reg[rt];
+				fpReg[fs] = register[rt];
 				return;
 				
 			case FP_RS_S:
@@ -1026,7 +1097,7 @@ public final class Cpu {
 			case FPCR_FCSR:
 			case FPCR_FCCR:
 			case FPCR_FIR:
-				reg[rt] = fpControlReg[fs];
+				register[rt] = fpControlReg[fs];
 				return;
 				
 			default:
@@ -1035,7 +1106,7 @@ public final class Cpu {
 	}
 	
 	private final void execFpuCopyTo (final int isn) {
-		final int rtValue = reg[rt(isn)];
+		final int rtValue = register[rt(isn)];
 		final int fs = fs(isn);
 		
 		switch (fs) {

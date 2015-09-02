@@ -44,11 +44,19 @@ public class MemoryUtil {
 	}
 	
 	public static final String loadString (final Memory mem, final int addr) {
+		return loadString(mem, addr, Integer.MAX_VALUE);
+	}
+	
+	public static final String loadString (final Memory mem, final int addr, int max) {
 		StringBuilder sb = new StringBuilder();
-		for (int n = 0;; n++) {
+		for (int n = 0; n < max; n++) {
 			byte b = mem.loadByte(addr+n);
 			if (b != 0) {
-				sb.append((char)b);
+				if (b >= 32 && b <= 127) {
+					sb.append((char)b);
+				} else {
+					sb.append("{" + Integer.toHexString(b & 0xff) + "}");
+				}
 			} else {
 				break;
 			}

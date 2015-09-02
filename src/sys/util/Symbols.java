@@ -12,16 +12,28 @@ public final class Symbols {
 
 	// needs to be long so it can naturally sort
 	private final TreeMap<Long, Symbol> map = new TreeMap<>();
+	private final TreeMap<String, Integer> revmap = new TreeMap<>();
 	
 	public Symbols () {
 		//
 	}
 	
+	/** get name, no address or offset */
 	public final String getName (final int addr) {
-		return getName(addr, true);
+		return getName(addr, false, false);
 	}
 	
-	public final String getName (final int addr, final boolean includeAddr) {
+	/** get name with offset */
+	public final String getNameOffset (final int addr) {
+		return getName(addr, false, true);
+	}
+	
+	/** get name with address and offset */
+	public final String getNameAddrOffset (final int addr) {
+		return getName(addr, true, true);
+	}
+	
+	private final String getName (final int addr, final boolean includeAddr, final boolean includeOffset) {
 		// zero extend address
 		final long longAddr = addr & 0xffffffffL;
 		final String addrStr = "0x" + Integer.toHexString(addr);
@@ -34,20 +46,20 @@ public final class Symbols {
 			if (offset < value.size) {
 				// found suitable symbol
 				if (includeAddr) {
-					if (offset != 0) {
+					if (includeOffset && offset != 0) {
 						return addrStr + "<" + value.name + "+0x" + Integer.toHexString(offset) + ">";
 					} else {
 						return addrStr + "<" + value.name + ">";
 					}
 				} else {
-					if (offset != 0) {
+					if (includeOffset && offset != 0) {
 						return value.name + "+0x" + Integer.toHexString(offset);
 					} else {
 						return value.name;
 					}
 				}
 			} else {
-				// should warn if doing too many of these
+				// XXX should warn if doing too many of these
 				entry = map.lowerEntry(key);
 			}
 		}
@@ -55,22 +67,25 @@ public final class Symbols {
 		return addrStr;
 	}
 	
+	public int getAddr (String name) {
+		return revmap.get(name);
+	}
+	
 	public void put (final int addr, String name) {
 		put(addr, name, Integer.MAX_VALUE);
 	}
 	
 	public void put (final int addr, String name, int size) {
-		if (size > 0) {
+		if (addr != 0 && name != null && name.length() > 0 && size > 0) {
 			// zero extend address
-			final Long key = new Long(addr & 0xffffffffL);
+			final Long key = new Long(addr & 0xffff_ffffL);
 			final Symbol prev = map.get(key);
-			if (prev != null) {
+			if (prev != null && !prev.name.equals(name)) {
 				map.put(key, new Symbol(prev.name + "," + name, Math.max(prev.size, size)));
 			} else {
 				map.put(key, new Symbol(name, size));
 			}
-		} else {
-			throw new IllegalArgumentException("invalid name " + name + " size " + size);
+			revmap.put(name, addr);
 		}
 	}
 	

@@ -436,36 +436,43 @@ public final class Constants {
 	//
 	
 	/** status register interrupt enable */
-	public static final int CPR_STATUS_IE = 1 << 0;
+	public static final Constant CPR_STATUS_IE = new Constant(CPR_STATUS, 0, 1);
 	/** status register exception level */
-	public static final int CPR_STATUS_EXL = 1 << 1;
+	public static final Constant CPR_STATUS_EXL = new Constant(CPR_STATUS, 1, 1);
 	/** status register reset error level */
-	public static final int CPR_STATUS_ERL = 1 << 2;
+	public static final Constant CPR_STATUS_ERL = new Constant(CPR_STATUS, 2, 1);
 	/** status register user mode */
-	public static final int CPR_STATUS_UM = 1 << 4;
-	/** status register interrupt mask shift left (8 bits max) */
-	public static final int CPR_STATUS_IM_SHL = 8;
+	public static final Constant CPR_STATUS_UM = new Constant(CPR_STATUS, 4, 1);
 	/** status register interrupt mask (8 bits) */
-	public static final int CPR_STATUS_IM = 0xff << CPR_STATUS_IM_SHL;
+	public static final Constant CPR_STATUS_IM = new Constant(CPR_STATUS, 8, 8);
 	/** status register bootstrap exception vectors */
-	public static final int CPR_STATUS_BEV = 1 << 22;
+	public static final Constant CPR_STATUS_BEV = new Constant(CPR_STATUS, 22, 1);
 	/** status register access to system coprocessor */
-	public static final int CPR_STATUS_CU0 = 1 << 28;
+	public static final Constant CPR_STATUS_CU0 = new Constant(CPR_STATUS, 28, 1);
 	/** status register access to floating point coprocessor */
-	public static final int CPR_STATUS_CU1 = 1 << 29;
+	public static final Constant CPR_STATUS_CU1 = new Constant(CPR_STATUS, 29, 1);
 	
-	/** cause register exception code shift left (5 bits max) */
-	public static final int CPR_CAUSE_EXCODE_SHL = 2;
 	/** cause register exception code */
-	public static final int CPR_CAUSE_EXCODE = 0x1f << CPR_CAUSE_EXCODE_SHL;
-	/** cause register interrupt pending shift left (8 bits max) */
-	public static final int CPR_CAUSE_IP_SHL = 8;
+	public static final Constant CPR_CAUSE_EXCODE = new Constant(CPR_CAUSE, 2, 5);
 	/** cause register interrupt pending mask */
-	public static final int CPR_CAUSE_IP = 0xff << CPR_CAUSE_IP_SHL;
+	public static final Constant CPR_CAUSE_IP = new Constant(CPR_CAUSE, 8, 8);
 	/** cause general or special exception vector */
-	public static final int CPR_CAUSE_IV = (1 << 23);
+	public static final Constant CPR_CAUSE_IV = new Constant(CPR_CAUSE, 23, 1);
 	/** cause branch delay slot */
-	public static final int CPR_CAUSE_BD = (1 << 31);
+	public static final Constant CPR_CAUSE_BD = new Constant(CPR_CAUSE, 31, 1);
+	
+	/** context register bad virtual page number (19 bits) */
+	public static final Constant CPR_CONTEXT_BADVPN2 = new Constant(CPR_CONTEXT, 4, 19);
+	public static final Constant CPR_CONTEXT_PTEBASE = new Constant(CPR_CONTEXT, 23, 9);
+	
+	public static final Constant CPR_ENTRYHI_ASID = new Constant(CPR_ENTRYHI, 0, 8);
+	public static final Constant CPR_ENTRYHI_VPN2 = new Constant(CPR_ENTRYHI, 13, 19);
+	
+	public static final Constant CPR_BADVADDR_VALUE = new Constant(CPR_BADVADDR, 0, 32);
+	
+	public static final Constant CPR_EPC_VALUE = new Constant(CPR_EPC, 0, 32);
+	
+	
 	
 	//
 	// exception vectors
@@ -502,7 +509,7 @@ public final class Constants {
 	public static int cpr (int rd, int sel) {
 		return rd + sel * 32;
 	}
-	
+
 	private Constants () {
 		//
 	}

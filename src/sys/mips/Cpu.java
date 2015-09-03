@@ -68,7 +68,11 @@ public final class Cpu {
 		}
 		
 		// default values on reboot
-		cpReg[CPR_STATUS] = CPR_STATUS_EXL | CPR_STATUS_ERL | CPR_STATUS_BEV | CPR_STATUS_CU0 | CPR_STATUS_CU1;
+		CPR_STATUS_EXL.set(cpReg, true);
+		CPR_STATUS_ERL.set(cpReg, true);
+		CPR_STATUS_BEV.set(cpReg, true);
+		CPR_STATUS_CU0.set(cpReg, true);
+		CPR_STATUS_CU1.set(cpReg, true);
 		statusUpdated();
 		
 		// 0x10000 = MIPS, 0x8000 = 4KC 
@@ -288,6 +292,7 @@ public final class Cpu {
 				}
 				
 				// XXX this is total hack, should really be externally driven
+				// also shouldn't do this after handling exception above (though should be caught be exl assertion)
 				long ct = System.nanoTime();
 				if (ct >= t + INTERVAL_NS) {
 					t += INTERVAL_NS;
@@ -483,6 +488,7 @@ public final class Cpu {
 				register[rt] = memory.loadByte(register[rs] + simm);
 				return;
 			case OP_LBU:
+				// zero extend
 				register[rt] = memory.loadByte(register[rs] + simm) & 0xff;
 				return;
 			case OP_LHU:
@@ -775,11 +781,13 @@ public final class Cpu {
 			throw new RuntimeException("invalid irq " + irq);
 		}
 		
-		final int status = cpReg[CPR_STATUS];
-		final int cause = cpReg[CPR_CAUSE];
-		final boolean bev = (status & CPR_STATUS_BEV) != 0;
-		final boolean exl = (status & CPR_STATUS_EXL) != 0;
-		final boolean iv = (cause & CPR_CAUSE_IV) != 0;
+		if (isTlbRefill && vaddr == 0) {
+			throw new RuntimeException("tlb refill with zero address");
+		}
+		
+		final boolean bev = CPR_STATUS_BEV.isSet(cpReg);
+		final boolean exl = CPR_STATUS_EXL.isSet(cpReg);
+		final boolean iv = CPR_CAUSE_IV.isSet(cpReg);
 		
 		if (bev) {
 			// we don't have a boot rom...
@@ -791,28 +799,29 @@ public final class Cpu {
 			throw new RuntimeException("exception in exception...");
 		}
 
-		// this is same for status and cause register
-		final int interruptmask = isInterrupt ? 1 << (CPR_STATUS_IM_SHL + interrupt) : 0;
+		final int interrupts = CPR_STATUS_IM.get(cpReg);
+		final int interruptmask = 1 << interrupt;
 		
-		if (isInterrupt && (status & interruptmask) == 0) {
+		if (isInterrupt && (interrupts & interruptmask) == 0) {
 			throw new RuntimeException("masked interrupt " + interrupt);
 		}
 		
-		// pc is next instruction, nextpc is one after (maybe jumped)
-		final int bdmask = nextPc == pc + 4 ? 0 : CPR_CAUSE_BD;
-		final int excodemask = excode << CPR_CAUSE_EXCODE_SHL;
+		CPR_STATUS_EXL.set(cpReg, true);
 		
-		cpReg[CPR_STATUS] = status | CPR_STATUS_EXL;
-		cpReg[CPR_CAUSE] = (cause & ~(CPR_CAUSE_EXCODE | CPR_CAUSE_IP | CPR_CAUSE_BD)) | excodemask | interruptmask | bdmask;
-		cpReg[CPR_EPC] = nextPc == pc + 4 ? pc : pc - 4;
+		CPR_CAUSE_EXCODE.set(cpReg, excode);
+		CPR_CAUSE_IP.set(cpReg, interruptmask);
+		CPR_CAUSE_BD.set(cpReg, nextPc != pc + 4);
+		
+		CPR_EPC_VALUE.set(cpReg, nextPc == pc + 4 ? pc : pc - 4);
 		
 		if (isTlbRefill) {
-			cpReg[CPR_BADVADDR] = vaddr;
-			// context, entryhi, ...
-			throw new RuntimeException("tlb refill...");
+			final int vpn2 = vpn2(vaddr);
+			CPR_BADVADDR_VALUE.set(cpReg, vaddr);
+			CPR_CONTEXT_BADVPN2.set(cpReg, vpn2);
+			CPR_ENTRYHI_VPN2.set(cpReg, vpn2);
 		}
 		
-		log.info("epc=" + memory.getSymbols().getNameAddrOffset(cpReg[CPR_EPC]) + " bd=" + (bdmask != 0));
+		log.info("epc=" + memory.getSymbols().getNameAddrOffset(cpReg[CPR_EPC]) + " bd=" + (CPR_CAUSE_BD.isSet(cpReg)));
 		
 		statusUpdated();
 		
@@ -821,7 +830,10 @@ public final class Cpu {
 			memory.getMalta().getGt().setIrq(irq);
 		}
 		
-		if (isInterrupt && iv) {
+		if (isTlbRefill) {
+			throw new RuntimeException("jump to tlb vector...");
+			
+		} else if (isInterrupt && iv) {
 			log.info("jump to interrupt vector");
 			setPc(EXV_INTERRUPT);
 			
@@ -969,7 +981,8 @@ public final class Cpu {
 	
 	private final void setCpCause (final int newValue) {
 		final int value = cpReg[CPR_CAUSE];
-		int mask = CPR_CAUSE_IV;
+		// only allow change to mask
+		int mask = CPR_CAUSE_IV.mask;
 		if ((newValue & ~mask) != 0) {
 			throw new RuntimeException("unknown cause value " + Integer.toHexString(newValue));
 		}
@@ -977,7 +990,10 @@ public final class Cpu {
 	}
 	
 	private final void setCpStatus (final int newValue) {
-		final int mask = CPR_STATUS_CU1 | CPR_STATUS_CU0 | CPR_STATUS_BEV | CPR_STATUS_IM | CPR_STATUS_UM | CPR_STATUS_ERL | CPR_STATUS_EXL | CPR_STATUS_IE;
+		// only allow change to these
+		final int mask = CPR_STATUS_CU1.mask | CPR_STATUS_CU0.mask | CPR_STATUS_BEV.mask 
+				| CPR_STATUS_IM.mask | CPR_STATUS_UM.mask | CPR_STATUS_ERL.mask 
+				| CPR_STATUS_EXL.mask | CPR_STATUS_IE.mask;
 		if ((newValue & ~mask) != 0) {
 			throw new RuntimeException("unknown status value " + Integer.toHexString(newValue));
 		}
@@ -989,11 +1005,10 @@ public final class Cpu {
 	}
 	
 	private final void statusUpdated () {
-		final int status = cpReg[CPR_STATUS];
-		final boolean ie = (status & CPR_STATUS_IE) != 0;
-		final boolean exl = (status & CPR_STATUS_EXL) != 0;
-		final boolean erl = (status & CPR_STATUS_ERL) != 0;
-		final boolean um = (status & CPR_STATUS_UM) != 0;
+		final boolean ie = CPR_STATUS_IE.isSet(cpReg);
+		final boolean exl = CPR_STATUS_EXL.isSet(cpReg);
+		final boolean erl = CPR_STATUS_ERL.isSet(cpReg);
+		final boolean um = CPR_STATUS_UM.isSet(cpReg);
 		//log.debug("ie=" + ie + " exl=" + exl + " erl=" + erl + " um=" + um);
 		
 		// kernel mode if UM = 0, or EXL = 1, or ERL = 1
@@ -1038,14 +1053,13 @@ public final class Cpu {
 			}
 			case CP_FN_ERET: {
 				final int epc = cpReg[CPR_EPC];
-				final int status = cpReg[CPR_STATUS];
 				log.info("exception return " + memory.getSymbols().getNameAddrOffset(epc));
-				if ((status & CPR_STATUS_ERL) != 0) {
+				if (CPR_STATUS_ERL.isSet(cpReg)) {
 					throw new RuntimeException("eret with erl");
 				}
 				// no delay slot
 				setPc(epc);
-				cpReg[CPR_STATUS] = status & ~CPR_STATUS_EXL;
+				CPR_STATUS_EXL.set(cpReg, false);
 				loadLinkedBit = false;
 				execException = false;
 				statusUpdated();

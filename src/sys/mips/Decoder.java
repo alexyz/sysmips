@@ -160,4 +160,13 @@ public final class Decoder {
 		}
 	}
 	
+	/** return the virtual page number / 2 of the virtual address (19 bits) */
+	public static final int vpn2 (final int vaddr) {
+		// 19 bits (31-12-1)
+		return (vaddr & 0x7fff_ffff) >> 12;
+	}
+	
+	private Decoder () {
+		//
+	}
 }

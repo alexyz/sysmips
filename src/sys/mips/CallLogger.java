@@ -183,7 +183,7 @@ public class CallLogger {
 	}
 	
 	public String callString () {
-		final StringBuilder sb = new StringBuilder(threads.size() + ":" + threadNames.get(0));
+		final StringBuilder sb = new StringBuilder(threadNames.get(0));
 		final List<String> calls = threads.get(0);
 		
 		for (String call : calls) {

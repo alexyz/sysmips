@@ -13,6 +13,6 @@ public class CpuException extends RuntimeException {
 	
 	@Override
 	public String toString () {
-		return "CpuException[" + extype + ", " + Integer.toHexString(vaddr) + "]";
+		return "CpuException[" + IsnUtil.exceptionName(extype) + ", " + Integer.toHexString(vaddr) + "]";
 	}
 }

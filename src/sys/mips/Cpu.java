@@ -270,7 +270,7 @@ public final class Cpu {
 					}
 					
 					final int cmp = cpReg[CPR_COMPARE];
-					final int count = (int) (cycle >> 1);
+					final int count = (int) (cycle >>> 1);
 					if (cmp == count) {
 						if (interruptsEnabled) {
 							throw new RuntimeException("compare hit");
@@ -816,7 +816,7 @@ public final class Cpu {
 		
 		if (isTlbRefill) {
 			final int vpn2 = vpn2(vaddr);
-			CPR_BADVADDR_VALUE.set(cpReg, vaddr);
+			CPR_BADVADDR_BADVADDR.set(cpReg, vaddr);
 			CPR_CONTEXT_BADVPN2.set(cpReg, vpn2);
 			CPR_ENTRYHI_VPN2.set(cpReg, vpn2);
 		}
@@ -1032,22 +1032,18 @@ public final class Cpu {
 		switch (fn) {
 			case CP_FN_TLBWI: {
 				// write indexed tlb entry...
-				int i = cpReg[CPR_INDEX];
-				int lo0 = cpReg[CPR_ENTRYLO0];
-				int lo1 = cpReg[CPR_ENTRYLO1];
-				int pm = cpReg[CPR_PAGEMASK];
-				int hi = cpReg[CPR_ENTRYHI];
-				Entry e = memory.getEntry(i);
-				e.pageMask = pm >>> 12;
-				e.virtualPageNumber = hi >>> 12;
-				e.addressSpaceId = (hi >>> 12) & 0xff;
-				e.global = (lo0 & lo1 & 1) != 0;
-				e.data0.physicalFrameNumber = (lo0 >>> 6) & 0x7ffff;
-				e.data0.dirty = (lo0 & 4) != 0;
-				e.data0.valid = (lo0 & 2) != 0;
-				e.data1.physicalFrameNumber = (lo1 >>> 6) & 0x7ffff;
-				e.data1.dirty = (lo1 & 4) != 0;
-				e.data1.valid = (lo1 & 2) != 0;
+				final int i = CPR_INDEX_INDEX.get(cpReg);
+				final Entry e = memory.getEntry(i);
+				e.pageMask = CPR_PAGEMASK_MASK.get(cpReg);
+				e.virtualPageNumber2 = CPR_ENTRYHI_VPN2.get(cpReg);
+				e.addressSpaceId = CPR_ENTRYHI_ASID.get(cpReg);
+				e.global = CPR_ENTRYLO0_GLOBAL.isSet(cpReg) && CPR_ENTRYLO1_GLOBAL.isSet(cpReg);
+				e.data0.physicalFrameNumber = CPR_ENTRYLO0_PFN.get(cpReg);
+				e.data0.dirty = CPR_ENTRYLO0_DIRTY.isSet(cpReg);
+				e.data0.valid = CPR_ENTRYLO0_VALID.isSet(cpReg);
+				e.data1.physicalFrameNumber = CPR_ENTRYLO1_PFN.get(cpReg);
+				e.data1.dirty = CPR_ENTRYLO1_DIRTY.isSet(cpReg);
+				e.data1.valid = CPR_ENTRYLO1_VALID.isSet(cpReg);
 				log.info("updated tlb[" + i + "]=" + e);
 				return;
 			}

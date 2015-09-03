@@ -435,6 +435,36 @@ public final class Constants {
 	// system coprocessor register bitmasks
 	//
 	
+	public static final Constant CPR_INDEX_INDEX = new Constant(CPR_INDEX, 0, 4);
+	public static final Constant CPR_INDEX_PROBE = new Constant(CPR_INDEX, 31, 1);
+	
+	public static final Constant CPR_RANDOM_RANDOM = new Constant(CPR_RANDOM, 0, 4);
+	
+	public static final Constant CPR_ENTRYLO0_GLOBAL = new Constant(CPR_ENTRYLO0, 0, 1);
+	public static final Constant CPR_ENTRYLO0_VALID = new Constant(CPR_ENTRYLO0, 1, 1);
+	public static final Constant CPR_ENTRYLO0_DIRTY = new Constant(CPR_ENTRYLO0, 2, 1);
+	public static final Constant CPR_ENTRYLO0_COHERENCY = new Constant(CPR_ENTRYLO0, 3, 3);
+	public static final Constant CPR_ENTRYLO0_PFN = new Constant(CPR_ENTRYLO0, 6, 20);
+	
+	public static final Constant CPR_ENTRYLO1_GLOBAL = new Constant(CPR_ENTRYLO1, 0, 1);
+	public static final Constant CPR_ENTRYLO1_VALID = new Constant(CPR_ENTRYLO1, 1, 1);
+	public static final Constant CPR_ENTRYLO1_DIRTY = new Constant(CPR_ENTRYLO1, 2, 1);
+	public static final Constant CPR_ENTRYLO1_COHERENCY = new Constant(CPR_ENTRYLO1, 3, 3);
+	public static final Constant CPR_ENTRYLO1_PFN = new Constant(CPR_ENTRYLO1, 6, 20);
+
+	/** context register bad virtual page number (19 bits) */
+	public static final Constant CPR_CONTEXT_BADVPN2 = new Constant(CPR_CONTEXT, 4, 19);
+	public static final Constant CPR_CONTEXT_PTEBASE = new Constant(CPR_CONTEXT, 23, 9);
+	
+	public static final Constant CPR_PAGEMASK_MASK = new Constant(CPR_PAGEMASK, 13, 12);
+	
+	public static final Constant CPR_WIRED_WIRED = new Constant(CPR_WIRED, 0, 4);
+	
+	public static final Constant CPR_BADVADDR_BADVADDR = new Constant(CPR_BADVADDR, 0, 32);
+
+	public static final Constant CPR_ENTRYHI_ASID = new Constant(CPR_ENTRYHI, 0, 8);
+	public static final Constant CPR_ENTRYHI_VPN2 = new Constant(CPR_ENTRYHI, 13, 19);
+	
 	/** status register interrupt enable */
 	public static final Constant CPR_STATUS_IE = new Constant(CPR_STATUS, 0, 1);
 	/** status register exception level */
@@ -461,17 +491,11 @@ public final class Constants {
 	/** cause branch delay slot */
 	public static final Constant CPR_CAUSE_BD = new Constant(CPR_CAUSE, 31, 1);
 	
-	/** context register bad virtual page number (19 bits) */
-	public static final Constant CPR_CONTEXT_BADVPN2 = new Constant(CPR_CONTEXT, 4, 19);
-	public static final Constant CPR_CONTEXT_PTEBASE = new Constant(CPR_CONTEXT, 23, 9);
-	
-	public static final Constant CPR_ENTRYHI_ASID = new Constant(CPR_ENTRYHI, 0, 8);
-	public static final Constant CPR_ENTRYHI_VPN2 = new Constant(CPR_ENTRYHI, 13, 19);
-	
-	public static final Constant CPR_BADVADDR_VALUE = new Constant(CPR_BADVADDR, 0, 32);
-	
 	public static final Constant CPR_EPC_VALUE = new Constant(CPR_EPC, 0, 32);
 	
+	public static final Constant CPR_PRID_REV = new Constant(CPR_PRID, 0, 8);
+	public static final Constant CPR_PRID_PROCID = new Constant(CPR_PRID, 8, 8);
+	public static final Constant CPR_PRID_COMPANYID = new Constant(CPR_PRID, 16, 8);
 	
 	
 	//

@@ -19,14 +19,14 @@ public class Entry {
 	public final Data data1 = new Data();
 	
 	public int pageMask;
-	public int virtualPageNumber;
+	public int virtualPageNumber2;
 	public int addressSpaceId;
 	public boolean global;
 	
 	@Override
 	public String toString () {
 		return String.format("Entry[pm=%x vpn=%x asid=%x g=%x d0=%s d1=%s]",
-				pageMask, virtualPageNumber, addressSpaceId, global ? 1 : 0, data0, data1);
+				pageMask, virtualPageNumber2, addressSpaceId, global ? 1 : 0, data0, data1);
 	}
 }
 

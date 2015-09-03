@@ -34,7 +34,7 @@ public final class Constant {
 	}
 	
 	public final int get (int[] regs) {
-		return (regs[register] & mask) >> leftShift;
+		return (regs[register] & mask) >>> leftShift;
 	}
 	
 	public final boolean isSet (int[] regs) {

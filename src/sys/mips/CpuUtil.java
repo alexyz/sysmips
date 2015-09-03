@@ -21,7 +21,7 @@ public class CpuUtil {
 		//System.out.println("elf=" + elf);
 		elf.print(System.out);
 		
-		Cpu cpu = new Cpu(elf.header.data == ELF32Header.ELFDATA2LSB);
+		Cpu cpu = new Cpu(0x02000000, elf.header.data == ELF32Header.ELFDATA2LSB);
 		Memory mem = cpu.getMemory();
 		Symbols sym = mem.getSymbols();
 		

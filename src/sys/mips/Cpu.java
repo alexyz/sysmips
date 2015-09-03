@@ -12,8 +12,8 @@ import static sys.mips.IsnUtil.*;
 
 public final class Cpu {
 	
-	private static final int INTERVAL_NS = 4000000;
 	private static final ThreadLocal<Cpu> instance = new ThreadLocal<>();
+	private static final int INTERVAL_NS = 4000000;
 	
 	/** allow other classes to access cpu */
 	public static Cpu getInstance() {
@@ -31,7 +31,7 @@ public final class Cpu {
 	private final Map<String, int[]> isnCount = new HashMap<>();
 	private final Memory memory;
 	private final boolean littleEndian;
-	private final List<Exn> interrupts = new ArrayList<>();
+//	private final List<CpuException> interrupts = new ArrayList<>();
 	private final CallLogger calls = new CallLogger(this);
 	/** 0 for le, 3 for be */
 	private final int wordAddrXor;
@@ -42,8 +42,8 @@ public final class Cpu {
 	private int pc;
 	/** address of current instruction + 4 (unless changed by branch) */
 	private int nextPc;
-	private int loadLinkedVAddr;
-	private int loadLinkedPAddr;
+	private int loadLinkedVaddr;
+	private int loadLinkedPaddr;
 	private boolean loadLinkedBit;
 	private FpRound roundingMode = FpRound.NONE;
 	private boolean kernelMode;
@@ -55,15 +55,15 @@ public final class Cpu {
 	private boolean execException;
 	private boolean singleStep;
 	
-	public Cpu (boolean littleEndian) {
+	public Cpu (int memsize, boolean littleEndian) {
+		this.memory = new Memory(memsize, littleEndian);
 		this.littleEndian = littleEndian;
 		this.wordAddrXor = littleEndian ? 0 : 3;
 		
-		memory = new Memory(0x2000000, littleEndian);
 		memory.setMalta(new Malta());
 		memory.setKernelMode(true);
 		memory.init();
-		for (String name : IsnSet.INSTANCE.nameMap.keySet()) {
+		for (String name : IsnSet.getInstance().getNameMap().keySet()) {
 			isnCount.put(name, new int[1]);
 		}
 		
@@ -139,7 +139,7 @@ public final class Cpu {
 	}
 	
 	public final long getHilo () {
-		return (hi & 0xffff_ffffL) << 32 | (lo & 0xffff_ffffL);
+		return zeroExtendInt(hi) << 32 | zeroExtendInt(lo);
 	}
 	
 	public final int getHi () {
@@ -207,10 +207,11 @@ public final class Cpu {
 			calls.call(pc);
 			log.info("run " + cycle);
 			long t = startTime;
-			int da = 0;
+//			int da = 0;
+//			String[] regstr = new String[32];
+			// this should only be checked during call
 			int f = 0;
-			String[] regstr = new String[32];
-			//memory.getSymbols().getAddr("proc_tty_init");
+//			f = memory.getSymbols().getAddr("init_vdso");
 //			if (f == 0) {
 //				throw new RuntimeException();
 //			}
@@ -224,37 +225,44 @@ public final class Cpu {
 					final int isn = memory.loadWord(pc);
 					
 					if (pc == f) {
-						log.info("single step...");
-						disasm = true;
-						singleStep = true;
+						//log.info("single step...");
+						//disasm = true;
+						calls.setPrintCalls(true);
+						//singleStep = true;
 					}
 					
 					if (disasm) {
 						// log.debug(cpRegString(this));
-						final String x = CpuUtil.gpRegString(this, regstr);
-						if (x.length() > 0) {
-							log.info(x);
-						}
+//						final String x = CpuUtil.gpRegString(this, regstr);
+//						if (x.length() > 0) {
+//							log.info(x);
+//						}
 						log.info(IsnUtil.isnString(this, isn));
 					}
 					
-					if (pc == 0x803a94a0 && register[REG_A0] > da) {
-						log.info("delay " + Integer.toHexString(register[REG_A0]));
-						da = register[REG_A0];
-					}
+//					if (pc == 0x803a94a0 && register[REG_A0] > da) {
+//						log.info("delay " + Integer.toHexString(register[REG_A0]));
+//						da = register[REG_A0];
+//					}
 					
 					pc = nextPc;
 					nextPc += 4;
-					boolean printCall = calls.isPrintCall();
+					final boolean printCall = calls.isPrintAfterNext();
 					
-					execOp(isn);
+					try {
+						execOp(isn);
+						
+					} catch (CpuException e) {
+						log.info("caught " + e);
+						execException(e.extype, 0, 0, e.vaddr);
+					}
 					
 					if (printCall) {
 						calls.printCall();
 					}
 					
 					if (countIsns) {
-						isnCount.get(IsnSet.INSTANCE.getIsn(isn).name)[0]++;
+						isnCount.get(IsnSet.getInstance().getIsn(isn).name)[0]++;
 					}
 					
 					final int cmp = cpReg[CPR_COMPARE];
@@ -266,7 +274,9 @@ public final class Cpu {
 					}
 					
 					if (singleStep) {
-						while (System.in.read() != 10);
+						while (System.in.read() != 10) {
+							//
+						}
 					}
 					
 					cycle++;
@@ -283,7 +293,7 @@ public final class Cpu {
 					t += INTERVAL_NS;
 					if (interruptsEnabled) {
 						log.info("fire programmable interrupt timer");
-						execException(EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER);
+						execException(EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER, 0);
 					}
 				} else {
 					//checkExn();
@@ -300,12 +310,12 @@ public final class Cpu {
 		}
 	}
 
-	public final void interrupt (final Exn e) {
-		synchronized (interrupts) {
-			System.out.println("add exn " + e);
-			interrupts.add(e);
-		}
-	}
+//	public final void interrupt (final CpuException e) {
+//		synchronized (interrupts) {
+//			System.out.println("add exn " + e);
+//			interrupts.add(e);
+//		}
+//	}
 	
 //	private void checkExn () {
 //		Exn e = null;
@@ -330,7 +340,7 @@ public final class Cpu {
 		final int op = op(isn);
 		final int rs = rs(isn);
 		final int rt = rt(isn);
-		final int simm = simm(isn);
+		final short simm = simm(isn);
 		
 		switch (op) {
 			case OP_SPECIAL:
@@ -408,10 +418,10 @@ public final class Cpu {
 				register[rt] = register[rs] + simm;
 				return;
 			case OP_ANDI:
-				register[rt] = register[rs] & (simm & 0xffff);
+				register[rt] = register[rs] & zeroExtendShort(simm);
 				return;
 			case OP_XORI:
-				register[rt] = register[rs] ^ (simm & 0xffff);
+				register[rt] = register[rs] ^ zeroExtendShort(simm);
 				return;
 			case OP_BGTZ:
 				if (register[rs] > 0) {
@@ -423,15 +433,15 @@ public final class Cpu {
 				return;
 			case OP_SLTIU: {
 				// zero extend
-				long rsValue = register[rs] & 0xffffffffL;
-				// zero extend the sign extended imm so it represents ends of
+				long rsValue = zeroExtendInt(register[rs]);
+				// sign extend then zero extend imm so it represents ends of
 				// unsigned range
-				long immValue = simm & 0xffffffffL;
+				long immValue = zeroExtendInt(simm);
 				register[rt] = (rsValue < immValue) ? 1 : 0;
 				return;
 			}
 			case OP_ORI:
-				register[rt] = register[rs] | (simm & 0xffff);
+				register[rt] = register[rs] | zeroExtendShort(simm);
 				return;
 			case OP_SW:
 				memory.storeWord(register[rs] + simm, register[rt]);
@@ -447,17 +457,17 @@ public final class Cpu {
 				return;
 			case OP_LL: {
 				final int va = register[rs] + simm;
-				final int pa =  memory.translate(va);
-				loadLinkedVAddr = va;
-				loadLinkedPAddr = pa;
+				final int pa =  memory.translate(va, false);
+				loadLinkedVaddr = va;
+				loadLinkedPaddr = pa;
 				loadLinkedBit = true;
 				register[rt] = memory.loadWord(va);
 				return;
 			}
 			case OP_SC: {
 				final int va = register[rs] + simm;
-				final int pa = memory.translate(va);
-				if (va == loadLinkedVAddr && pa == loadLinkedPAddr && loadLinkedBit) {
+				final int pa = memory.translate(va, true);
+				if (va == loadLinkedVaddr && pa == loadLinkedPaddr && loadLinkedBit) {
 					memory.storeWord(va, register[rt]);
 					register[rt] = 1;
 				} else {
@@ -476,7 +486,7 @@ public final class Cpu {
 				register[rt] = memory.loadByte(register[rs] + simm) & 0xff;
 				return;
 			case OP_LHU:
-				register[rt] = memory.loadHalfWord(register[rs] + simm) & 0xffff;
+				register[rt] = zeroExtendShort(memory.loadHalfWord(register[rs] + simm));
 				return;
 			case OP_LH:
 				register[rt] = memory.loadHalfWord(register[rs] + simm);
@@ -491,8 +501,7 @@ public final class Cpu {
 				final int mem = memory.loadWord(a & ~3);
 				final int rsh = (lealign + 1) * 8;
 				final int lsh = 32 - rsh;
-				final long mask = 0xffff_ffffL;
-				register[rt] = (mem << lsh) | (register[rt] & (int) (mask >>> rsh));
+				register[rt] = (mem << lsh) | (register[rt] & (int) (ZX_INT_MASK >>> rsh));
 				return;
 			}
 			case OP_LWR: {
@@ -505,8 +514,7 @@ public final class Cpu {
 				final int mem = memory.loadWord(a & ~3);
 				final int rsh = lealign * 8;
 				final int lsh = 32 - rsh;
-				final long mask = 0xffff_ffffL;
-				register[rt] = (register[rt] & (int) (mask << lsh)) | (mem >>> rsh);
+				register[rt] = (register[rt] & (int) (ZX_INT_MASK << lsh)) | (mem >>> rsh);
 				return;
 			}
 			case OP_SWL: {
@@ -519,8 +527,7 @@ public final class Cpu {
 				final int word = memory.loadWord(a & ~3);
 				final int lsh = (lealign + 1) * 8;
 				final int rsh = 32 - lsh;
-				final long mask = 0xffff_ffffL;
-				memory.storeWord(a & ~3, (word & (int) (mask << lsh)) | (register[rt] >>> rsh));
+				memory.storeWord(a & ~3, (word & (int) (ZX_INT_MASK << lsh)) | (register[rt] >>> rsh));
 				return;
 			}
 			case OP_SWR: {
@@ -533,8 +540,7 @@ public final class Cpu {
 				final int word = memory.loadWord(a & ~3);
 				final int lsh = lealign * 8;
 				final int rsh = 32 - lsh;
-				final long mask = 0xffff_ffffL;
-				memory.storeWord(a & ~3, (register[rt] << lsh) | (word & (int) (mask >>> rsh)));
+				memory.storeWord(a & ~3, (register[rt] << lsh) | (word & (int) (ZX_INT_MASK >>> rsh)));
 				return;
 			}
 			case OP_PREF:
@@ -638,10 +644,10 @@ public final class Cpu {
 				}
 				return;
 			case FN_SYSCALL:
-				execException(EX_SYSCALL, 0, 0);
+				execException(EX_SYSCALL, 0, 0, 0);
 				return;
 			case FN_BREAK:
-				execException(EX_BREAKPOINT, 0, 0);
+				execException(EX_BREAKPOINT, 0, 0, 0);
 				return;
 			case FN_SYNC:
 				log.debug("sync");
@@ -669,8 +675,8 @@ public final class Cpu {
 			}
 			case FN_MULTU: {
 				// zero extend
-				final long rsValue = register[rs] & 0xffff_ffffL;
-				final long rtValue = register[rt] & 0xffff_ffffL;
+				final long rsValue = zeroExtendInt(register[rs]);
+				final long rtValue = zeroExtendInt(register[rt]);
 				final long result = rsValue * rtValue;
 				lo = (int) result;
 				hi = (int) (result >>> 32);
@@ -690,8 +696,8 @@ public final class Cpu {
 			case FN_DIVU: {
 				// unpredictable result and no exception for zero
 				// zero extend
-				final long rsValue = register[rs] & 0xffff_ffffL;
-				final long rtValue = register[rt] & 0xffff_ffffL;
+				final long rsValue = zeroExtendInt(register[rs]);
+				final long rtValue = zeroExtendInt(register[rt]);
 				if (rtValue != 0) {
 					lo = (int) (rsValue / rtValue);
 					hi = (int) (rsValue % rtValue);
@@ -721,14 +727,15 @@ public final class Cpu {
 				return;
 			case FN_SLTU: {
 				// zero extend
-				long rsValue = register[rs] & 0xffff_ffffL;
-				long rtValue = register[rt] & 0xffff_ffffL;
+				long rsValue = zeroExtendInt(register[rs]);
+				long rtValue = zeroExtendInt(register[rt]);
 				register[rd] = rsValue < rtValue ? 1 : 0;
 				return;
 			}
 			case FN_TNE:
 				if (register[rs] != register[rt]) {
-					execException(EX_TRAP, 0, 0);
+					execException(EX_TRAP, 0, 0, 0);
+					throw new RuntimeException("trap");
 				}
 				return;
 			default:
@@ -739,14 +746,17 @@ public final class Cpu {
 	/**
 	 * execute exception.
 	 * if excode is interrupt, interrupt code must be provided.
+	 * if excode is tlb load/store, vaddr is required.
 	 * if interrupt code is south bridge interrupt, irq must be provided.
 	 */
 	// traps.c trap_init
 	// genex.S
 	// malta-int.c plat_irq_dispatch (deals with hardware interrupts)
-	private final void execException (final int excode, final int interrupt, final int irq) {
+	public final void execException (final int excode, final int interrupt, final int irq, final int vaddr) {
 		log.info("exec exception " + excode + " " + exceptionName(excode) + " interrupt " + interrupt + " " + MaltaUtil.interruptName(interrupt) + " irq " + MaltaUtil.irqName(irq));
+		
 		final boolean isInterrupt = excode == EX_INTERRUPT;
+		final boolean isTlbRefill = excode == EX_TLB_LOAD || excode == EX_TLB_STORE;
 		final boolean isSbIntr = isInterrupt && interrupt == MaltaUtil.INT_SB_INTR;
 		
 		if (execException) {
@@ -795,6 +805,12 @@ public final class Cpu {
 		cpReg[CPR_STATUS] = status | CPR_STATUS_EXL;
 		cpReg[CPR_CAUSE] = (cause & ~(CPR_CAUSE_EXCODE | CPR_CAUSE_IP | CPR_CAUSE_BD)) | excodemask | interruptmask | bdmask;
 		cpReg[CPR_EPC] = nextPc == pc + 4 ? pc : pc - 4;
+		
+		if (isTlbRefill) {
+			cpReg[CPR_BADVADDR] = vaddr;
+			// context, entryhi, ...
+			throw new RuntimeException("tlb refill...");
+		}
 		
 		log.info("epc=" + memory.getSymbols().getNameAddrOffset(cpReg[CPR_EPC]) + " bd=" + (bdmask != 0));
 		

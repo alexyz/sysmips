@@ -3,24 +3,43 @@ package sys.mips;
 /**
  * mips instruction/register decoding and encoding
  */
-public class Decoder {
+public final class Decoder {
+	
+	public static final long ZX_INT_MASK = 0xffff_ffffL;
+	public static final int ZX_SHORT_MASK = 0xffff;
+
+	/**
+	 * zero extend int to long (beware implicit sign extension of byte/short
+	 * parameters to int)
+	 */
+	public static final long zeroExtendInt (final int x) {
+		return x & ZX_INT_MASK;
+	}
+	
+	/**
+	 * zero extend short to int (beware implicit sign extension of byte
+	 * parameters to short)
+	 */
+	public static final int zeroExtendShort (final short x) {
+		return x & ZX_SHORT_MASK;
+	}
 
 	/** same as rs */
-	public static int base (final int isn) {
+	public static final int base (final int isn) {
 		return rs(isn);
 	}
 	
 	/** calculate branch target */
-	public static int branch (final int isn, final int pc) {
+	public static final int branch (final int isn, final int pc) {
 		return pc + (simm(isn) * 4);
 	}
 	
 	/** same as sa */
-	public static int fd (final int isn) {
+	public static final int fd (final int isn) {
 		return sa(isn);
 	}
 	
-	public static int fn (final int isn) {
+	public static final int fn (final int isn) {
 		return isn & 0x3f;
 	}
 	
@@ -31,18 +50,18 @@ public class Decoder {
 	}
 	
 	/** fp instruction condition code flag (0-7) */
-	public static int fpcc (final int isn) {
+	public static final int fpcc (final int isn) {
 		// see BC1F
 		return (isn >> 18) & 7;
 	}
 	
 	/** same as rd */
-	public static int fs (final int isn) {
+	public static final int fs (final int isn) {
 		return rd(isn);
 	}
 	
 	/** same as rt */
-	public static int ft (final int isn) {
+	public static final int ft (final int isn) {
 		return rt(isn);
 	}
 	
@@ -56,45 +75,45 @@ public class Decoder {
 		return (pc & 0xf0000000) | ((isn & 0x3FFFFFF) << 2);
 	}
 	
-	public static int op (final int isn) {
+	public static final int op (final int isn) {
 		return isn >>> 26;
 	}
 	
-	public static int rd (final int isn) {
+	public static final int rd (final int isn) {
 		return (isn >>> 11) & 0x1f;
 	}
 	
 	/** same as rs */
-	public static int fmt (final int isn) {
+	public static final int fmt (final int isn) {
 		return rs(isn);
 	}
 	
 	/** same as rs */
-	public static int fr (final int isn) {
+	public static final int fr (final int isn) {
 		return rs(isn);
 	}
 	
 	/** same as base, fpu fmt and fr */
-	public static int rs (final int isn) {
+	public static final int rs (final int isn) {
 		return (isn >>> 21) & 0x1f;
 	}
 	
 	/** same as ft */
-	public static int rt (final int isn) {
+	public static final int rt (final int isn) {
 		return (isn >>> 16) & 0x1f;
 	}
 	
-	public static int sa (final int isn) {
+	public static final int sa (final int isn) {
 		return (isn >>> 6) & 0x1f;
 	}
 	
 	/** coprocessor 0 register selection (0-7) */
-	public static int sel (final int isn) {
+	public static final int sel (final int isn) {
 		return isn & 0x7;
 	}
 	
-	/** sign extended immediate */
-	public static final int simm (final int isn) {
+	/** signed immediate */
+	public static final short simm (final int isn) {
 		return (short) isn;
 	}
 	
@@ -103,15 +122,15 @@ public class Decoder {
 		return (isn >>> 6) & 0xfffff;
 	}
 
-	public static float loadSingle (final int[] fpReg, final int i) {
+	public static final float loadSingle (final int[] fpReg, final int i) {
 		return Float.intBitsToFloat(fpReg[i]);
 	}
 	
-	public static void storeSingle (final int[] fpReg, final int i, final float f) {
+	public static final void storeSingle (final int[] fpReg, final int i, final float f) {
 		fpReg[i] = Float.floatToRawIntBits(f);
 	}
 
-	public static double loadDouble (final int[] fpReg, final int i) {
+	public static final double loadDouble (final int[] fpReg, final int i) {
 		if ((i & 1) == 0) {
 			final long mask = 0xffffffffL;
 			return Double.longBitsToDouble((fpReg[i] & mask) | ((fpReg[i + 1] & mask) << 32));
@@ -120,7 +139,7 @@ public class Decoder {
 		}
 	}
 	
-	public static void storeDouble (final int[] fpReg, final int i, final double d) {
+	public static final void storeDouble (final int[] fpReg, final int i, final double d) {
 		if ((i & 1) == 0) {
 			final long dl = Double.doubleToRawLongBits(d);
 			// the spec says...
@@ -132,7 +151,7 @@ public class Decoder {
 	}
 
 	/** floating point condition code register condition */
-	public static boolean fccrFcc (final int[] fpControlReg, final int cc) {
+	public static final boolean fccrFcc (final int[] fpControlReg, final int cc) {
 		if (cc >= 0 && cc < 8) {
 			return (fpControlReg[Constants.FPCR_FCCR] & (1 << cc)) != 0;
 			

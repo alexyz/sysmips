@@ -11,7 +11,7 @@ import static sys.mips.IsnUtil.*;
  */
 public class IsnSet {
 	
-	public static final IsnSet INSTANCE = new IsnSet();
+	private static final IsnSet instance = new IsnSet();
 	
 	// interactive disassembly types
 	// official format: actual values
@@ -33,6 +33,10 @@ public class IsnSet {
 	private static final String SF_FP_REG = "{fd} <- {fs} * {ft}: {regfs} * {regft}";
 	private static final String SF_FP_REG2 = "{fd} <- {fs}: {regfs}";
 	
+	public static IsnSet getInstance() {
+		return instance;
+	}
+	
 	private static void set (Isn[] isns, int i, Isn isn) {
 		if (isns[i] != null) {
 			throw new RuntimeException("duplicate " + isn.toString());
@@ -45,7 +49,8 @@ public class IsnSet {
 	//
 	
 	/** all instructions by name */
-	public final SortedMap<String, Isn> nameMap = new TreeMap<>();
+	private final SortedMap<String, Isn> nameMap = new TreeMap<>();
+	private final SortedMap<String, Isn> nameMapUnmod = Collections.unmodifiableSortedMap(nameMap);
 	
 	private final Isn[] operation = new Isn[64];
 	private final Isn[] function = new Isn[64];
@@ -245,45 +250,6 @@ public class IsnSet {
 		addIsn(new Isn(OP_COP1X, 0, 0, fn, name, format));
 	}
 	
-	public Isn getIsn (int isn) {
-		final int op = op(isn);
-		final int rs = rs(isn);
-		final int rt = rt(isn);
-		final int fn = fn(isn);
-		
-		switch (op) {
-			case OP_SPECIAL:
-				return function[fn];
-			case OP_REGIMM:
-				return regimm[rt];
-			case OP_COP0:
-				if (rs < CP_RS_CO) {
-					return systemRs[rs];
-				} else {
-					return systemFn[fn];
-				}
-			case OP_COP1:
-				switch (rs) {
-					case FP_RS_S:
-						return fpuFnSingle[fn];
-					case FP_RS_D:
-						return fpuFnDouble[fn];
-					case FP_RS_W:
-						return fpuFnWord[fn];
-					case FP_RS_L:
-						return fpuFnLong[fn];
-					default:
-						return fpuRs[rs];
-				}
-			case OP_COP1X:
-				return fpuFnX[fn];
-			case OP_SPECIAL2:
-				return function2[fn];
-			default:
-				return operation[op];
-		}
-	}
-	
 	private void addIsn (Isn isn) {
 		if (nameMap.put(isn.name, isn) != null) {
 			throw new RuntimeException("duplicate name " + isn);
@@ -334,4 +300,47 @@ public class IsnSet {
 		}
 	}
 	
+	public SortedMap<String, Isn> getNameMap () {
+		return nameMapUnmod;
+	}
+
+	public Isn getIsn (int isn) {
+		final int op = op(isn);
+		final int rs = rs(isn);
+		final int rt = rt(isn);
+		final int fn = fn(isn);
+		
+		switch (op) {
+			case OP_SPECIAL:
+				return function[fn];
+			case OP_REGIMM:
+				return regimm[rt];
+			case OP_COP0:
+				if (rs < CP_RS_CO) {
+					return systemRs[rs];
+				} else {
+					return systemFn[fn];
+				}
+			case OP_COP1:
+				switch (rs) {
+					case FP_RS_S:
+						return fpuFnSingle[fn];
+					case FP_RS_D:
+						return fpuFnDouble[fn];
+					case FP_RS_W:
+						return fpuFnWord[fn];
+					case FP_RS_L:
+						return fpuFnLong[fn];
+					default:
+						return fpuRs[rs];
+				}
+			case OP_COP1X:
+				return fpuFnX[fn];
+			case OP_SPECIAL2:
+				return function2[fn];
+			default:
+				return operation[op];
+		}
+	}
+		
 }

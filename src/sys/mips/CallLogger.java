@@ -10,16 +10,25 @@ public class CallLogger {
 	private final List<List<String>> threads = new ArrayList<>();
 	private final List<String> threadNames = new ArrayList<>();
 	private final Cpu cpu;
-	private boolean printCall;
+	private boolean printAfterNext;
+	private boolean printCalls;
 	
 	public CallLogger (Cpu cpu) {
 		this.cpu = cpu;
 		push("main");
 	}
 	
-	public boolean isPrintCall () {
-		if (printCall) {
-			printCall = false;
+	public boolean isPrintCalls () {
+		return printCalls;
+	}
+
+	public void setPrintCalls (boolean printCalls) {
+		this.printCalls = printCalls;
+	}
+
+	public boolean isPrintAfterNext () {
+		if (printAfterNext) {
+			printAfterNext = false;
 			return true;
 		} else {
 			return false;
@@ -44,7 +53,9 @@ public class CallLogger {
 //			printCall = true;
 //		}
 		
-		//cpu.getLog().info("call " + callString());
+		if (printCalls) {
+			cpu.getLog().info("call " + callString());
+		}
 	}
 	
 	private boolean printCall (String name) {

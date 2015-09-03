@@ -103,21 +103,21 @@ public class IsnUtil {
 		if (op == OP_SPECIAL && fn == FN_SLL && rd == 0) {
 			isnObj = NOP;
 		} else {
-			isnObj = IsnSet.INSTANCE.getIsn(isn);
+			isnObj = IsnSet.getInstance().getIsn(isn);
 		}
 		
 		final String isnValue;
 		if (isnObj != null) {
-			isnValue = IsnUtil.formatIsn(isnObj, cpu, isn);
+			isnValue = IsnUtil.formatIsn(cpu, isn, isnObj);
 		} else {
 			isnValue = "op=" + op + " rt=" + rt + " rs=" + rs + " fn=" + fn;
 		}
 		
-		final String addr = cpu.getMemory().getSymbols().getNameOffset(cpu.getPc());
+		final String addr = cpu.getMemory().getSymbols().getNameAddrOffset(cpu.getPc());
 		return String.format("%-40s %08x %s", addr, isn, isnValue);
 	}
 	
-	public static String formatIsn (final Isn isnObj, final Cpu cpu, final int isn) {
+	private static String formatIsn (final Cpu cpu, final int isn, final Isn isnObj) {
 		final StringBuilder sb = new StringBuilder(isnObj.name);
 		while (sb.length() < 8) {
 			sb.append(" ");
@@ -127,7 +127,7 @@ public class IsnUtil {
 		while ((i = sb.indexOf("{")) >= 0) {
 			final int j = sb.indexOf("}", i);
 			if (j > i) {
-				sb.replace(i, j + 1, String.valueOf(formatCode(sb.substring(i + 1, j), cpu, isn)));
+				sb.replace(i, j + 1, String.valueOf(formatCode(cpu, isn, sb.substring(i + 1, j))));
 			} else {
 				throw new RuntimeException("invalid format " + isnObj.format);
 			}
@@ -136,7 +136,7 @@ public class IsnUtil {
 	}
 	
 	/** get value of format code */
-	private static String formatCode (final String name, final Cpu cpu, final int isn) {
+	private static String formatCode (final Cpu cpu, final int isn, final String name) {
 		final Memory mem = cpu.getMemory();
 		final int[] reg = cpu.getRegisters();
 		final int pc = cpu.getPc();

@@ -16,7 +16,6 @@ import javax.swing.text.*;
 
 import sys.mips.Cpu;
 import sys.mips.CpuUtil;
-import sys.mips.Exn;
 
 public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	
@@ -57,7 +56,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		
 		runButton.addActionListener(ae -> start());
 		
-		stopButton.addActionListener(ae -> stop());
+//		stopButton.addActionListener(ae -> stop());
 		
 		displayLabel.setFont(MONO);
 		displayLabel.setBorder(new EtchedBorder());
@@ -99,11 +98,11 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		pack();
 	}
 
-	private void stop () {
-		if (cpu != null) {
-			cpu.interrupt(new Exn(-1, 0));
-		}
-	}
+//	private void stop () {
+//		if (cpu != null) {
+//			cpu.interrupt(new CpuException(-1, 0));
+//		}
+//	}
 
 	private void selectFile () {
 		File dir = new File(System.getProperty("user.dir"));

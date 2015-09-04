@@ -49,6 +49,12 @@ public final class Decoder {
 		return (isn & 0x10000) != 0;
 	}
 	
+	/** fp instruction nullify delay */
+	public static boolean fpnd (final int isn) {
+		// see BC1FL
+		return (isn & 0x20000) != 0;
+	}
+	
 	/** fp instruction condition code flag (0-7) */
 	public static final int fpcc (final int isn) {
 		// see BC1F
@@ -162,13 +168,14 @@ public final class Decoder {
 	
 	/** return the virtual page number / 2 of the virtual address (19 bits) */
 	public static final int vpn2 (final int vaddr) {
-		// 19 bits (31-12-1)
-		return (vaddr >> 12) & 0x7ffff;
+		// 19 bits (1+19+12)
+		//return (vaddr >> 12) & 0x7ffff;
+		return vaddr >>> 13;
 	}
 	
 	/** return the even/odd index (the last bit of the vpn) */
 	public static final int evenodd (final int vaddr) {
-		return (vaddr >> 11) & 1;
+		return (vaddr >> 12) & 1;
 	}
 	
 	private Decoder () {

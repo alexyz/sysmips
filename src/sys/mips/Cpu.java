@@ -38,10 +38,12 @@ public final class Cpu {
 	
 	private volatile long cycle;
 	
-	/** address of current instruction */
+	/** within execOp: address of current instruction. if pc2 != pc1 + 4 then the current instruction is in a delay slot. */
 	private int pc;
-	/** address of current instruction + 4 (unless changed by branch) */
-	private int nextPc;
+	/** within execOp: address of next instruction (the branch delay slot) */
+	private int pc2;
+	/** within execOp: address of next next instruction (change this to branch) */ 
+	private int pc3;
 	private int loadLinkedVaddr;
 	private int loadLinkedPaddr;
 	private boolean loadLinkedBit;
@@ -110,13 +112,11 @@ public final class Cpu {
 		return pc;
 	}
 	
+	/** load pc1, pc2 and pc3 (the existing delay slot is discarded) */
 	public final void setPc (int pc) {
 		this.pc = pc;
-		this.nextPc = pc + 4;
-	}
-	
-	public final int getNextPc () {
-		return nextPc;
+		this.pc2 = pc + 4;
+		this.pc3 = pc + 8;
 	}
 	
 	public final int[] getRegisters () {
@@ -228,47 +228,49 @@ public final class Cpu {
 					}
 					
 					final int isn = memory.loadWord(pc);
+					pc2 = pc3;
+					pc3 += 4;
 					
-					if (pc == f) {
+//					if (pc == f) {
 						//log.info("single step...");
 						//disasm = true;
-						calls.setPrintCalls(true);
+//						calls.setPrintCalls(true);
 						//singleStep = true;
-					}
+//					}
 					
-					if (disasm) {
+//					if (disasm) {
 						// log.debug(cpRegString(this));
 //						final String x = CpuUtil.gpRegString(this, regstr);
 //						if (x.length() > 0) {
 //							log.info(x);
 //						}
-						log.info(IsnUtil.isnString(this, isn));
-					}
+//						log.info(IsnUtil.isnString(this, isn));
+//					}
 					
 //					if (pc == 0x803a94a0 && register[REG_A0] > da) {
 //						log.info("delay " + Integer.toHexString(register[REG_A0]));
 //						da = register[REG_A0];
 //					}
 					
-					pc = nextPc;
-					nextPc += 4;
-					final boolean printCall = calls.isPrintAfterNext();
+//					final boolean printCall = calls.isPrintAfterNext();
 					
 					try {
 						execOp(isn);
+						// update pc before exception handler does
+						pc = pc2;
 						
 					} catch (CpuException e) {
 						log.info("caught " + e);
 						execException(e.extype, 0, 0, e.vaddr, e.tlbRefill);
 					}
 					
-					if (printCall) {
-						calls.printCall();
-					}
+//					if (printCall) {
+//						calls.printCall();
+//					}
 					
-					if (countIsns) {
-						isnCount.get(IsnSet.getInstance().getIsn(isn).name)[0]++;
-					}
+//					if (countIsns) {
+//						isnCount.get(IsnSet.getInstance().getIsn(isn).name)[0]++;
+//					}
 					
 					final int cmp = cpReg[CPR_COMPARE];
 					final int count = (int) (cycle >>> 1);
@@ -278,11 +280,11 @@ public final class Cpu {
 						}
 					}
 					
-					if (singleStep) {
-						while (System.in.read() != 10) {
+//					if (singleStep) {
+//						while (System.in.read() != 10) {
 							//
-						}
-					}
+//						}
+//					}
 					
 					cycle++;
 				}
@@ -393,17 +395,17 @@ public final class Cpu {
 					// [85960839:ki] 0x80269124<proc_mkdir+0x4>               0809a42d j       0x802690b4<proc_mkdir_mode>
 					Symbols sym = memory.getSymbols();
 					String pcname = sym.getName(pc);
-					String nextpcname = sym.getName(nextPc);
+					String nextpcname = sym.getName(pc3);
 					if (!pcname.equals(nextpcname)) {
 						//log.debug("implicit call " + pcname + " -> " + nextpcname);
-						calls.callNoRet(nextPc);
+						calls.callNoRet(pc3);
 					}
 				}
 				return;
 			case OP_JAL:
 				execLink();
 				execJump(isn);
-				calls.call(nextPc);
+				calls.call(pc3);
 				return;
 			case OP_BLEZ:
 				if (register[rs] <= 0) {
@@ -559,21 +561,16 @@ public final class Cpu {
 	
 	/** update nextpc with jump */
 	private final void execJump (final int isn) {
-		nextPc = jump(isn, pc);
+		pc3 = jump(isn, pc2);
 	}
 
 	/** update nextpc with branch */
 	private final void execBranch (final int isn) {
-		nextPc = branch(isn, pc);
-	}
-
-	/** skip branch delay */
-	private final void execBranchSkip () {
-		nextPc += 4;
+		pc3 = branch(isn, pc2);
 	}
 
 	private final void execLink () {
-		register[31] = nextPc;
+		register[31] = pc3;
 	}
 	
 	private final void execRegImm (final int isn) {
@@ -630,15 +627,15 @@ public final class Cpu {
 				register[rd] = register[rt] << (register[rs] & 0x1f);
 				return;
 			case FN_JR:
-				nextPc = register[rs];
+				pc3 = register[rs];
 				if (rs == 31) {
 					calls.ret();
 				}
 				return;
 			case FN_JALR:
-				register[rd] = nextPc;
-				nextPc = register[rs];
-				calls.call(nextPc);
+				register[rd] = pc3;
+				pc3 = register[rs];
+				calls.call(pc3);
 				return;
 			case FN_MOVZ:
 				if (register[rt] == 0) {
@@ -807,11 +804,14 @@ public final class Cpu {
 			throw new RuntimeException("masked interrupt " + interrupt);
 		}
 		
+		boolean isDelaySlot = pc2 != pc + 4;
+		
 		CPR_STATUS_EXL.set(cpReg, true);
 		CPR_CAUSE_EXCODE.set(cpReg, excode);
 		CPR_CAUSE_IP.set(cpReg, interruptmask);
-		CPR_CAUSE_BD.set(cpReg, nextPc != pc + 4);
-		CPR_EPC_VALUE.set(cpReg, nextPc == pc + 4 ? pc : pc - 4);
+		CPR_CAUSE_BD.set(cpReg, isDelaySlot);
+		// XXX 4 too high...
+		CPR_EPC_VALUE.set(cpReg, isDelaySlot ? pc - 4 : pc);
 		
 		if (isTlb) {
 			final int vpn2 = vpn2(vaddr);
@@ -916,6 +916,7 @@ public final class Cpu {
 			case CPR_WIRED:
 			case CPR_EPC:
 			case CPR_BADVADDR:
+			case CPR_CONTEXT:
 				break;
 			case CPR_COUNT:
 				// update this only when read
@@ -1034,6 +1035,8 @@ public final class Cpu {
 		switch (fn) {
 			case CP_FN_TLBWI: {
 				// write indexed tlb entry...
+//				log.debug("entry0=" + Integer.toHexString(cpReg[CPR_ENTRYLO0]));
+//				log.debug("entry1=" + Integer.toHexString(cpReg[CPR_ENTRYLO1]));
 				final int i = CPR_INDEX_INDEX.get(cpReg);
 				final Entry e = memory.getEntry(i);
 				e.pageMask = CPR_PAGEMASK_MASK.get(cpReg);
@@ -1111,8 +1114,8 @@ public final class Cpu {
 			case FP_RS_BC1:
 				if (fptf(isn) == fccrFcc(fpControlReg, fpcc(isn))) {
 					execBranch(isn);
-				} else {
-					execBranchSkip();
+				} else if (fpnd(isn)) {
+					throw new RuntimeException();
 				}
 				return;
 				

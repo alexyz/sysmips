@@ -192,7 +192,8 @@ public final class Memory {
 		final int eo = Decoder.evenodd(vaddr);
 		boolean refill = true;
 		
-		log.debug("lookup asid=" + Integer.toHexString(asid) + " vpn2=" + Integer.toHexString(vpn2));
+		log.debug("lookup vaddr=" + Integer.toHexString(vaddr) + " asid=" + Integer.toHexString(asid) + " vpn2=" + Integer.toHexString(vpn2));
+		
 		for (int n = 0; n < entries.length; n++) {
 			Entry e = entries[n];
 			log.debug("entry[" + n + "]=" + e);
@@ -210,15 +211,14 @@ public final class Memory {
 					// set dirty if write?
 					d.dirty = true;
 				}
-				throw new RuntimeException("tlb hit");
+				final int paddr = (d.physicalFrameNumber << 12) | (vaddr & 0xfff);
+				log.debug("translated " + Integer.toHexString(vaddr) + " to " + Integer.toHexString(paddr));
+				return paddr;
 			}
 		}
 		
 		log.debug("tlb miss");
 		misses++;
-		if (misses > 1) {
-			throw new RuntimeException();
-		}
 		
 		// also need to throw modified exception if page is read only...
 		throw new CpuException(store ? Constants.EX_TLB_STORE : Constants.EX_TLB_LOAD, vaddr, refill);

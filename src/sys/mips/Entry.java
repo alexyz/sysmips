@@ -6,6 +6,7 @@ package sys.mips;
 public class Entry {
 	
 	public static class Data {
+		/** 20 bits */
 		public int physicalFrameNumber;
 		public boolean dirty;
 		public boolean valid;

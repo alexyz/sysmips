@@ -5,7 +5,7 @@ import java.util.*;
 
 public class CpuLogger {
 	
-	private static final int MAX = 200;
+	private static final int MAX = 10;
 
 	public static final CpuLogger getInstance() {
 		return Cpu.getInstance().getLog();
@@ -26,7 +26,7 @@ public class CpuLogger {
 	}
 	
 	public void debug (String msg, Object... args) {
-		log(args.length == 0 ? msg : String.format(msg, args), false);
+		log(args.length == 0 ? msg : String.format(msg, args), true);
 	}
 	
 	public void info (String msg, Object... args) {

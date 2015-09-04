@@ -22,7 +22,8 @@ public final class Memory {
 	
 	private Malta malta;
 	private boolean kernelMode;
-	/// int asid...
+	private int asid;
+	private int hits, misses;
 	
 	public Memory (int size, boolean littleEndian) {
 		this.data = new int[size >> 2];
@@ -38,6 +39,14 @@ public final class Memory {
 		return entries[n];
 	}
 	
+	public int getAsid () {
+		return asid;
+	}
+
+	public void setAsid (int asid) {
+		this.asid = asid;
+	}
+
 	public void init () {
 		System.out.println("init memory");
 		symbols.put(KSEG0, "KSEG0");
@@ -74,7 +83,7 @@ public final class Memory {
 	
 	public final int loadWord (final int vaddr) {
 		if ((vaddr & 3) != 0) {
-			throw new CpuException(Constants.EX_ADDR_ERROR_LOAD, vaddr);
+			throw new CpuException(Constants.EX_ADDR_ERROR_LOAD, vaddr, false);
 		}
 		if (isSystem(vaddr)) {
 			return malta.systemRead(vaddr & KSEG_MASK, 4);
@@ -85,7 +94,7 @@ public final class Memory {
 	
 	public final void storeWord (final int vaddr, final int value) {
 		if ((vaddr & 3) != 0) {
-			throw new CpuException(Constants.EX_ADDR_ERROR_STORE, vaddr);
+			throw new CpuException(Constants.EX_ADDR_ERROR_STORE, vaddr, false);
 		}
 		if (isSystem(vaddr)) {
 			malta.systemWrite(vaddr & KSEG_MASK, value, 4);
@@ -96,7 +105,7 @@ public final class Memory {
 	
 	public final short loadHalfWord (final int vaddr) {
 		if ((vaddr & 1) != 0) {
-			throw new CpuException(Constants.EX_ADDR_ERROR_LOAD, vaddr);
+			throw new CpuException(Constants.EX_ADDR_ERROR_LOAD, vaddr, false);
 		}
 		if (isSystem(vaddr)) {
 			return (short) malta.systemRead(vaddr & KSEG_MASK, 2);
@@ -107,7 +116,7 @@ public final class Memory {
 	
 	public final void storeHalfWord (final int vaddr, final short value) {
 		if ((vaddr & 1) != 0) {
-			throw new CpuException(Constants.EX_ADDR_ERROR_STORE, vaddr);
+			throw new CpuException(Constants.EX_ADDR_ERROR_STORE, vaddr, false);
 		}
 		if (isSystem(vaddr)) {
 			malta.systemWrite(vaddr & KSEG_MASK, value, 2);
@@ -161,15 +170,58 @@ public final class Memory {
 		return vaddr >= KSEG1 && vaddr < KSEG2 && kernelMode;
 	}
 	
+	public final int probe (final int vpn2) {
+		CpuLogger log = Cpu.getInstance().getLog();
+		for (int n = 0; n < entries.length; n++) {
+			Entry e = entries[n];
+			if (e.virtualPageNumber2 == vpn2 && (e.addressSpaceId == asid || e.global)) {
+				log.debug("tlb probe = " + n);
+				return n;
+			}
+		}
+		log.debug("tlb probe miss");
+		return -1;
+	}
+	
 	/**
 	 * translate virtual address to physical
 	 */
 	private final int lookup (final int vaddr, final boolean store) {
+		CpuLogger log = Cpu.getInstance().getLog();
+		final int vpn2 = Decoder.vpn2(vaddr);
+		final int eo = Decoder.evenodd(vaddr);
+		boolean refill = true;
+		
+		log.debug("lookup asid=" + Integer.toHexString(asid) + " vpn2=" + Integer.toHexString(vpn2));
 		for (int n = 0; n < entries.length; n++) {
-			System.out.println("entry[" + n + "]=" + entries[n]);
+			Entry e = entries[n];
+			log.debug("entry[" + n + "]=" + e);
+			
+			if (e.virtualPageNumber2 == vpn2 && (e.addressSpaceId == asid || e.global)) {
+				log.debug("tlb hit");
+				hits++;
+				Entry.Data d = e.data[eo];
+				if (!d.valid) {
+					log.debug("entry invalid...");
+					refill = false;
+					break;
+				}
+				if (store && !d.dirty) {
+					// set dirty if write?
+					d.dirty = true;
+				}
+				throw new RuntimeException("tlb hit");
+			}
 		}
+		
+		log.debug("tlb miss");
+		misses++;
+		if (misses > 1) {
+			throw new RuntimeException();
+		}
+		
 		// also need to throw modified exception if page is read only...
-		throw new CpuException(store ? Constants.EX_TLB_STORE : Constants.EX_TLB_LOAD, vaddr);
+		throw new CpuException(store ? Constants.EX_TLB_STORE : Constants.EX_TLB_LOAD, vaddr, refill);
 	}
 	
 	private final byte loadByteImpl (final int paddr) {

@@ -234,6 +234,7 @@ public final class Constants {
 	public static final byte CP_FN_TLBINV = 0x03;
 	public static final byte CP_FN_TLBINVF = 0x04;
 	public static final byte CP_FN_TLBWR = 0x06;
+	/** tlb probe */
 	public static final byte CP_FN_TLBP = 0x08;
 	/** exception return */
 	public static final byte CP_FN_ERET = 0x18;
@@ -436,7 +437,7 @@ public final class Constants {
 	//
 	
 	public static final Constant CPR_INDEX_INDEX = new Constant(CPR_INDEX, 0, 4);
-	public static final Constant CPR_INDEX_PROBE = new Constant(CPR_INDEX, 31, 1);
+	public static final Constant CPR_INDEX_PROBEFAIL = new Constant(CPR_INDEX, 31, 1);
 	
 	public static final Constant CPR_RANDOM_RANDOM = new Constant(CPR_RANDOM, 0, 4);
 	

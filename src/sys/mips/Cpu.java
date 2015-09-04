@@ -76,7 +76,8 @@ public final class Cpu {
 		statusUpdated();
 		
 		// 0x10000 = MIPS, 0x8000 = 4KC 
-		cpReg[CPR_PRID] = 0x18000;
+		CPR_PRID_PROCID.set(cpReg, 0x80);
+		CPR_PRID_COMPANYID.set(cpReg, 1);
 		
 		// 15: big endian, 7: TLB
 		cpReg[CPR_CONFIG] = (1 << 31) | ((littleEndian?0:1) << 15) | (1 << 7) | (1 << 1);
@@ -258,7 +259,7 @@ public final class Cpu {
 						
 					} catch (CpuException e) {
 						log.info("caught " + e);
-						execException(e.extype, 0, 0, e.vaddr);
+						execException(e.extype, 0, 0, e.vaddr, e.tlbRefill);
 					}
 					
 					if (printCall) {
@@ -298,7 +299,7 @@ public final class Cpu {
 					t += INTERVAL_NS;
 					if (interruptsEnabled) {
 						log.info("fire programmable interrupt timer");
-						execException(EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER, 0);
+						execException(EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER, 0, false);
 					}
 				} else {
 					//checkExn();
@@ -650,10 +651,10 @@ public final class Cpu {
 				}
 				return;
 			case FN_SYSCALL:
-				execException(EX_SYSCALL, 0, 0, 0);
+				execException(EX_SYSCALL, 0, 0, 0, false);
 				return;
 			case FN_BREAK:
-				execException(EX_BREAKPOINT, 0, 0, 0);
+				execException(EX_BREAKPOINT, 0, 0, 0, false);
 				return;
 			case FN_SYNC:
 				log.debug("sync");
@@ -740,7 +741,7 @@ public final class Cpu {
 			}
 			case FN_TNE:
 				if (register[rs] != register[rt]) {
-					execException(EX_TRAP, 0, 0, 0);
+					execException(EX_TRAP, 0, 0, 0, false);
 					throw new RuntimeException("trap");
 				}
 				return;
@@ -758,12 +759,12 @@ public final class Cpu {
 	// traps.c trap_init
 	// genex.S
 	// malta-int.c plat_irq_dispatch (deals with hardware interrupts)
-	public final void execException (final int excode, final int interrupt, final int irq, final int vaddr) {
-		log.info("exec exception " + excode + " " + exceptionName(excode) + " interrupt " + interrupt + " " + MaltaUtil.interruptName(interrupt) + " irq " + MaltaUtil.irqName(irq));
+	private final void execException (final int excode, final int interrupt, final int irq, final int vaddr, final boolean isTlbRefill) {
+		log.info("exec exception " + excode + " " + exceptionName(excode) + " interrupt " + interrupt + " " + MaltaUtil.interruptName(interrupt) + " irq " + MaltaUtil.irqName(irq) + " vaddr=" + Integer.toHexString(vaddr) + " tlbRefill=" + isTlbRefill);
 		
 		final boolean isInterrupt = excode == EX_INTERRUPT;
-		final boolean isTlbRefill = excode == EX_TLB_LOAD || excode == EX_TLB_STORE;
 		final boolean isSbIntr = isInterrupt && interrupt == MaltaUtil.INT_SB_INTR;
+		final boolean isTlb = excode == EX_TLB_LOAD || excode == EX_TLB_STORE;
 		
 		if (execException) {
 			throw new RuntimeException("exception in exception handler");
@@ -781,8 +782,8 @@ public final class Cpu {
 			throw new RuntimeException("invalid irq " + irq);
 		}
 		
-		if (isTlbRefill && vaddr == 0) {
-			throw new RuntimeException("tlb refill with zero address");
+		if (isTlb && vaddr == 0) {
+			throw new RuntimeException("tlb with zero address");
 		}
 		
 		final boolean bev = CPR_STATUS_BEV.isSet(cpReg);
@@ -807,14 +808,12 @@ public final class Cpu {
 		}
 		
 		CPR_STATUS_EXL.set(cpReg, true);
-		
 		CPR_CAUSE_EXCODE.set(cpReg, excode);
 		CPR_CAUSE_IP.set(cpReg, interruptmask);
 		CPR_CAUSE_BD.set(cpReg, nextPc != pc + 4);
-		
 		CPR_EPC_VALUE.set(cpReg, nextPc == pc + 4 ? pc : pc - 4);
 		
-		if (isTlbRefill) {
+		if (isTlb) {
 			final int vpn2 = vpn2(vaddr);
 			CPR_BADVADDR_BADVADDR.set(cpReg, vaddr);
 			CPR_CONTEXT_BADVPN2.set(cpReg, vpn2);
@@ -831,14 +830,15 @@ public final class Cpu {
 		}
 		
 		if (isTlbRefill) {
-			throw new RuntimeException("jump to tlb vector...");
+			log.info("jump to tlb refill vector");
+			setPc(EXV_TLBREFILL);
 			
 		} else if (isInterrupt && iv) {
 			log.info("jump to interrupt vector");
 			setPc(EXV_INTERRUPT);
 			
 		} else {
-			log.info("jump to exception vector");
+			log.info("jump to general exception vector");
 			setPc(EXV_EXCEPTION);
 		}
 		
@@ -915,6 +915,7 @@ public final class Cpu {
 			case CPR_ENTRYHI:
 			case CPR_WIRED:
 			case CPR_EPC:
+			case CPR_BADVADDR:
 				break;
 			case CPR_COUNT:
 				// update this only when read
@@ -949,6 +950,7 @@ public final class Cpu {
 				return;
 			case CPR_ENTRYHI:
 				cpReg[cpr] = newValue & 0xffff_f0ff;
+				memory.setAsid(CPR_ENTRYHI_ASID.get(cpReg));
 				return;
 			case CPR_PAGEMASK:
 				cpReg[cpr] = newValue & 0x00ff_f000;
@@ -1035,16 +1037,29 @@ public final class Cpu {
 				final int i = CPR_INDEX_INDEX.get(cpReg);
 				final Entry e = memory.getEntry(i);
 				e.pageMask = CPR_PAGEMASK_MASK.get(cpReg);
+				if (e.pageMask != 0) {
+					throw new RuntimeException("non zero page mask");
+				}
 				e.virtualPageNumber2 = CPR_ENTRYHI_VPN2.get(cpReg);
 				e.addressSpaceId = CPR_ENTRYHI_ASID.get(cpReg);
 				e.global = CPR_ENTRYLO0_GLOBAL.isSet(cpReg) && CPR_ENTRYLO1_GLOBAL.isSet(cpReg);
-				e.data0.physicalFrameNumber = CPR_ENTRYLO0_PFN.get(cpReg);
-				e.data0.dirty = CPR_ENTRYLO0_DIRTY.isSet(cpReg);
-				e.data0.valid = CPR_ENTRYLO0_VALID.isSet(cpReg);
-				e.data1.physicalFrameNumber = CPR_ENTRYLO1_PFN.get(cpReg);
-				e.data1.dirty = CPR_ENTRYLO1_DIRTY.isSet(cpReg);
-				e.data1.valid = CPR_ENTRYLO1_VALID.isSet(cpReg);
+				e.data[0].physicalFrameNumber = CPR_ENTRYLO0_PFN.get(cpReg);
+				e.data[0].dirty = CPR_ENTRYLO0_DIRTY.isSet(cpReg);
+				e.data[0].valid = CPR_ENTRYLO0_VALID.isSet(cpReg);
+				e.data[1].physicalFrameNumber = CPR_ENTRYLO1_PFN.get(cpReg);
+				e.data[1].dirty = CPR_ENTRYLO1_DIRTY.isSet(cpReg);
+				e.data[1].valid = CPR_ENTRYLO1_VALID.isSet(cpReg);
 				log.info("updated tlb[" + i + "]=" + e);
+				return;
+			}
+			case CP_FN_TLBP: {
+				int i = memory.probe(CPR_ENTRYHI_VPN2.get(cpReg));
+				if (i >= 0) {
+					CPR_INDEX_INDEX.set(cpReg, i);
+					CPR_INDEX_PROBEFAIL.set(cpReg, false);
+				} else {
+					CPR_INDEX_PROBEFAIL.set(cpReg, true);
+				}
 				return;
 			}
 			case CP_FN_ERET: {

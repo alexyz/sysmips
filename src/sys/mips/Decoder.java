@@ -163,7 +163,12 @@ public final class Decoder {
 	/** return the virtual page number / 2 of the virtual address (19 bits) */
 	public static final int vpn2 (final int vaddr) {
 		// 19 bits (31-12-1)
-		return (vaddr & 0x7fff_ffff) >> 12;
+		return (vaddr >> 12) & 0x7ffff;
+	}
+	
+	/** return the even/odd index (the last bit of the vpn) */
+	public static final int evenodd (final int vaddr) {
+		return (vaddr >> 11) & 1;
 	}
 	
 	private Decoder () {

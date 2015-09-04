@@ -11,22 +11,29 @@ public class Entry {
 		public boolean valid;
 		@Override
 		public String toString () {
-			return String.format("Data[pfn=%x d=%x v=%x]", physicalFrameNumber, dirty ? 1 : 0, valid ? 1 : 0);
+			return String.format("Data[pfn=%x %s %s]", physicalFrameNumber, dirty ? "dirty" : "clean", valid ? "valid" : "invalid");
 		}
 	}
 	
-	public final Data data0 = new Data();
-	public final Data data1 = new Data();
+	public final Data[] data = new Data[2];
 	
 	public int pageMask;
 	public int virtualPageNumber2;
 	public int addressSpaceId;
 	public boolean global;
 	
+	public Entry () {
+		for (int n = 0; n < data.length; n++) {
+			data[n] = new Data();
+		}
+	}
+	
 	@Override
 	public String toString () {
-		return String.format("Entry[pm=%x vpn=%x asid=%x g=%x d0=%s d1=%s]",
-				pageMask, virtualPageNumber2, addressSpaceId, global ? 1 : 0, data0, data1);
+		return String.format("Entry[%s vpn2=%x even=%s odd=%s]",
+				global ? "global" : "asid=" + Integer.toHexString(addressSpaceId),
+				virtualPageNumber2,
+				data[0], data[1]);
 	}
 }
 

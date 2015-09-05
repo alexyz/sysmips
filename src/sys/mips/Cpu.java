@@ -34,7 +34,7 @@ public final class Cpu {
 	private final int wordAddrXor;
 	private final Fpu fpu = new Fpu(this);
 	
-	private volatile long cycle;
+	private volatile long cycle = 1;
 	
 	/** within execOp: address of current instruction. if pc2 != pc1 + 4 then the current instruction is in a delay slot. */
 	private int pc;
@@ -50,9 +50,13 @@ public final class Cpu {
 	private int lo;
 	private boolean countIsns; 
 	private boolean disasm;
+	private int disasmCount;
 	private boolean interruptsEnabled;
 	private boolean execException;
+	private int[] exreg;
+	private int exhi, exlo;
 	private boolean singleStep;
+	private long pitTime;
 	
 	public Cpu (int memsize, boolean littleEndian) {
 		this.memory = new Memory(memsize, littleEndian);
@@ -106,11 +110,10 @@ public final class Cpu {
 		return pc;
 	}
 	
-	/** load pc1, pc2 and pc3 (the existing delay slot is discarded) */
+	/** load pc2 and pc3 (the existing delay slot is discarded) */
 	public final void setPc (int pc) {
-		this.pc = pc;
-		this.pc2 = pc + 4;
-		this.pc3 = pc + 8;
+		this.pc2 = pc;
+		this.pc3 = pc + 4;
 	}
 	
 	public final int[] getRegisters () {
@@ -195,103 +198,93 @@ public final class Cpu {
 		
 		try {
 			instance.set(this);
-			calls.call(pc);
+			calls.call(pc2);
 			log.info("run " + cycle);
-			long t = startTime;
-//			int da = 0;
-//			String[] regstr = new String[32];
+			pitTime = startTime;
+			String[] regstr = new String[32];
 			// this should only be checked during call
-//			int f = 0;
-//			f = memory.getSymbols().getAddr("init_vdso");
+//			int f = memory.getSymbols().getAddr("init_vdso");
 //			if (f == 0) {
 //				throw new RuntimeException();
 //			}
 			
 			while (true) {
-				for (int n = 0; n < 10000; n++) {
-					if (register[0] != 0) {
-						register[0] = 0;
+				if (register[0] != 0) {
+					register[0] = 0;
+				}
+				
+				//final boolean printCall = calls.isPrintAfterNext();
+				
+				pc = pc2;
+				pc2 = pc3;
+				pc3 += 4;
+				
+				//if (pc == f) {
+				//	disasm = true;
+				//	calls.setPrintCalls(true);
+				//}
+				
+				try {
+					// need to do this before isn is executed (as it will be executed after the exn handler returns)
+					// every 8192 cycles
+					if ((cycle & 0x1fff) == 0) {
+						checkException();
 					}
 					
-//					if (pc == f) {
-						//log.info("single step...");
-						//disasm = true;
-//						calls.setPrintCalls(true);
-						//singleStep = true;
-//					}
+					// this might cause tlb miss...
+					final int isn = memory.loadWord(pc);
 					
-//					if (disasm) {
-						// log.debug(cpRegString(this));
-//						final String x = CpuUtil.gpRegString(this, regstr);
-//						if (x.length() > 0) {
-//							log.info(x);
-//						}
-//						log.info(IsnUtil.isnString(this, isn));
-//					}
-					
-//					if (pc == 0x803a94a0 && register[REG_A0] > da) {
-//						log.info("delay " + Integer.toHexString(register[REG_A0]));
-//						da = register[REG_A0];
-//					}
-					
-//					final boolean printCall = calls.isPrintAfterNext();
-					
-					try {
-						// this might cause tlb miss...
-						final int isn = memory.loadWord(pc);
-						pc2 = pc3;
-						pc3 += 4;
-						
-						execOp(isn);
-						// update pc before exception handler does
-						pc = pc2;
-						
-					} catch (CpuException e) {
-						log.info("caught " + e);
-						execException(e.extype, 0, 0, e.vaddr, e.tlbRefill);
-					}
-					
-//					if (printCall) {
-//						calls.printCall();
-//					}
-					
-//					if (countIsns) {
-//						isnCount.get(IsnSet.getInstance().getIsn(isn).name)[0]++;
-//					}
-					
-					final int cmp = cpReg[CPR_COMPARE];
-					final int count = (int) (cycle >>> 1);
-					if (cmp == count) {
-						if (interruptsEnabled) {
-							throw new RuntimeException("compare hit");
+					if (disasm || disasmCount > 0) {
+						log.info(CpuUtil.gpRegString(this, regstr));
+						log.info(IsnUtil.isnString(this, isn));
+						if (disasmCount > 0) {
+							disasmCount--;
 						}
 					}
 					
-//					if (singleStep) {
-//						while (System.in.read() != 10) {
-							//
-//						}
-//					}
+					// the isn itself might call execException, as if an exception was thrown
+					execOp(isn);
 					
-					cycle++;
+				} catch (CpuException e) {
+					log.info("caught " + e);
+					switch (e.extype) {
+						case EX_INTERRUPT:
+						case EX_TLB_LOAD:
+						case EX_TLB_STORE:
+							break;
+						default:
+							throw e;
+					}
+					
+					execException(e.extype, e.interrupt, e.irq, e.vaddr, e.tlbRefill);
 				}
 				
+				//if (printCall) {
+				//	calls.printCall();
+				//}
+				
+				//if (countIsns) {
+				//	isnCount.get(IsnSet.getInstance().getIsn(isn).name)[0]++;
+				//}
+				
+				final int cmp = cpReg[CPR_COMPARE];
+				final int count = (int) (cycle >>> 1);
+				if (cmp == count) {
+					if (interruptsEnabled) {
+						throw new RuntimeException("compare hit");
+					}
+				}
+				
+				if (singleStep) {
+					while (System.in.read() != 10) {
+						//
+					}
+				}
+				
+				cycle++;
 				
 				if (cycle > 1000000000) {
 					throw new RuntimeException("timeout");
-				}
-				
-				// XXX this is total hack, should really be externally driven
-				// also shouldn't do this after handling exception above (though should be caught be exl assertion)
-				long ct = System.nanoTime();
-				if (ct >= t + INTERVAL_NS) {
-					t += INTERVAL_NS;
-					if (interruptsEnabled) {
-						log.info("fire programmable interrupt timer");
-						execException(EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER, 0, false);
-					}
-				} else {
-					//checkExn();
 				}
 			}
 			
@@ -302,6 +295,23 @@ public final class Cpu {
 			final long d = System.nanoTime() - startTime;
 			log.info("ns per isn: " + (d / cycle));
 			instance.remove();
+		}
+	}
+	
+	private void checkException () {
+		// XXX this is total hack, should really be externally driven
+		// also shouldn't do this after handling exception above (though should be caught be exl assertion)
+		long ct = System.nanoTime();
+		if (ct >= pitTime + INTERVAL_NS) {
+			//time += INTERVAL_NS;
+			pitTime = ct;
+			if (interruptsEnabled) {
+				log.info("fire programmable interrupt timer");
+				//execException(EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER, 0, false);
+				throw new CpuException(EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER, 0, false);
+			}
+		} else {
+			//checkExn();
 		}
 	}
 
@@ -330,6 +340,122 @@ public final class Cpu {
 //			}
 //		}
 //	}
+
+	/**
+	 * execute exception.
+	 * if excode is interrupt, interrupt code must be provided.
+	 * if excode is tlb load/store, vaddr is required.
+	 * if interrupt code is south bridge interrupt, irq must be provided.
+	 * updates pc2 and pc3 with exception handler.
+	 */
+	// traps.c trap_init
+	// genex.S
+	// malta-int.c plat_irq_dispatch (deals with hardware interrupts)
+	private final void execException (final int excode, final int interrupt, final int irq, final int vaddr, final boolean isTlbRefill) {
+		log.info("exec exception " + excode + " " + exceptionName(excode) + " interrupt " + interrupt + " " + MaltaUtil.interruptName(interrupt) + " irq " + MaltaUtil.irqName(irq) + " vaddr=" + Integer.toHexString(vaddr) + " tlbRefill=" + isTlbRefill);
+
+		switch (excode) {
+			case EX_INTERRUPT:
+			case EX_TLB_LOAD:
+			case EX_TLB_STORE:
+				break;
+			default:
+				throw new RuntimeException("unexpected exception " + excode);
+		}
+		
+		log.debug(CpuUtil.gpRegString(this, null));
+		log.debug(IsnUtil.isnString(this, memory.loadWord(pc)));
+		
+		final boolean isInterrupt = excode == EX_INTERRUPT;
+		final boolean isSbIntr = isInterrupt && interrupt == MaltaUtil.INT_SB_INTR;
+		final boolean isTlb = excode == EX_TLB_LOAD || excode == EX_TLB_STORE;
+		
+		if (execException) {
+			throw new RuntimeException("exception in exception handler");
+		}
+		
+		if (excode < 0 || excode >= 32) {
+			throw new RuntimeException("invalid excode " + excode);
+		}
+
+		if (isInterrupt && (interrupt < 0 || interrupt >= 8)) {
+			throw new RuntimeException("invalid interrupt " + interrupt);
+		}
+		
+		if (isSbIntr && (irq < 0 || irq >= 16)) {
+			throw new RuntimeException("invalid irq " + irq);
+		}
+		
+		if (isTlb && vaddr == 0) {
+			throw new RuntimeException("tlb with zero address");
+		}
+		
+		final boolean bev = CPR_STATUS_BEV.isSet(cpReg);
+		final boolean exl = CPR_STATUS_EXL.isSet(cpReg);
+		final boolean iv = CPR_CAUSE_IV.isSet(cpReg);
+		
+		if (bev) {
+			// we don't have a boot rom...
+			throw new RuntimeException("bootstrap exception");
+		}
+		
+		if (exl) {
+			// eh...
+			throw new RuntimeException("exception in exception...");
+		}
+
+		final int interrupts = CPR_STATUS_IM.get(cpReg);
+		final int interruptmask = isInterrupt ? 1 << interrupt : 0;
+		
+		if (isInterrupt && (interrupts & interruptmask) == 0) {
+			throw new RuntimeException("masked interrupt " + interrupt);
+		}
+		
+		boolean isDelaySlot = pc2 != pc + 4;
+		
+		CPR_STATUS_EXL.set(cpReg, true);
+		CPR_CAUSE_EXCODE.set(cpReg, excode);
+		CPR_CAUSE_IP.set(cpReg, interruptmask);
+		CPR_CAUSE_BD.set(cpReg, isDelaySlot);
+		CPR_EPC_VALUE.set(cpReg, isDelaySlot ? pc - 4 : pc);
+		
+		if (isTlb) {
+			final int vpn2 = vpn2(vaddr);
+			CPR_BADVADDR_BADVADDR.set(cpReg, vaddr);
+			CPR_CONTEXT_BADVPN2.set(cpReg, vpn2);
+			CPR_ENTRYHI_VPN2.set(cpReg, vpn2);
+		}
+		
+		log.info("epc=" + memory.getSymbols().getNameAddrOffset(cpReg[CPR_EPC]) + " delaySlot=" + isDelaySlot);
+		
+		statusUpdated();
+		
+		if (isSbIntr) {
+			// uh....
+			memory.getMalta().getGt().setIrq(irq);
+		}
+		
+		execException = true;
+		exreg = register.clone();
+		exhi = hi;
+		exlo = lo;
+		
+		if (isTlbRefill) {
+			log.info("jump to tlb refill vector");
+			setPc(EXV_TLBREFILL);
+			
+		} else if (isInterrupt && iv) {
+			log.info("jump to interrupt vector");
+			setPc(EXV_INTERRUPT);
+			
+		} else {
+			log.info("jump to general exception vector");
+			setPc(EXV_EXCEPTION);
+		}
+		
+		calls.push("ex" + excode + "int" + interrupt + "irq" + irq);
+		calls.call(pc);
+	}
 	
 	private final void execOp (final int isn) {
 		final int op = op(isn);
@@ -645,10 +771,12 @@ public final class Cpu {
 				}
 				return;
 			case FN_SYSCALL:
-				execException(EX_SYSCALL, 0, 0, 0, false);
+				// won't this try to re-execute the syscall?
+				// unless linux is smart enough to add 4 to the return address...
+				execException(EX_SYSCALL, -1, -1, -1, false);
 				return;
 			case FN_BREAK:
-				execException(EX_BREAKPOINT, 0, 0, 0, false);
+				execException(EX_BREAKPOINT, -1, -1, -1, false);
 				return;
 			case FN_SYNC:
 				log.debug("sync");
@@ -663,7 +791,7 @@ public final class Cpu {
 				register[rd] = lo;
 				return;
 			case FN_MTLO:
-				lo = register[rd];
+				lo = register[rs];
 				return;
 			case FN_MULT: {
 				// sign extend
@@ -735,113 +863,13 @@ public final class Cpu {
 			}
 			case FN_TNE:
 				if (register[rs] != register[rt]) {
-					execException(EX_TRAP, 0, 0, 0, false);
+					execException(EX_TRAP, -1, -1, -1, false);
 					throw new RuntimeException("trap");
 				}
 				return;
 			default:
 				throw new IllegalArgumentException("invalid fn " + opString(fn));
 		}
-	}
-	
-	/**
-	 * execute exception.
-	 * if excode is interrupt, interrupt code must be provided.
-	 * if excode is tlb load/store, vaddr is required.
-	 * if interrupt code is south bridge interrupt, irq must be provided.
-	 */
-	// traps.c trap_init
-	// genex.S
-	// malta-int.c plat_irq_dispatch (deals with hardware interrupts)
-	private final void execException (final int excode, final int interrupt, final int irq, final int vaddr, final boolean isTlbRefill) {
-		log.info("exec exception " + excode + " " + exceptionName(excode) + " interrupt " + interrupt + " " + MaltaUtil.interruptName(interrupt) + " irq " + MaltaUtil.irqName(irq) + " vaddr=" + Integer.toHexString(vaddr) + " tlbRefill=" + isTlbRefill);
-		
-		final boolean isInterrupt = excode == EX_INTERRUPT;
-		final boolean isSbIntr = isInterrupt && interrupt == MaltaUtil.INT_SB_INTR;
-		final boolean isTlb = excode == EX_TLB_LOAD || excode == EX_TLB_STORE;
-		
-		if (execException) {
-			throw new RuntimeException("exception in exception handler");
-		}
-		
-		if (excode < 0 || excode >= 32) {
-			throw new RuntimeException("invalid excode " + excode);
-		}
-
-		if (isInterrupt && (interrupt < 0 || interrupt >= 8)) {
-			throw new RuntimeException("invalid interrupt " + interrupt);
-		}
-		
-		if (isSbIntr && (irq < 0 || irq >= 16)) {
-			throw new RuntimeException("invalid irq " + irq);
-		}
-		
-		if (isTlb && vaddr == 0) {
-			throw new RuntimeException("tlb with zero address");
-		}
-		
-		final boolean bev = CPR_STATUS_BEV.isSet(cpReg);
-		final boolean exl = CPR_STATUS_EXL.isSet(cpReg);
-		final boolean iv = CPR_CAUSE_IV.isSet(cpReg);
-		
-		if (bev) {
-			// we don't have a boot rom...
-			throw new RuntimeException("bootstrap exception");
-		}
-		
-		if (exl) {
-			// eh...
-			throw new RuntimeException("exception in exception...");
-		}
-
-		final int interrupts = CPR_STATUS_IM.get(cpReg);
-		final int interruptmask = 1 << interrupt;
-		
-		if (isInterrupt && (interrupts & interruptmask) == 0) {
-			throw new RuntimeException("masked interrupt " + interrupt);
-		}
-		
-		boolean isDelaySlot = pc2 != pc + 4;
-		
-		CPR_STATUS_EXL.set(cpReg, true);
-		CPR_CAUSE_EXCODE.set(cpReg, excode);
-		CPR_CAUSE_IP.set(cpReg, interruptmask);
-		CPR_CAUSE_BD.set(cpReg, isDelaySlot);
-		// XXX 4 too high...
-		CPR_EPC_VALUE.set(cpReg, isDelaySlot ? pc - 4 : pc);
-		
-		if (isTlb) {
-			final int vpn2 = vpn2(vaddr);
-			CPR_BADVADDR_BADVADDR.set(cpReg, vaddr);
-			CPR_CONTEXT_BADVPN2.set(cpReg, vpn2);
-			CPR_ENTRYHI_VPN2.set(cpReg, vpn2);
-		}
-		
-		log.info("epc=" + memory.getSymbols().getNameAddrOffset(cpReg[CPR_EPC]) + " bd=" + (CPR_CAUSE_BD.isSet(cpReg)));
-		
-		statusUpdated();
-		
-		if (isSbIntr) {
-			// uh....
-			memory.getMalta().getGt().setIrq(irq);
-		}
-		
-		if (isTlbRefill) {
-			log.info("jump to tlb refill vector");
-			setPc(EXV_TLBREFILL);
-			
-		} else if (isInterrupt && iv) {
-			log.info("jump to interrupt vector");
-			setPc(EXV_INTERRUPT);
-			
-		} else {
-			log.info("jump to general exception vector");
-			setPc(EXV_EXCEPTION);
-		}
-		
-		execException = true;
-		calls.push("ex" + excode + "int" + interrupt + "irq" + irq);
-		calls.call(pc);
 	}
 	
 	private final void execFunction2 (final int isn) {
@@ -1030,28 +1058,12 @@ public final class Cpu {
 		final int fn = fn(isn);
 		
 		switch (fn) {
-			case CP_FN_TLBWI: {
-				// write indexed tlb entry...
-//				log.debug("entry0=" + Integer.toHexString(cpReg[CPR_ENTRYLO0]));
-//				log.debug("entry1=" + Integer.toHexString(cpReg[CPR_ENTRYLO1]));
-				final int i = CPR_INDEX_INDEX.get(cpReg);
-				final Entry e = memory.getEntry(i);
-				e.pageMask = CPR_PAGEMASK_MASK.get(cpReg);
-				if (e.pageMask != 0) {
-					throw new RuntimeException("non zero page mask");
-				}
-				e.virtualPageNumber2 = CPR_ENTRYHI_VPN2.get(cpReg);
-				e.addressSpaceId = CPR_ENTRYHI_ASID.get(cpReg);
-				e.global = CPR_ENTRYLO0_GLOBAL.isSet(cpReg) && CPR_ENTRYLO1_GLOBAL.isSet(cpReg);
-				e.data[0].physicalFrameNumber = CPR_ENTRYLO0_PFN.get(cpReg);
-				e.data[0].dirty = CPR_ENTRYLO0_DIRTY.isSet(cpReg);
-				e.data[0].valid = CPR_ENTRYLO0_VALID.isSet(cpReg);
-				e.data[1].physicalFrameNumber = CPR_ENTRYLO1_PFN.get(cpReg);
-				e.data[1].dirty = CPR_ENTRYLO1_DIRTY.isSet(cpReg);
-				e.data[1].valid = CPR_ENTRYLO1_VALID.isSet(cpReg);
-				log.info("updated tlb[" + i + "]=" + e);
+			case CP_FN_TLBWI:
+				updateEntry(CPR_INDEX_INDEX.get(cpReg));
 				return;
-			}
+			case CP_FN_TLBWR:
+				updateEntry(random());
+				return;
 			case CP_FN_TLBP: {
 				int i = memory.probe(CPR_ENTRYHI_VPN2.get(cpReg));
 				if (i >= 0) {
@@ -1072,6 +1084,29 @@ public final class Cpu {
 				setPc(epc);
 				CPR_STATUS_EXL.set(cpReg, false);
 				loadLinkedBit = false;
+				if (execException) {
+					boolean eq = true;
+					for (int n = 0; n < 32; n++) {
+						if (n != REG_K0 && n != REG_K1) {
+							if (exreg[n] != register[n]) {
+								eq = false;
+								log.debug("register " + n + ": " + gpRegName(n) + " changed from " + Integer.toHexString(exreg[n]) + " to " + Integer.toHexString(register[n]));
+							}
+						}
+					}
+					if (exhi != hi) {
+						log.debug("exhi=" + Integer.toHexString(exhi) + " hi=" + Integer.toHexString(hi));
+						eq = false;
+					}
+					if (exlo != lo) {
+						log.debug("exlo=" + Integer.toHexString(exlo) + " lo=" + Integer.toHexString(lo));
+						eq = false;
+					}
+					if (!eq) {
+						throw new RuntimeException("eret register change");
+					}
+				}
+				//disasmCount = 50;
 				execException = false;
 				statusUpdated();
 				calls.pop();
@@ -1079,6 +1114,30 @@ public final class Cpu {
 			}
 			default:
 				throw new RuntimeException("invalid coprocessor fn " + opString(fn));
+		}
+	}
+
+	private void updateEntry (final int i) {
+		log.debug("update entry " + i + " in " + memory.getSymbols().getNameAddrOffset(pc));
+		
+		final Entry e = memory.getEntry(i);
+		e.pageMask = CPR_PAGEMASK_MASK.get(cpReg);
+		e.virtualPageNumber2 = CPR_ENTRYHI_VPN2.get(cpReg);
+		e.addressSpaceId = CPR_ENTRYHI_ASID.get(cpReg);
+		e.global = CPR_ENTRYLO0_GLOBAL.isSet(cpReg) && CPR_ENTRYLO1_GLOBAL.isSet(cpReg);
+		
+		e.data[0].physicalFrameNumber = CPR_ENTRYLO0_PFN.get(cpReg);
+		e.data[0].dirty = CPR_ENTRYLO0_DIRTY.isSet(cpReg);
+		e.data[0].valid = CPR_ENTRYLO0_VALID.isSet(cpReg);
+		
+		e.data[1].physicalFrameNumber = CPR_ENTRYLO1_PFN.get(cpReg);
+		e.data[1].dirty = CPR_ENTRYLO1_DIRTY.isSet(cpReg);
+		e.data[1].valid = CPR_ENTRYLO1_VALID.isSet(cpReg);
+		
+		log.info("updated tlb[" + i + "]=" + e);
+		
+		if (e.pageMask != 0) {
+			throw new RuntimeException("non zero page mask");
 		}
 	}
 	

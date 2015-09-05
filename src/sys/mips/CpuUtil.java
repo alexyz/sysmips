@@ -16,12 +16,12 @@ import static sys.mips.IsnUtil.*;
 public class CpuUtil {
 	
 	/** load elf file into cpu, set entry point, return max address */
-	public static Cpu loadElf (final RandomAccessFile file, final int[] top) throws Exception {
+	public static Cpu loadElf (final RandomAccessFile file, final int memsize, final int[] top) throws Exception {
 		ELF32 elf = new ELF32(file);
 		//System.out.println("elf=" + elf);
 		elf.print(System.out);
 		
-		Cpu cpu = new Cpu(0x02000000, elf.header.data == ELF32Header.ELFDATA2LSB);
+		Cpu cpu = new Cpu(memsize, elf.header.data == ELF32Header.ELFDATA2LSB);
 		Memory mem = cpu.getMemory();
 		Symbols sym = mem.getSymbols();
 		
@@ -95,7 +95,6 @@ public class CpuUtil {
 	}
 	
 	public static String gpRegString (final Cpu cpu, String[] prev) {
-		final int pc = cpu.getPc();
 		final int[] reg = cpu.getRegisters();
 		final Memory mem = cpu.getMemory();
 		final Symbols syms = mem.getSymbols();
@@ -103,16 +102,22 @@ public class CpuUtil {
 		final StringBuilder sb = new StringBuilder(256);
 		for (int n = 0; n < reg.length; n++) {
 			final String value = syms.getNameAddrOffset(reg[n]);
-			if (prev[n] == null || !prev[n].equals(value)) {
+			if (prev == null || prev[n] == null || !prev[n].equals(value)) {
 				final String name = gpRegName(n);
 				if (sb.length() > 0) {
 					sb.append(" ");
 				}
 				sb.append(name).append("=").append(value);
-				prev[n] = value;
+				if (prev != null) {
+					prev[n] = value;
+				}
 			}
 		}
-		return sb.toString();
+		if (sb.length() > 0) {
+			return sb.toString();
+		} else {
+			return "unchanged";
+		}
 	}
 	
 	private static String cpRegString (Cpu cpu) {

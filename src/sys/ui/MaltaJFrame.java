@@ -52,7 +52,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		fileField.setText("images/vmlinux-3.2.0-4-4kc-malta");
 		fileButton.addActionListener(ae -> selectFile());
 		argsField.setText("debug initcall_debug ignore_loglevel");
-		envField.setText("memsize=33554432");
+		envField.setText("memsize=" + 0x04000000);
 		
 		runButton.addActionListener(ae -> start());
 		
@@ -161,7 +161,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		
 		try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
 			int[] top = new int[1];
-			cpu = CpuUtil.loadElf(raf, top);
+			cpu = CpuUtil.loadElf(raf, 0x04000000, top);
 			CpuUtil.setMainArgs(cpu, top[0] + 0x100000, args, env);
 			
 		} catch (Exception e) {

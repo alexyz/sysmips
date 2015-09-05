@@ -229,10 +229,12 @@ public final class Constants {
 	//
 
 	public static final byte CP_FN_TLBR = 0x01;
+	/** write indexed tlb entry */
 	public static final byte CP_FN_TLBWI = 0x02;
 	/** TLB invalidate, optional instruction */
 	public static final byte CP_FN_TLBINV = 0x03;
 	public static final byte CP_FN_TLBINVF = 0x04;
+	/** write random tlb entry */
 	public static final byte CP_FN_TLBWR = 0x06;
 	/** tlb probe */
 	public static final byte CP_FN_TLBP = 0x08;
@@ -350,8 +352,14 @@ public final class Constants {
 	public static final int REG_A1 = 5;
 	public static final int REG_A2 = 6;
 	public static final int REG_A3 = 7;
+	/** kernel temp 0 */
+	public static final int REG_K0 = 26;
+	/** kernel temp 1 */
+	public static final int REG_K1 = 27;
+	public static final int REG_GP = 28;
 	/** stack pointer register */
 	public static final int REG_SP = 29;
+	public static final int REG_RA = 31;
 	
 	//
 	// floating point control registers and constants

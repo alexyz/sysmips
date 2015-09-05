@@ -1,5 +1,7 @@
 package sys.mips;
 
+import java.util.Random;
+
 /**
  * mips instruction/register decoding and encoding
  */
@@ -7,6 +9,8 @@ public final class Functions {
 	
 	public static final long ZX_INT_MASK = 0xffff_ffffL;
 	public static final int ZX_SHORT_MASK = 0xffff;
+	
+	private static final Random RANDOM = new Random();
 
 	/**
 	 * zero extend int to long (beware implicit sign extension of byte/short
@@ -176,6 +180,11 @@ public final class Functions {
 	/** return the even/odd index (the last bit of the vpn) */
 	public static final int evenodd (final int vaddr) {
 		return (vaddr >> 12) & 1;
+	}
+	
+	/** return random tlb entry */
+	public static final int random () {
+		return RANDOM.nextInt() & 0xf;
 	}
 	
 	private Functions () {

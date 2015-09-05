@@ -46,7 +46,7 @@ public class MaltaUtil {
 			case INT_R4KTIMER:
 				return "R4KTimer";
 			default:
-				return "INT" + interrupt;
+				return null;
 		}
 	}
 	
@@ -81,7 +81,7 @@ public class MaltaUtil {
 			case IRQ_IDE1:
 				return "IDE1";
 			default:
-				return "IRQ" + irq;
+				return null;
 		}
 	}
 	

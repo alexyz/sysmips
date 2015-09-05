@@ -83,7 +83,7 @@ public final class Memory {
 	
 	public final int loadWord (final int vaddr) {
 		if ((vaddr & 3) != 0) {
-			throw new CpuException(Constants.EX_ADDR_ERROR_LOAD, vaddr, false);
+			throw new CpuException(Constants.EX_ADDR_ERROR_LOAD, -1, -1, vaddr, false);
 		}
 		if (isSystem(vaddr)) {
 			return malta.systemRead(vaddr & KSEG_MASK, 4);
@@ -94,7 +94,7 @@ public final class Memory {
 	
 	public final void storeWord (final int vaddr, final int value) {
 		if ((vaddr & 3) != 0) {
-			throw new CpuException(Constants.EX_ADDR_ERROR_STORE, vaddr, false);
+			throw new CpuException(Constants.EX_ADDR_ERROR_STORE, -1, -1, vaddr, false);
 		}
 		if (isSystem(vaddr)) {
 			malta.systemWrite(vaddr & KSEG_MASK, value, 4);
@@ -105,7 +105,7 @@ public final class Memory {
 	
 	public final short loadHalfWord (final int vaddr) {
 		if ((vaddr & 1) != 0) {
-			throw new CpuException(Constants.EX_ADDR_ERROR_LOAD, vaddr, false);
+			throw new CpuException(Constants.EX_ADDR_ERROR_LOAD, -1, -1, vaddr, false);
 		}
 		if (isSystem(vaddr)) {
 			return (short) malta.systemRead(vaddr & KSEG_MASK, 2);
@@ -116,7 +116,7 @@ public final class Memory {
 	
 	public final void storeHalfWord (final int vaddr, final short value) {
 		if ((vaddr & 1) != 0) {
-			throw new CpuException(Constants.EX_ADDR_ERROR_STORE, vaddr, false);
+			throw new CpuException(Constants.EX_ADDR_ERROR_STORE, -1, -1, vaddr, false);
 		}
 		if (isSystem(vaddr)) {
 			malta.systemWrite(vaddr & KSEG_MASK, value, 2);
@@ -194,13 +194,16 @@ public final class Memory {
 		boolean refill = true;
 		
 		log.debug("lookup vaddr=" + Integer.toHexString(vaddr) + " asid=" + Integer.toHexString(asid) + " vpn2=" + Integer.toHexString(vpn2));
+		if (vaddr >= 0 && vaddr < 0x400000) {
+			throw new RuntimeException("lookup " + Integer.toHexString(vaddr));
+		}
 		
 		for (int n = 0; n < entries.length; n++) {
 			Entry e = entries[n];
-			log.debug("entry[" + n + "]=" + e);
+			//log.debug("entry[" + n + "]=" + e);
 			
 			if (e.virtualPageNumber2 == vpn2 && (e.addressSpaceId == asid || e.global)) {
-				log.debug("tlb hit");
+				//log.debug("tlb hit");
 				hits++;
 				EntryData d = e.data[eo];
 				if (!d.valid) {
@@ -219,10 +222,14 @@ public final class Memory {
 		}
 		
 		log.debug("tlb miss");
+		for (int n = 0; n < entries.length; n++) {
+			Entry e = entries[n];
+			log.debug("entry[" + n + "]=" + e);
+		}
 		misses++;
 		
 		// also need to throw modified exception if page is read only...
-		throw new CpuException(store ? Constants.EX_TLB_STORE : Constants.EX_TLB_LOAD, vaddr, refill);
+		throw new CpuException(store ? Constants.EX_TLB_STORE : Constants.EX_TLB_LOAD, -1, -1, vaddr, refill);
 	}
 	
 	private final byte loadByteImpl (final int paddr) {

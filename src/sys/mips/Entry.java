@@ -5,18 +5,7 @@ package sys.mips;
  */
 public class Entry {
 	
-	public static class Data {
-		/** 20 bits */
-		public int physicalFrameNumber;
-		public boolean dirty;
-		public boolean valid;
-		@Override
-		public String toString () {
-			return String.format("Data[pfn=%x %s %s]", physicalFrameNumber, dirty ? "dirty" : "clean", valid ? "valid" : "invalid");
-		}
-	}
-	
-	public final Data[] data = new Data[2];
+	public final EntryData[] data = new EntryData[2];
 	
 	public int pageMask;
 	public int virtualPageNumber2;
@@ -25,7 +14,7 @@ public class Entry {
 	
 	public Entry () {
 		for (int n = 0; n < data.length; n++) {
-			data[n] = new Data();
+			data[n] = new EntryData();
 		}
 	}
 	

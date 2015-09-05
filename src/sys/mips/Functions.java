@@ -3,7 +3,7 @@ package sys.mips;
 /**
  * mips instruction/register decoding and encoding
  */
-public final class Decoder {
+public final class Functions {
 	
 	public static final long ZX_INT_MASK = 0xffff_ffffL;
 	public static final int ZX_SHORT_MASK = 0xffff;
@@ -178,7 +178,7 @@ public final class Decoder {
 		return (vaddr >> 12) & 1;
 	}
 	
-	private Decoder () {
+	private Functions () {
 		//
 	}
 }

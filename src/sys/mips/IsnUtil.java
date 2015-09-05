@@ -1,7 +1,7 @@
 package sys.mips;
 
 import static sys.mips.Constants.*;
-import static sys.mips.Decoder.*;
+import static sys.mips.Functions.*;
 
 import sys.util.Symbols;
 
@@ -137,6 +137,7 @@ public class IsnUtil {
 	
 	/** get value of format code */
 	private static String formatCode (final Cpu cpu, final int isn, final String name) {
+		final Fpu fpu = cpu.getFpu();
 		final Memory mem = cpu.getMemory();
 		final int[] reg = cpu.getRegisters();
 		final int pc = cpu.getPc();
@@ -153,21 +154,21 @@ public class IsnUtil {
 			case "fs":
 				return fpRegName(fs(isn));
 			case "regft":
-				return formatDouble(cpu.getFpRegister(ft(isn), FpFormat.getInstance(fmt(isn))));
+				return formatDouble(fpu.getFpRegister(ft(isn), FpFormat.getInstance(fmt(isn))));
 			case "regfs":
-				return formatDouble(cpu.getFpRegister(fs(isn), FpFormat.getInstance(fmt(isn))));
+				return formatDouble(fpu.getFpRegister(fs(isn), FpFormat.getInstance(fmt(isn))));
 			case "regfss":
-				return formatDouble(cpu.getFpRegister(fs(isn), FpFormat.SINGLE));
+				return formatDouble(fpu.getFpRegister(fs(isn), FpFormat.SINGLE));
 			case "regfrs":
-				return formatDouble(cpu.getFpRegister(fr(isn), FpFormat.SINGLE));
+				return formatDouble(fpu.getFpRegister(fr(isn), FpFormat.SINGLE));
 			case "regfd":
-				return formatDouble(cpu.getFpRegister(fd(isn), FpFormat.getInstance(fmt(isn))));
+				return formatDouble(fpu.getFpRegister(fd(isn), FpFormat.getInstance(fmt(isn))));
 			case "regfts":
-				return formatDouble(cpu.getFpRegister(ft(isn), FpFormat.SINGLE));
+				return formatDouble(fpu.getFpRegister(ft(isn), FpFormat.SINGLE));
 			case "regftd":
-				return formatDouble(cpu.getFpRegister(ft(isn), FpFormat.DOUBLE));
+				return formatDouble(fpu.getFpRegister(ft(isn), FpFormat.DOUBLE));
 			case "regfsx": {
-				int v = cpu.getFpRegister(fs(isn));
+				int v = fpu.getFpRegister(fs(isn));
 				return "0x" + Integer.toHexString(v) + "(" + formatDouble(Float.intBitsToFloat(v)) + ")";
 			}
 			case "rs":
@@ -238,7 +239,7 @@ public class IsnUtil {
 			case "fpcc":
 				return "cc" + fpcc(isn);
 			case "regfpcc":
-				return String.valueOf(fccrFcc(cpu.getFpControlReg(), fpcc(isn)));
+				return String.valueOf(fccrFcc(fpu.getFpControlReg(), fpcc(isn)));
 			default:
 				throw new RuntimeException("unknown name " + name);
 		}

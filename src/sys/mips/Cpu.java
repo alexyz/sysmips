@@ -7,7 +7,7 @@ import sys.malta.MaltaUtil;
 import sys.util.Symbols;
 
 import static sys.mips.Constants.*;
-import static sys.mips.Decoder.*;
+import static sys.mips.Functions.*;
 import static sys.mips.IsnUtil.*;
 
 public final class Cpu {
@@ -24,9 +24,6 @@ public final class Cpu {
 	private final int[] register = new int[32];
 	/** coprocessor 0 registers (register+selection*32) */
 	private final int[] cpReg = new int[64];
-	/** coprocessor 1 registers (longs/doubles in consecutive registers) */
-	private final int[] fpReg = new int[32];
-	private final int[] fpControlReg = new int[32];
 	private final CpuLogger log = new CpuLogger(this);
 	private final Map<String, int[]> isnCount = new HashMap<>();
 	private final Memory memory;
@@ -35,6 +32,7 @@ public final class Cpu {
 	private final CallLogger calls = new CallLogger(this);
 	/** 0 for le, 3 for be */
 	private final int wordAddrXor;
+	private final Fpu fpu = new Fpu(this);
 	
 	private volatile long cycle;
 	
@@ -47,7 +45,6 @@ public final class Cpu {
 	private int loadLinkedVaddr;
 	private int loadLinkedPaddr;
 	private boolean loadLinkedBit;
-	private FpRound roundingMode = FpRound.NONE;
 	private boolean kernelMode;
 	private int hi;
 	private int lo;
@@ -90,9 +87,6 @@ public final class Cpu {
 		
 		cpReg[CPR_COMPARE] = -1;
 		
-		// support S, D, W, L (unlike the 4kc...)
-		fpControlReg[FPCR_FIR] = (1 << 16) | (1 << 17) | (1 << 20) | (1 << 21) | (1 << 8);
-		
 		setPc(EXV_RESET);
 	}
 	
@@ -131,14 +125,6 @@ public final class Cpu {
 		register[n] = value;
 	}
 	
-	public final int getFpRegister (int n) {
-		return fpReg[n];
-	}
-	
-	public final double getFpRegister (int n, FpFormat fmt) {
-		return fmt.load(fpReg, n);
-	}
-	
 	public final CpuLogger getLog () {
 		return log;
 	}
@@ -165,10 +151,6 @@ public final class Cpu {
 	
 	public final Map<String, int[]> getIsnCount () {
 		return isnCount;
-	}
-	
-	public final int[] getFpControlReg () {
-		return fpControlReg;
 	}
 	
 	public final boolean isLittleEndian () {
@@ -202,6 +184,10 @@ public final class Cpu {
 	public void setDisasm (boolean disasm) {
 		this.disasm = disasm;
 	}
+	
+	public Fpu getFpu () {
+		return fpu;
+	}
 
 	/** never returns, throws runtime exception... */
 	public final void run () {
@@ -215,7 +201,7 @@ public final class Cpu {
 //			int da = 0;
 //			String[] regstr = new String[32];
 			// this should only be checked during call
-			int f = 0;
+//			int f = 0;
 //			f = memory.getSymbols().getAddr("init_vdso");
 //			if (f == 0) {
 //				throw new RuntimeException();
@@ -226,10 +212,6 @@ public final class Cpu {
 					if (register[0] != 0) {
 						register[0] = 0;
 					}
-					
-					final int isn = memory.loadWord(pc);
-					pc2 = pc3;
-					pc3 += 4;
 					
 //					if (pc == f) {
 						//log.info("single step...");
@@ -255,6 +237,11 @@ public final class Cpu {
 //					final boolean printCall = calls.isPrintAfterNext();
 					
 					try {
+						// this might cause tlb miss...
+						final int isn = memory.loadWord(pc);
+						pc2 = pc3;
+						pc3 += 4;
+						
 						execOp(isn);
 						// update pc before exception handler does
 						pc = pc2;
@@ -365,30 +352,34 @@ public final class Cpu {
 				}
 				return;
 			case OP_COP1:
-				execFpuRs(isn);
+				fpu.execFpuRs(isn);
 				return;
 			case OP_COP1X:
-				execFpuFnX(isn);
+				fpu.execFpuFnX(isn);
 				return;
 			case OP_SPECIAL2:
 				execFunction2(isn);
 				return;
 			case OP_LWC1:
-				fpReg[rt] = memory.loadWord(register[rs] + simm);
+				fpu.setFpRegister(rt, memory.loadWord(register[rs] + simm));
 				return;
-			case OP_LDC1:
+			case OP_LDC1: {
 				// least significant word first...
-				fpReg[rt + 1] = memory.loadWord(register[rs] + simm);
-				fpReg[rt] = memory.loadWord(register[rs] + simm + 4);
+				final int a = register[rs] + simm;
+				fpu.setFpRegister(rt + 1, memory.loadWord(a));
+				fpu.setFpRegister(rt, memory.loadWord(a + 4));
 				return;
+			}
 			case OP_SWC1:
-				memory.storeWord(register[rs] + simm, fpReg[rt]);
+				memory.storeWord(register[rs] + simm, fpu.getFpRegister(rt));
 				return;
-			case OP_SDC1:
+			case OP_SDC1: {
 				// least significant word first...
-				memory.storeWord(register[rs] + simm, fpReg[rt + 1]);
-				memory.storeWord(register[rs] + simm + 4, fpReg[rt]);
+				final int a = register[rs] + simm;
+				memory.storeWord(a, fpu.getFpRegister(rt + 1));
+				memory.storeWord(a + 4, fpu.getFpRegister(rt));
 				return;
+			}
 			case OP_J:
 				execJump(isn);
 				{
@@ -532,11 +523,14 @@ public final class Cpu {
 				// lealign 2: memmask << 24 | reg >> 8
 				// lealign 3: memmask << 32 | reg >> 0
 				final int a = register[rs] + simm;
+				final int aa = a & ~3;
+				// force tlb store error
+				memory.translate(aa, true);
 				final int lealign = (a & 3) ^ wordAddrXor;
-				final int word = memory.loadWord(a & ~3);
+				final int word = memory.loadWord(aa);
 				final int lsh = (lealign + 1) * 8;
 				final int rsh = 32 - lsh;
-				memory.storeWord(a & ~3, (word & (int) (ZX_INT_MASK << lsh)) | (register[rt] >>> rsh));
+				memory.storeWord(aa, (word & (int) (ZX_INT_MASK << lsh)) | (register[rt] >>> rsh));
 				return;
 			}
 			case OP_SWR: {
@@ -545,11 +539,14 @@ public final class Cpu {
 				// lealign 2: reg << 16 | memmask >> 16
 				// lealign 3: reg << 24 | memmask >> 8
 				final int a = register[rs] + simm;
+				final int aa = a & ~3;
+				// force tlb store error
+				memory.translate(aa, true);
 				final int lealign = (a & 3) ^ wordAddrXor;
-				final int word = memory.loadWord(a & ~3);
+				final int word = memory.loadWord(aa);
 				final int lsh = lealign * 8;
 				final int rsh = 32 - lsh;
-				memory.storeWord(a & ~3, (register[rt] << lsh) | (word & (int) (ZX_INT_MASK >>> rsh)));
+				memory.storeWord(aa, (register[rt] << lsh) | (word & (int) (ZX_INT_MASK >>> rsh)));
 				return;
 			}
 			case OP_PREF:
@@ -565,7 +562,7 @@ public final class Cpu {
 	}
 
 	/** update nextpc with branch */
-	private final void execBranch (final int isn) {
+	public final void execBranch (final int isn) {
 		pc3 = branch(isn, pc2);
 	}
 
@@ -1082,204 +1079,6 @@ public final class Cpu {
 			}
 			default:
 				throw new RuntimeException("invalid coprocessor fn " + opString(fn));
-		}
-	}
-	
-	private final void execFpuRs (final int isn) {
-		final int rs = rs(isn);
-		final int rt = rt(isn);
-		final int fs = fs(isn);
-		
-		switch (rs) {
-			case FP_RS_MFC1:
-				register[rt] = fpReg[fs];
-				return;
-				
-			case FP_RS_MTC1:
-				fpReg[fs] = register[rt];
-				return;
-				
-			case FP_RS_S:
-				execFpuFn(isn, FpFormat.SINGLE);
-				return;
-				
-			case FP_RS_D:
-				execFpuFn(isn, FpFormat.DOUBLE);
-				return;
-				
-			case FP_RS_W:
-				execFpuFnWord(isn);
-				return;
-				
-			case FP_RS_BC1:
-				if (fptf(isn) == fccrFcc(fpControlReg, fpcc(isn))) {
-					execBranch(isn);
-				} else if (fpnd(isn)) {
-					throw new RuntimeException();
-				}
-				return;
-				
-			case FP_RS_CFC1:
-				execFpuCopyFrom(isn);
-				return;
-				
-			case FP_RS_CTC1:
-				execFpuCopyTo(isn);
-				return;
-				
-			default:
-				throw new RuntimeException("invalid fpu rs " + opString(rs));
-		}
-		
-	}
-	
-	private final void execFpuCopyFrom (final int isn) {
-		final int rt = rt(isn);
-		final int fs = fs(isn);
-		
-		switch (fs) {
-			case FPCR_FCSR:
-			case FPCR_FCCR:
-			case FPCR_FIR:
-				register[rt] = fpControlReg[fs];
-				return;
-				
-			default:
-				throw new RuntimeException("read unimplemented fp control register " + fs);
-		}
-	}
-	
-	private final void execFpuCopyTo (final int isn) {
-		final int rtValue = register[rt(isn)];
-		final int fs = fs(isn);
-		
-		switch (fs) {
-			case FPCR_FCSR:
-				if ((rtValue & ~0x3) != 0) {
-					throw new RuntimeException("unknown fcsr %x\n");
-				}
-				break;
-				
-			default:
-				throw new RuntimeException("write unimplemented fp control register " + fs + ", " + Integer.toHexString(rtValue));
-		}
-		
-		fpControlReg[fs] = rtValue;
-		roundingMode = FpRound.getInstance(fpControlReg[FPCR_FCSR]);
-	}
-	
-	private final void execFpuFn (final int isn, final FpFormat fmt) {
-		final int[] fpReg = this.fpReg;
-		final int fs = fs(isn);
-		final int ft = ft(isn);
-		final int fd = fd(isn);
-		final int fn = fn(isn);
-		
-		switch (fn) {
-			case FP_FN_ADD:
-				fmt.store(fpReg, fd, roundingMode.round(fmt.load(fpReg, fs) + fmt.load(fpReg, ft)));
-				return;
-			case FP_FN_SUB:
-				fmt.store(fpReg, fd, roundingMode.round(fmt.load(fpReg, fs) - fmt.load(fpReg, ft)));
-				return;
-			case FP_FN_MUL:
-				fmt.store(fpReg, fd, roundingMode.round(fmt.load(fpReg, fs) * fmt.load(fpReg, ft)));
-				return;
-			case FP_FN_DIV:
-				fmt.store(fpReg, fd, roundingMode.round(fmt.load(fpReg, fs) / fmt.load(fpReg, ft)));
-				return;
-			case FP_FN_ABS:
-				fmt.store(fpReg, fd, StrictMath.abs(fmt.load(fpReg, fs)));
-				return;
-			case FP_FN_MOV:
-				fmt.store(fpReg, fd, fmt.load(fpReg, fs));
-				return;
-			case FP_FN_NEG:
-				fmt.store(fpReg, fd, 0.0 - fmt.load(fpReg, fs));
-				return;
-			case FP_FN_CVT_S:
-				storeSingle(fpReg, fd, (float) roundingMode.round(fmt.load(fpReg, fs)));
-				return;
-			case FP_FN_CVT_D:
-				storeDouble(fpReg, fd, roundingMode.round(fmt.load(fpReg, fs)));
-				return;
-			case FP_FN_CVT_W:
-				fpReg[fd] = (int) roundingMode.round(fmt.load(fpReg, fs));
-				return;
-			case FP_FN_C_ULT: {
-				final double fsValue = fmt.load(fpReg, fs);
-				final double ftValue = fmt.load(fpReg, ft);
-				setFpCondition(fpcc(isn), Double.isNaN(fsValue) || Double.isNaN(ftValue) || fsValue < ftValue);
-				return;
-			}
-			case FP_FN_C_EQ:
-				setFpCondition(fpcc(isn), fmt.load(fpReg, fs) == fmt.load(fpReg, ft));
-				return;
-			case FP_FN_C_LT:
-				setFpCondition(fpcc(isn), fmt.load(fpReg, fs) < fmt.load(fpReg, ft));
-				return;
-			case FP_FN_C_LE:
-				setFpCondition(fpcc(isn), fmt.load(fpReg, fs) <= fmt.load(fpReg, ft));
-				return;
-			default:
-				throw new RuntimeException("invalid fpu fn " + opString(fn));
-		}
-	}
-	
-	private final void execFpuFnWord (final int isn) {
-		final int fn = fn(isn);
-		final int fs = fs(isn);
-		final int fd = fd(isn);
-		
-		switch (fn) {
-			case FP_FN_CVT_D:
-				storeDouble(fpReg, fd, fpReg[fs]);
-				return;
-			case FP_FN_CVT_S:
-				storeSingle(fpReg, fd, fpReg[fs]);
-				return;
-			default:
-				throw new RuntimeException("invalid fpu fn word " + opString(fn));
-		}
-	}
-	
-	private final void execFpuFnX (final int isn) {
-		final int fn = fn(isn);
-		final int fr = fr(isn);
-		final int ft = ft(isn);
-		final int fs = fs(isn);
-		final int fd = fd(isn);
-		
-		switch (fn) {
-			case FP_FNX_MADDS:
-				storeSingle(fpReg, fd, loadSingle(fpReg, fs) * loadSingle(fpReg, ft) + loadSingle(fpReg, fr));
-				return;
-			default:
-				throw new RuntimeException("invalid fpu fnx " + opString(fn));
-		}
-	}
-	
-	private final void setFpCondition (final int cc, final boolean cond) {
-		if (cc >= 0 && cc < 8) {
-			// oh my god
-			final int ccMask = 1 << cc;
-			final int csMask = 1 << (cc == 0 ? 23 : cc + 25);
-			int fccr = fpControlReg[FPCR_FCCR];
-			int fcsr = fpControlReg[FPCR_FCSR];
-			if (cond) {
-				// set the bits
-				fccr = fccr | ccMask;
-				fcsr = fcsr | csMask;
-			} else {
-				// clear the bits
-				fccr = fccr & ~ccMask;
-				fcsr = fcsr & ~csMask;
-			}
-			fpControlReg[FPCR_FCCR] = fccr;
-			fpControlReg[FPCR_FCSR] = fcsr;
-			
-		} else {
-			throw new IllegalArgumentException("invalid fpu cc " + cc);
 		}
 	}
 	

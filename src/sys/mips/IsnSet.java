@@ -3,7 +3,7 @@ package sys.mips;
 import java.util.*;
 
 import static sys.mips.Constants.*;
-import static sys.mips.Decoder.*;
+import static sys.mips.Functions.*;
 import static sys.mips.IsnUtil.*;
 
 /**

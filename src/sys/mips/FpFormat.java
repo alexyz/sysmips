@@ -1,7 +1,7 @@
 package sys.mips;
 
 import static sys.mips.Constants.*;
-import static sys.mips.Decoder.*;
+import static sys.mips.Functions.*;
 
 /**
  * abstraction layer for single/double fpu registers

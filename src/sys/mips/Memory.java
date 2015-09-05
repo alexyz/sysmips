@@ -155,6 +155,7 @@ public final class Memory {
 				return vaddr & KSEG_MASK;
 			} else if (vaddr < KSEG2) {
 				// kseg1 (direct, system)
+				// XXX should pass through to memory?
 				throw new RuntimeException("cannot translate kseg1: " + Integer.toHexString(vaddr));
 			} else {
 				// kseg2,3
@@ -188,8 +189,8 @@ public final class Memory {
 	 */
 	private final int lookup (final int vaddr, final boolean store) {
 		CpuLogger log = Cpu.getInstance().getLog();
-		final int vpn2 = Decoder.vpn2(vaddr);
-		final int eo = Decoder.evenodd(vaddr);
+		final int vpn2 = Functions.vpn2(vaddr);
+		final int eo = Functions.evenodd(vaddr);
 		boolean refill = true;
 		
 		log.debug("lookup vaddr=" + Integer.toHexString(vaddr) + " asid=" + Integer.toHexString(asid) + " vpn2=" + Integer.toHexString(vpn2));
@@ -201,7 +202,7 @@ public final class Memory {
 			if (e.virtualPageNumber2 == vpn2 && (e.addressSpaceId == asid || e.global)) {
 				log.debug("tlb hit");
 				hits++;
-				Entry.Data d = e.data[eo];
+				EntryData d = e.data[eo];
 				if (!d.valid) {
 					log.debug("entry invalid...");
 					refill = false;

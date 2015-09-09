@@ -35,6 +35,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	private final JButton fileButton = new JButton("...");
 	private final JButton runButton = new JButton("Run");
 	private final JButton stopButton = new JButton("Stop");
+	private final JSpinner memSpinner = new JSpinner(new SpinnerNumberModel(32,32,512,1));
 	private final Timer timer;
 	
 	private volatile Thread thread;
@@ -52,7 +53,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		fileField.setText("images/vmlinux-3.2.0-4-4kc-malta");
 		fileButton.addActionListener(ae -> selectFile());
 		argsField.setText("debug initcall_debug ignore_loglevel");
-		envField.setText("memsize=" + 0x04000000);
+		envField.setText("");
 		
 		runButton.addActionListener(ae -> start());
 		
@@ -71,12 +72,14 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		topPanel1.add(new JLabel("File"));
 		topPanel1.add(fileField);
 		topPanel1.add(fileButton);
+		topPanel1.add(new JLabel("Mem"));
+		topPanel1.add(memSpinner);
 		topPanel1.add(new JLabel("Args"));
 		topPanel1.add(argsField);
-		topPanel1.add(new JLabel("Env"));
-		topPanel1.add(envField);
+		//topPanel1.add(new JLabel("Env"));
+		//topPanel1.add(envField);
 		topPanel1.add(runButton);
-		topPanel1.add(stopButton);
+		//topPanel1.add(stopButton);
 		
 		JPanel topPanel2 = new JPanel();
 		topPanel2.add(displayLabel);
@@ -128,6 +131,8 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 			return;
 		}
 		
+		final int memsize = ((Integer)memSpinner.getValue()).intValue() * 0x100000;
+		
 		List<String> args = new ArrayList<>();
 		// linux ignores first arg...
 		args.add("linux");
@@ -153,15 +158,18 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 				}
 			}
 		}
+		env.add("memsize");
+		env.add(String.valueOf(memsize));
 		
 		displayLabel.setText(" ");
 		consoleArea.setText("");
+		
 		
 		final Cpu cpu;
 		
 		try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
 			int[] top = new int[1];
-			cpu = CpuUtil.loadElf(raf, 0x04000000, top);
+			cpu = CpuUtil.loadElf(raf, memsize, top);
 			CpuUtil.setMainArgs(cpu, top[0] + 0x100000, args, env);
 			
 		} catch (Exception e) {
@@ -187,6 +195,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 			} catch (Exception e) {
 				System.out.println();
 				cpu.getLog().print(System.out);
+				cpu.getMemory().print(System.out);
 				
 				System.out.println();
 				final List<String> l = cpu.getIsnCount().entrySet()

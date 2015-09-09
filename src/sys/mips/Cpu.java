@@ -242,21 +242,15 @@ public final class Cpu {
 						}
 					}
 					
-					// the isn itself might call execException, as if an exception was thrown
+					// to signal an exception, either
+					// 1. call execException and return (more efficient)
+					// 2. throw new CpuException (easier in deep call stack)
+					// the instruction will be re-executed after the exception handler returns.
 					execOp(isn);
 					
 				} catch (CpuException e) {
 					log.info("caught " + e);
-					switch (e.extype) {
-						case EX_INTERRUPT:
-						case EX_TLB_LOAD:
-						case EX_TLB_STORE:
-							break;
-						default:
-							throw e;
-					}
-					
-					execException(e.extype, e.interrupt, e.irq, e.vaddr, e.tlbRefill);
+					execException(e.ep);
 				}
 				
 				//if (printCall) {
@@ -308,7 +302,7 @@ public final class Cpu {
 			if (interruptsEnabled) {
 				log.info("fire programmable interrupt timer");
 				//execException(EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER, 0, false);
-				throw new CpuException(EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER, 0, false);
+				throw new CpuException(new EP(EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER));
 			}
 		} else {
 			//checkExn();
@@ -351,42 +345,42 @@ public final class Cpu {
 	// traps.c trap_init
 	// genex.S
 	// malta-int.c plat_irq_dispatch (deals with hardware interrupts)
-	private final void execException (final int excode, final int interrupt, final int irq, final int vaddr, final boolean isTlbRefill) {
-		log.info("exec exception " + excode + " " + exceptionName(excode) + " interrupt " + interrupt + " " + MaltaUtil.interruptName(interrupt) + " irq " + MaltaUtil.irqName(irq) + " vaddr=" + Integer.toHexString(vaddr) + " tlbRefill=" + isTlbRefill);
+	private final void execException (EP e) {
+		log.info("exec exception " + e.excode + " " + exceptionName(e.excode) + " interrupt " + e.interrupt + " " + MaltaUtil.interruptName(e.interrupt) + " irq " + MaltaUtil.irqName(e.irq) + " vaddr=" + Integer.toHexString(e.vaddr) + " tlbRefill=" + e.isTlbRefill);
 
-		switch (excode) {
+		switch (e.excode) {
 			case EX_INTERRUPT:
 			case EX_TLB_LOAD:
 			case EX_TLB_STORE:
 				break;
 			default:
-				throw new RuntimeException("unexpected exception " + excode);
+				throw new RuntimeException("unexpected exception " + e.excode);
 		}
 		
 		log.debug(CpuUtil.gpRegString(this, null));
 		log.debug(IsnUtil.isnString(this, memory.loadWord(pc)));
 		
-		final boolean isInterrupt = excode == EX_INTERRUPT;
-		final boolean isSbIntr = isInterrupt && interrupt == MaltaUtil.INT_SB_INTR;
-		final boolean isTlb = excode == EX_TLB_LOAD || excode == EX_TLB_STORE;
+		final boolean isInterrupt = e.excode == EX_INTERRUPT;
+		final boolean isSbIntr = isInterrupt && e.interrupt == MaltaUtil.INT_SB_INTR;
+		final boolean isTlb = e.excode == EX_TLB_LOAD || e.excode == EX_TLB_STORE;
 		
 		if (execException) {
 			throw new RuntimeException("exception in exception handler");
 		}
 		
-		if (excode < 0 || excode >= 32) {
-			throw new RuntimeException("invalid excode " + excode);
+		if (e.excode < 0 || e.excode >= 32) {
+			throw new RuntimeException("invalid excode " + e.excode);
 		}
 
-		if (isInterrupt && (interrupt < 0 || interrupt >= 8)) {
-			throw new RuntimeException("invalid interrupt " + interrupt);
+		if (isInterrupt && (e.interrupt < 0 || e.interrupt >= 8)) {
+			throw new RuntimeException("invalid interrupt " + e.interrupt);
 		}
 		
-		if (isSbIntr && (irq < 0 || irq >= 16)) {
-			throw new RuntimeException("invalid irq " + irq);
+		if (isSbIntr && (e.irq < 0 || e.irq >= 16)) {
+			throw new RuntimeException("invalid irq " + e.irq);
 		}
 		
-		if (isTlb && vaddr == 0) {
+		if (isTlb && e.vaddr == 0) {
 			throw new RuntimeException("tlb with zero address");
 		}
 		
@@ -405,23 +399,23 @@ public final class Cpu {
 		}
 
 		final int interrupts = CPR_STATUS_IM.get(cpReg);
-		final int interruptmask = isInterrupt ? 1 << interrupt : 0;
+		final int interruptmask = isInterrupt ? 1 << e.interrupt : 0;
 		
 		if (isInterrupt && (interrupts & interruptmask) == 0) {
-			throw new RuntimeException("masked interrupt " + interrupt);
+			throw new RuntimeException("masked interrupt " + e.interrupt);
 		}
 		
 		boolean isDelaySlot = pc2 != pc + 4;
 		
 		CPR_STATUS_EXL.set(cpReg, true);
-		CPR_CAUSE_EXCODE.set(cpReg, excode);
+		CPR_CAUSE_EXCODE.set(cpReg, e.excode);
 		CPR_CAUSE_IP.set(cpReg, interruptmask);
 		CPR_CAUSE_BD.set(cpReg, isDelaySlot);
 		CPR_EPC_VALUE.set(cpReg, isDelaySlot ? pc - 4 : pc);
 		
 		if (isTlb) {
-			final int vpn2 = vpn2(vaddr);
-			CPR_BADVADDR_BADVADDR.set(cpReg, vaddr);
+			final int vpn2 = vpn2(e.vaddr);
+			CPR_BADVADDR_BADVADDR.set(cpReg, e.vaddr);
 			CPR_CONTEXT_BADVPN2.set(cpReg, vpn2);
 			CPR_ENTRYHI_VPN2.set(cpReg, vpn2);
 		}
@@ -432,7 +426,7 @@ public final class Cpu {
 		
 		if (isSbIntr) {
 			// uh....
-			memory.getMalta().getGt().setIrq(irq);
+			memory.getMalta().getGt().setIrq(e.irq);
 		}
 		
 		execException = true;
@@ -440,7 +434,7 @@ public final class Cpu {
 		exhi = hi;
 		exlo = lo;
 		
-		if (isTlbRefill) {
+		if (e.isTlbRefill) {
 			log.info("jump to tlb refill vector");
 			setPc(EXV_TLBREFILL);
 			
@@ -453,7 +447,7 @@ public final class Cpu {
 			setPc(EXV_EXCEPTION);
 		}
 		
-		calls.push("ex" + excode + "int" + interrupt + "irq" + irq);
+		calls.push("ex" + e.excode + "int" + e.interrupt + "irq" + e.irq);
 		calls.call(pc);
 	}
 	
@@ -773,10 +767,10 @@ public final class Cpu {
 			case FN_SYSCALL:
 				// won't this try to re-execute the syscall?
 				// unless linux is smart enough to add 4 to the return address...
-				execException(EX_SYSCALL, -1, -1, -1, false);
+				execException(new EP(EX_SYSCALL));
 				return;
 			case FN_BREAK:
-				execException(EX_BREAKPOINT, -1, -1, -1, false);
+				execException(new EP(EX_BREAKPOINT));
 				return;
 			case FN_SYNC:
 				log.debug("sync");
@@ -863,7 +857,7 @@ public final class Cpu {
 			}
 			case FN_TNE:
 				if (register[rs] != register[rt]) {
-					execException(EX_TRAP, -1, -1, -1, false);
+					execException(new EP(EX_TRAP));
 					throw new RuntimeException("trap");
 				}
 				return;

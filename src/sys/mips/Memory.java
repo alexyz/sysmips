@@ -19,11 +19,13 @@ public final class Memory {
 	private final int halfWordAddrXor;
 	private final boolean littleEndian;
 	private final Entry[] entries = new Entry[16];
+	private final long[] xcache = new long[32];
 	
 	private Malta malta;
 	private boolean kernelMode;
 	private int asid;
-	private int hits, misses;
+	private int ehit, emiss;
+	private int amiss, ahit, bhit, bmiss;
 	
 	public Memory (int size, boolean littleEndian) {
 		this.data = new int[size >> 2];
@@ -83,7 +85,7 @@ public final class Memory {
 	
 	public final int loadWord (final int vaddr) {
 		if ((vaddr & 3) != 0) {
-			throw new CpuException(Constants.EX_ADDR_ERROR_LOAD, -1, -1, vaddr, false);
+			throw new CpuException(new EP(Constants.EX_ADDR_ERROR_LOAD, vaddr));
 		}
 		if (isSystem(vaddr)) {
 			return malta.systemRead(vaddr & KSEG_MASK, 4);
@@ -94,7 +96,7 @@ public final class Memory {
 	
 	public final void storeWord (final int vaddr, final int value) {
 		if ((vaddr & 3) != 0) {
-			throw new CpuException(Constants.EX_ADDR_ERROR_STORE, -1, -1, vaddr, false);
+			throw new CpuException(new EP(Constants.EX_ADDR_ERROR_STORE, vaddr));
 		}
 		if (isSystem(vaddr)) {
 			malta.systemWrite(vaddr & KSEG_MASK, value, 4);
@@ -105,7 +107,7 @@ public final class Memory {
 	
 	public final short loadHalfWord (final int vaddr) {
 		if ((vaddr & 1) != 0) {
-			throw new CpuException(Constants.EX_ADDR_ERROR_LOAD, -1, -1, vaddr, false);
+			throw new CpuException(new EP(Constants.EX_ADDR_ERROR_LOAD, vaddr));
 		}
 		if (isSystem(vaddr)) {
 			return (short) malta.systemRead(vaddr & KSEG_MASK, 2);
@@ -116,7 +118,7 @@ public final class Memory {
 	
 	public final void storeHalfWord (final int vaddr, final short value) {
 		if ((vaddr & 1) != 0) {
-			throw new CpuException(Constants.EX_ADDR_ERROR_STORE, -1, -1, vaddr, false);
+			throw new CpuException(new EP(Constants.EX_ADDR_ERROR_STORE, vaddr));
 		}
 		if (isSystem(vaddr)) {
 			malta.systemWrite(vaddr & KSEG_MASK, value, 2);
@@ -184,10 +186,33 @@ public final class Memory {
 		return -1;
 	}
 	
+	private final int lookup (final int va, final boolean store) {
+		// XXX super experimental
+		final int key = ((va >>> 27) ^ (va >>> 22) ^ (va >>> 17) 
+				^ (va >>> 12) ^ (asid >>> 5) ^ asid) & 0x1f;
+		final int exa = (va & 0xfffff000) | asid;
+		final long value = xcache[key];
+		final int a = (int) (value >>> 32);
+		final int b = (int) value;
+		final int pa1 = lookup2(va,store,key,exa);
+		if (a == exa) {
+			ahit++;
+			final int pa2 = b + (va & 0xfff);
+			if (pa1 == pa2) {
+				bhit++;
+			} else {
+				bmiss++;
+			}
+		} else {
+			amiss++;
+		}
+		return pa1;
+	}
+	
 	/**
 	 * translate virtual address to physical
 	 */
-	private final int lookup (final int vaddr, final boolean store) {
+	private final int lookup2 (final int vaddr, final boolean store, final int key, final long exa) {
 		CpuLogger log = Cpu.getInstance().getLog();
 		final int vpn2 = Functions.vpn2(vaddr);
 		final int eo = Functions.evenodd(vaddr);
@@ -204,15 +229,21 @@ public final class Memory {
 			
 			if (e.virtualPageNumber2 == vpn2 && (e.addressSpaceId == asid || e.global)) {
 				//log.debug("tlb hit");
-				hits++;
 				EntryData d = e.data[eo];
 				if (!d.valid) {
 					log.debug("entry invalid...");
 					refill = false;
 					break;
 				}
+				
+				ehit++;
+				// XXX need dirty bit... if (store && !d) miss
+				final long value = (exa << 32) | (d.physicalFrameNumber << 12);
+				//log.debug("xcache[" + key + "] <= " + Long.toHexString(value));
+				xcache[key] = value;
+				
 				if (store && !d.dirty) {
-					// set dirty if write?
+					// XXX set dirty if write? how does os know?
 					d.dirty = true;
 				}
 				final int paddr = (d.physicalFrameNumber << 12) | (vaddr & 0xfff);
@@ -222,14 +253,15 @@ public final class Memory {
 		}
 		
 		log.debug("tlb miss");
+		emiss++;
+		
 		for (int n = 0; n < entries.length; n++) {
 			Entry e = entries[n];
 			log.debug("entry[" + n + "]=" + e);
 		}
-		misses++;
 		
 		// also need to throw modified exception if page is read only...
-		throw new CpuException(store ? Constants.EX_TLB_STORE : Constants.EX_TLB_LOAD, -1, -1, vaddr, refill);
+		throw new CpuException(new EP(store ? Constants.EX_TLB_STORE : Constants.EX_TLB_LOAD, vaddr));
 	}
 	
 	private final byte loadByteImpl (final int paddr) {
@@ -352,10 +384,16 @@ public final class Memory {
 			}
 			ps.println("  addr 0x" + Integer.toHexString(j * 4) + " usage " + (c / 0x100000));
 		}
+		ps.println("ehit=" + ehit);
+		ps.println("emiss=" + emiss);
+		ps.println("ahit =" + ahit);
+		ps.println("amiss=" + amiss);
+		ps.println("bhit=" + bhit);
+		ps.println("bmiss=" + bmiss);
 	}
 	
 	@Override
 	public String toString () {
-		return String.format("Memory[size=%d le=%s sym]", data.length, littleEndian, symbols);
+		return String.format("Memory[size=%d le=%s sym=%s]", data.length, littleEndian, symbols);
 	}
 }

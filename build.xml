@@ -2,8 +2,13 @@
 <project default="jar">
 
 	<property name="jarfile" value="sysmips.jar" />
+	
+	<target name="compile" unless="eclipse.running">
+		<mkdir dir="bin" />
+		<javac srcdir="src" destdir="bin" source="1.8" includeAntRuntime="false" />
+	</target>
 
-	<target name="jar">
+	<target name="jar" depends="compile">
 		<jar destfile="dist/${jarfile}">
 			<manifest>
 				<attribute name="Main-Class" value="sys.ui.MaltaJFrame" />

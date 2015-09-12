@@ -1,6 +1,7 @@
 package sys.mips;
 
 import java.util.*;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import sys.malta.Malta;
 import sys.malta.MaltaUtil;
@@ -28,11 +29,12 @@ public final class Cpu {
 	private final Map<String, int[]> isnCount = new HashMap<>();
 	private final Memory memory;
 	private final boolean littleEndian;
-//	private final List<CpuException> interrupts = new ArrayList<>();
+	private final Deque<EP> exceptions = new ArrayDeque<>();
 	private final CallLogger calls = new CallLogger(this);
 	/** 0 for le, 3 for be */
 	private final int wordAddrXor;
 	private final Fpu fpu = new Fpu(this);
+	private final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
 	
 	private volatile long cycle = 1;
 	
@@ -111,8 +113,11 @@ public final class Cpu {
 		return pc;
 	}
 	
-	/** load pc2 and pc3 (the existing delay slot is discarded) */
+	/** 
+	 * load pc2 and pc3 (the existing delay slot is discarded).
+	 */
 	public final void setPc (int pc) {
+		// don't set pc, it is set from pc2
 		this.pc2 = pc;
 		this.pc3 = pc + 4;
 	}
@@ -201,6 +206,10 @@ public final class Cpu {
 		this.pitEnabled = pitEnabled;
 	}
 
+	public ScheduledThreadPoolExecutor getExecutor () {
+		return executor;
+	}
+
 	/** never returns, throws runtime exception... */
 	public final void run () {
 		final long startTime = System.nanoTime();
@@ -233,33 +242,37 @@ public final class Cpu {
 				//	calls.setPrintCalls(true);
 				//}
 				
-				try {
-					// need to do this before isn is executed (as it will be executed after the exn handler returns)
-					// every 8192 cycles
-					if ((cycle & 0x1fff) == 0) {
-						checkException();
-					}
-					
-					// this might cause tlb miss...
-					final int isn = memory.loadWord(pc);
-					
-					if (disasm || disasmCount > 0) {
-						log.info(CpuUtil.gpRegString(this, regstr));
-						log.info(IsnUtil.isnString(this, isn));
-						if (disasmCount > 0) {
-							disasmCount--;
+				boolean ex = false;
+				
+				// every 8192 cycles
+				if ((cycle & 0x1fff) == 0) {
+					// should probably also do this after eret...
+					ex = pollException();
+				}
+				
+				if (!ex) {
+					try {
+						// this might cause tlb miss...
+						final int isn = memory.loadWord(pc);
+						
+						if (disasm || disasmCount > 0) {
+							log.info(CpuUtil.gpRegString(this, regstr));
+							log.info(IsnUtil.isnString(this, isn));
+							if (disasmCount > 0) {
+								disasmCount--;
+							}
 						}
+						
+						// to signal an exception, either
+						// 1. call execException and return (more efficient)
+						// 2. throw new CpuException (easier in deep call stack)
+						// the instruction will be re-executed after the exception handler returns.
+						execOp(isn);
+						
+					} catch (CpuException e) {
+						log.info("caught " + e);
+						execException(e.ep);
 					}
-					
-					// to signal an exception, either
-					// 1. call execException and return (more efficient)
-					// 2. throw new CpuException (easier in deep call stack)
-					// the instruction will be re-executed after the exception handler returns.
-					execOp(isn);
-					
-				} catch (CpuException e) {
-					log.info("caught " + e);
-					execException(e.ep);
 				}
 				
 				//if (printCall) {
@@ -296,54 +309,36 @@ public final class Cpu {
 			
 		} finally {
 			final long d = System.nanoTime() - startTime;
-			log.info("ns per isn: " + (d / cycle));
+			log.info("ended, ns per isn: " + (d / cycle));
 			instance.remove();
+			getExecutor().shutdown();
 		}
 	}
 	
-	private void checkException () {
-		// XXX this is total hack, should really be externally driven
-		// also shouldn't do this after handling exception above (though should be caught be exl assertion)
-		long ct = System.nanoTime();
-		if (ct >= pitTime + INTERVAL_NS) {
-			//time += INTERVAL_NS;
-			pitTime = ct;
-			if (interruptsEnabled && pitEnabled) {
-				log.info("fire programmable interrupt timer");
-				//execException(EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER, 0, false);
-				throw new CpuException(new EP(EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER));
+	private boolean pollException () {
+		if (interruptsEnabled) {
+			if (execException) {
+				throw new RuntimeException();
 			}
-		} else {
-			//checkExn();
+			EP ep;
+			synchronized (exceptions) {
+				ep = exceptions.poll();
+			}
+			if (ep != null) {
+				execException(ep);
+				return true;
+			}
 		}
+		return false;
 	}
 
-//	public final void interrupt (final CpuException e) {
-//		synchronized (interrupts) {
-//			System.out.println("add exn " + e);
-//			interrupts.add(e);
-//		}
-//	}
+	public final void addException (final EP ep) {
+		System.out.println("add exn " + ep);
+		synchronized (exceptions) {
+			exceptions.add(ep);
+		}
+	}
 	
-//	private void checkExn () {
-//		Exn e = null;
-//		synchronized (interrupts) {
-//			if (interrupts.size() > 0) {
-//				e = interrupts.remove(0);
-//				System.out.println("got interrupt " + e);
-//			}
-//		}
-//		if (e != null) {
-//			if (e.type < 0) {
-//				throw new RuntimeException("stop");
-//			} else if (interruptsEnabled) {
-//				execException(e.type, e.in);
-//			} else {
-//				log.info("ignore exn " + e);
-//			}
-//		}
-//	}
-
 	/**
 	 * execute exception.
 	 * if excode is interrupt, interrupt code must be provided.
@@ -1002,6 +997,9 @@ public final class Cpu {
 				}
 				return;
 			case CPR_COMPARE:
+				log.info("set compare " + Integer.toHexString(newValue));
+				cpReg[cpr] = newValue;
+				return;
 			case CPR_EPC:
 				cpReg[cpr] = newValue;
 				return;

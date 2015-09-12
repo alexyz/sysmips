@@ -2,9 +2,14 @@ package sys.malta;
 
 import java.beans.PropertyChangeSupport;
 import java.util.Calendar;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
+import sys.mips.Constants;
 import sys.mips.Cpu;
 import sys.mips.CpuLogger;
+import sys.mips.EP;
 import sys.util.Symbols;
 
 /**
@@ -95,7 +100,10 @@ public class Malta implements Device {
 	private final IOMemory iomem = new IOMemory();
 	
 	private int offset;
-	private int counter0;
+	private int timerCounter0;
+	private int timerControlWord = -1;
+	private int timerCounterByte;
+	private ScheduledFuture<?> timerFuture;
 	
 	public Malta () {
 		iomem.putWord(M_REVISION, 1);
@@ -175,31 +183,12 @@ public class Malta implements Device {
 		
 		switch (addr) {
 			case M_I8253_TCW: {
-				// i8253.c init_pit_timer
-				log.info("timer control word write " + Integer.toHexString(value));
-				// 34 = binary, rate generator, r/w lsb then msb
-				// 38 = software triggered strobe
-				if (value == 0x34) {
-					Cpu.getInstance().setPitEnabled(true);
-				} else if (value == 0x38) {
-					// XXX fire interrupt once when count reaches zero
-					// wait for counter write
-					Cpu.getInstance().setPitEnabled(false);
-					throw new RuntimeException("implement oneshot");
-				} else {
-					throw new RuntimeException("unexpected tcw write " + Integer.toHexString(value));
-				}
+				timerControlWrite((byte) value);
 				return;
 			}
 			
 			case M_I8253_COUNTER_0: {
-				// lsb then msb
-				// #define CLOCK_TICK_RATE 1193182
-				// #define LATCH  ((CLOCK_TICK_RATE + HZ/2) / HZ)
-				// default HZ_250
-				// linux sets this to 12a5 (4773 decimal) = ((1193182 + 250/2) / 250)
-				counter0 = ((value << 8) | (counter0 >>> 8)) & 0xffff;
-				log.info("timer counter 0 now " + Integer.toHexString(counter0));
+				timerCounter0Write((byte) value);
 				return;
 			}
 			
@@ -271,7 +260,71 @@ public class Malta implements Device {
 		}
 		
 	}
-	
+
+	private void timerControlWrite (final int value) {
+		final CpuLogger log = CpuLogger.getInstance();
+		log.info("timer control word write " + Integer.toHexString(value));
+		// i8253.c init_pit_timer
+		// 34 = binary, rate generator, r/w lsb then msb
+		// 38 = software triggered strobe
+		if (value == 0x34 || value == 0x38) {
+			timerControlWord = value;
+			timerCounterByte = 0;
+			if (timerFuture != null) {
+				log.info("cancel timer");
+				timerFuture.cancel(false);
+				timerFuture = null;
+			}
+		} else {
+			throw new RuntimeException("unexpected tcw write " + Integer.toHexString(value));
+		}
+	}
+
+	private void timerCounter0Write (final byte value) {
+		final CpuLogger log = CpuLogger.getInstance();
+		log.info("timer counter 0 write " + Integer.toHexString(value));
+		// lsb then msb
+		// #define CLOCK_TICK_RATE 1193182
+		// #define LATCH  ((CLOCK_TICK_RATE + HZ/2) / HZ)
+		// default HZ_250
+		// linux sets this to 12a5 (4773 decimal) = ((1193182 + 250/2) / 250)
+		// hz = 1193182/(c-0.5)
+		// dur = (c-0.5)/1193182
+		
+		if (timerCounterByte == 0) {
+			timerCounter0 = value & 0xff;
+			timerCounterByte++;
+			
+		} else if (timerCounterByte == 1) {
+			timerCounter0 = (timerCounter0 & 0xff) | ((value & 0xff) << 8);
+			timerCounterByte = 0;
+			
+			double hz = 1193182.0 / (timerCounter0 - 0.5);
+			long dur = Math.round(1000.0 / hz);
+			log.info("timer counter c0=" + timerCounter0 + " hz=" + hz + " dur=" + dur);
+			if (hz < 200 || hz > 400) {
+				throw new RuntimeException("c0=" + timerCounter0 + " hz=" + hz + " dur=" + dur);
+			}
+			
+			Cpu cpu = Cpu.getInstance();
+			ScheduledThreadPoolExecutor e = cpu.getExecutor();
+			EP ep = new EP(Constants.EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER);
+			Runnable r = () -> cpu.addException(ep);
+			
+			if (timerControlWord == 0x34) {
+				log.info("schedule pit at fixed rate " + dur);
+				timerFuture = e.scheduleAtFixedRate(r, dur, dur, TimeUnit.MILLISECONDS);
+				
+			} else if (timerControlWord == 0x38) {
+				log.info("schedule pit once " + dur);
+				timerFuture = e.schedule(r, dur, TimeUnit.MILLISECONDS);
+			}
+			
+		} else {
+			throw new RuntimeException("tcw write " + timerCounterByte);
+		}
+	}
+
 	private void consoleWrite (int value) {
 		if ((value >= 32 && value < 127) || value == '\n') {
 			consoleSb.append((char) value);

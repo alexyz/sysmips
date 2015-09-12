@@ -29,7 +29,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	private final JTextField fileField = new JTextField(10);
 	private final JTextField argsField = new JTextField(10);
 	private final JTextField envField = new JTextField(10);
-	private final JLabel displayLabel = new JLabel(" ");
+	private final JLabel displayLabel = new JLabel("            ");
 	private final JLabel cycleLabel = new JLabel("");
 	private final JTextArea consoleArea = new JTextArea();
 	private final JButton fileButton = new JButton("...");

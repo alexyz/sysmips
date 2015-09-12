@@ -178,7 +178,15 @@ public class Malta implements Device {
 				// i8253.c init_pit_timer
 				log.info("timer control word write " + Integer.toHexString(value));
 				// 34 = binary, rate generator, r/w lsb then msb
-				if (value != 0x34) {
+				// 38 = software triggered strobe
+				if (value == 0x34) {
+					Cpu.getInstance().setPitEnabled(true);
+				} else if (value == 0x38) {
+					// XXX fire interrupt once when count reaches zero
+					// wait for counter write
+					Cpu.getInstance().setPitEnabled(false);
+					throw new RuntimeException("implement oneshot");
+				} else {
 					throw new RuntimeException("unexpected tcw write " + Integer.toHexString(value));
 				}
 				return;
@@ -216,8 +224,11 @@ public class Malta implements Device {
 				if (adr == 0xb && value == 4) {
 					// set mode binary
 					return;
+				} else if (adr == 0xb && value == 0) {
+					// set mode bcd (ugh!)
+					return;
 				}
-				throw new RuntimeException("unexpected rtc write adr " + adr + " dat " + value);
+				throw new RuntimeException("unexpected rtc write adr " + Integer.toHexString(adr) + " dat " + Integer.toHexString(value));
 			}
 			
 			case M_DMA2_MASK_REG:

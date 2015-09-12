@@ -57,6 +57,7 @@ public final class Cpu {
 	private int exhi, exlo;
 	private boolean singleStep;
 	private long pitTime;
+	private boolean pitEnabled;
 	
 	public Cpu (int memsize, boolean littleEndian) {
 		this.memory = new Memory(memsize, littleEndian);
@@ -192,6 +193,14 @@ public final class Cpu {
 		return fpu;
 	}
 
+	public boolean isPitEnabled () {
+		return pitEnabled;
+	}
+
+	public void setPitEnabled (boolean pitEnabled) {
+		this.pitEnabled = pitEnabled;
+	}
+
 	/** never returns, throws runtime exception... */
 	public final void run () {
 		final long startTime = System.nanoTime();
@@ -299,7 +308,7 @@ public final class Cpu {
 		if (ct >= pitTime + INTERVAL_NS) {
 			//time += INTERVAL_NS;
 			pitTime = ct;
-			if (interruptsEnabled) {
+			if (interruptsEnabled && pitEnabled) {
 				log.info("fire programmable interrupt timer");
 				//execException(EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER, 0, false);
 				throw new CpuException(new EP(EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER));
@@ -380,9 +389,9 @@ public final class Cpu {
 			throw new RuntimeException("invalid irq " + e.irq);
 		}
 		
-		if (isTlb && e.vaddr == 0) {
-			throw new RuntimeException("tlb with zero address");
-		}
+//		if (isTlb && e.vaddr == 0) {
+//			throw new RuntimeException("tlb with zero address");
+//		}
 		
 		final boolean bev = CPR_STATUS_BEV.isSet(cpReg);
 		final boolean exl = CPR_STATUS_EXL.isSet(cpReg);

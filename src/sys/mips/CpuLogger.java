@@ -26,7 +26,7 @@ public class CpuLogger {
 	}
 	
 	public void debug (String msg, Object... args) {
-		log(args.length == 0 ? msg : String.format(msg, args), true);
+		log(args.length == 0 ? msg : String.format(msg, args), false);
 	}
 	
 	public void info (String msg, Object... args) {

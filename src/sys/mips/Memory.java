@@ -219,9 +219,10 @@ public final class Memory {
 		boolean refill = true;
 		
 //		log.debug("lookup vaddr=" + Integer.toHexString(vaddr) + " asid=" + Integer.toHexString(asid) + " vpn2=" + Integer.toHexString(vpn2));
-		if (vaddr >= 0 && vaddr < 0x400000) {
-			throw new RuntimeException("lookup " + Integer.toHexString(vaddr));
-		}
+		// futex_init deliberately forces null pointer dereference...
+//		if (vaddr >= 0 && vaddr < 0x400000) {
+//			throw new RuntimeException("lookup " + Integer.toHexString(vaddr));
+//		}
 		
 		for (int n = 0; n < entries.length; n++) {
 			Entry e = entries[n];

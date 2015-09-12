@@ -111,6 +111,26 @@ public class GT implements Device {
 	public static final int GT_PCI0_CFGADDR = 0xcf8;
 	/** PCI_0 Configuration Data Virtual Register */
 	public static final int GT_PCI0_CFGDATA = 0xcfc;
+
+	private static int reg (final int cfgaddr) {
+		return (cfgaddr >>> 2) & 0x3f;
+	}
+
+	private static int func (final int cfgaddr) {
+		return (cfgaddr >>> 8) & 0x7;
+	}
+
+	private static int dev (final int cfgaddr) {
+		return (cfgaddr >>> 11) & 0x1f;
+	}
+
+	private static int bus (final int cfgaddr) {
+		return (cfgaddr >>> 16) & 0xff;
+	}
+
+	private static int en (final int cfgaddr) {
+		return (cfgaddr >>> 31) & 0x1;
+	}
 	
 	private final IOMemory iomem = new IOMemory();
 	private int offset;
@@ -202,8 +222,9 @@ public class GT implements Device {
 				}
 				break;
 				
+			case GT_IC:
 			case GT_PCI0_CMD:
-				log.info("ignore PCI0 command " + value);
+				log.info("ignore" + value);
 				break;
 				
 			case GT_PCI0_CFGADDR:
@@ -224,30 +245,31 @@ public class GT implements Device {
 		final CpuLogger log = CpuLogger.getInstance();
 		
 		// pci configuration space
-		int en = (cfgaddr >>> 31) & 0x1;
-		int bus = (cfgaddr >>> 16) & 0xff;
-		int dev = (cfgaddr >>> 11) & 0x1f;
-		int func = (cfgaddr >>> 8) & 0x7;
-		int reg = (cfgaddr >>> 2) & 0x3f;
-		log.info("set PCI0 config address %x en=%d bus=%d dev=%d func=%d reg=%d", cfgaddr, en, bus, dev, func, reg);
+		int en = en(cfgaddr);
+		int bus = bus(cfgaddr);
+		int dev = dev(cfgaddr);
+		int func = func(cfgaddr);
+		int reg = reg(cfgaddr);
+		String msg = String.format("address=%x en=%x bus=%x dev=%x func=%x reg=%x", cfgaddr, en, bus, dev, func, reg);
+		log.debug("gt pci0 set addr " + msg);
 		
-		if (bus == 0 && dev == 0 && func == 0) {
+		if (bus == 0 && func == 0) {
 			iomem.putWord(GT_PCI0_CFGDATA, 0);
 			
 		} else {
-			throw new RuntimeException("set unknown bus/device/function addr");
+			throw new RuntimeException("gt pci0 set addr " + msg);
 		}
 	}
-	
+
 	private void setData (int value) {
 		final CpuLogger log = CpuLogger.getInstance();
 		
 		int cfgaddr = iomem.getWord(GT_PCI0_CFGADDR);
-		int en = (cfgaddr >>> 31) & 0x1;
-		int bus = (cfgaddr >>> 16) & 0xff;
-		int dev = (cfgaddr >>> 11) & 0x1f;
-		int func = (cfgaddr >>> 8) & 0x7;
-		int reg = (cfgaddr >>> 2) & 0x3f;
+		int en = en(cfgaddr);
+		int bus = bus(cfgaddr);
+		int dev = dev(cfgaddr);
+		int func = func(cfgaddr);
+		int reg = reg(cfgaddr);
 		log.info("set PCI0 config data %x en=%d bus=%d dev=%d func=%d reg=%d", value, en, bus, dev, func, reg);
 		
 		if (bus == 0 && dev == 0 && func == 0) {

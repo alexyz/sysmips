@@ -218,7 +218,7 @@ public final class Memory {
 		final int eo = Functions.evenodd(vaddr);
 		boolean refill = true;
 		
-		log.debug("lookup vaddr=" + Integer.toHexString(vaddr) + " asid=" + Integer.toHexString(asid) + " vpn2=" + Integer.toHexString(vpn2));
+//		log.debug("lookup vaddr=" + Integer.toHexString(vaddr) + " asid=" + Integer.toHexString(asid) + " vpn2=" + Integer.toHexString(vpn2));
 		if (vaddr >= 0 && vaddr < 0x400000) {
 			throw new RuntimeException("lookup " + Integer.toHexString(vaddr));
 		}
@@ -247,7 +247,7 @@ public final class Memory {
 					d.dirty = true;
 				}
 				final int paddr = (d.physicalFrameNumber << 12) | (vaddr & 0xfff);
-				log.debug("translated " + Integer.toHexString(vaddr) + " to " + Integer.toHexString(paddr));
+//				log.debug("translated " + Integer.toHexString(vaddr) + " to " + Integer.toHexString(paddr));
 				return paddr;
 			}
 		}

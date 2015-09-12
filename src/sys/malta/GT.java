@@ -2,6 +2,7 @@ package sys.malta;
 
 import java.lang.reflect.*;
 
+import sys.mips.Cpu;
 import sys.mips.CpuLogger;
 import sys.util.Symbols;
 
@@ -82,6 +83,26 @@ public class GT implements Device {
 	public static final int GT_PCI0_IACK = 0xc34;
 	/** PCI_0 Command */
 	public static final int GT_PCI0_CMD = 0xc00;
+	/** Interrupt Cause Register */ 
+	public static final int GT_IC = 0xc18;
+	/** CPU Interrupt Mask Register */
+	public static final int GT_CPU_IM = 0xc1c;
+	/** PCI_0 Interrupt Cause Mask Register */
+	public static final int GT_PCI0_ICM = 0xc24;
+	/** PCI_0 SErr0 Mask */
+	public static final int GT_PCI0_SERR0 = 0xc28;
+	/** CPU Select Cause Register */ 
+	public static final int GT_CPU_SC = 0xc70;
+	/** PCI_0 Interrupt Select Register */ 
+	public static final int GT_PCI0_ISC = 0xc74;
+	/** High Interrupt Cause Register */ 
+	public static final int GT_ICH = 0xc98;
+	/** CPU High Interrupt Mask Register */ 
+	public static final int GT_CPU_IMH = 0xc9c;
+	/** PCI_0 High Interrupt Cause Mask Register */
+	public static final int GT_PCI0_ICMH = 0xca4;
+	/** PCI_1 SErr1 Mask */
+	public static final int GT_PCI1_SERR1 = 0xca8;
 	/** PCI_1 Configuration Address */
 	public static final int GT_PCI1_CFGADDR = 0xcf0;
 	/** PCI_1 Configuration Data Virtual Register */
@@ -92,6 +113,7 @@ public class GT implements Device {
 	public static final int GT_PCI0_CFGDATA = 0xcfc;
 	
 	private final IOMemory iomem = new IOMemory();
+	private int offset;
 	
 	public GT () {
 //		iomem.putw(GT_SCS10LD, 0x0);
@@ -139,6 +161,7 @@ public class GT implements Device {
 	@Override
 	public void init (Symbols sym, int offset) {
 		System.out.println("init gt at " + Integer.toHexString(offset));
+		this.offset = offset;
 		
 		for (Field f : GT.class.getFields()) {
 			final int m = f.getModifiers();
@@ -162,10 +185,13 @@ public class GT implements Device {
 	@Override
 	public void systemWrite (int addr, int value, int size) {
 		final CpuLogger log = CpuLogger.getInstance();
+		Cpu cpu = Cpu.getInstance();
 		
 		// XXX swap here?
 		value = swap(value);
-		log.info("gt write " + Integer.toHexString(addr) + " <= " + Integer.toHexString(value));
+		String name = cpu.getMemory().getSymbols().getNameAddrOffset(offset + addr);
+		final String msg = Integer.toHexString(addr) + " (" + name + ") <= " + Integer.toHexString(value) + " size " + size;
+		log.info("gt write " + msg);
 		iomem.put(addr, value, size);
 		
 		switch (addr) {
@@ -189,7 +215,7 @@ public class GT implements Device {
 				break;
 				
 			default:
-				throw new RuntimeException("invalid gt write");
+				throw new RuntimeException("invalid gt write " + msg);
 		}
 		
 	}

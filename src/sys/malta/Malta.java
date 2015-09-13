@@ -43,9 +43,25 @@ public class Malta implements Device {
 	public static final int M_DMA2_MASK_REG = M_PIIX4 + 0xD4;
 	
 	// the first uart is on the isa bus connected to the PIIX4
-	public static final int M_PORT = M_PIIX4 + 0x03f8;
-	public static final int M_UART_TX = M_PORT;
-	public static final int M_UART_LSR = M_PORT + 5;
+	public static final int M_COM1 = M_PIIX4 + 0x3f8;
+	/** receive */
+	public static final int M_COM1_RX = M_COM1 + 0;
+	/** transmit */
+	public static final int M_COM1_TX = M_COM1 + 0;
+	/** interrupt enable */
+	public static final int M_COM1_IER = M_COM1 + 1;
+	/** interrupt id register */
+	public static final int M_COM1_IIR = M_COM1 + 2;
+	/** fifo control register */
+	public static final int M_COM1_FCR = M_COM1 + 2;
+	/** line control register */
+	public static final int M_COM1_LCR = M_COM1 + 3;
+	/** modem control register */
+	public static final int M_COM1_MCR = M_COM1 + 4;
+	/** line status register */
+	public static final int M_COM1_LSR = M_COM1 + 5;
+	/** modem status register */
+	public static final int M_COM1_MSR = M_COM1 + 6;
 	
 	public static final int M_PCI2 = 0x1800_0000;
 	
@@ -60,7 +76,14 @@ public class Malta implements Device {
 	public static final int M_DISPLAY = 0x1f00_0400;
 	public static final int M_DISPLAY_LEDBAR = M_DISPLAY + 0x8;
 	public static final int M_DISPLAY_ASCIIWORD = M_DISPLAY + 0x10;
-	public static final int M_DISPLAY_ASCIIPOS = M_DISPLAY + 0x18;
+	public static final int M_DISPLAY_ASCIIPOS0 = M_DISPLAY + 0x18;
+	public static final int M_DISPLAY_ASCIIPOS1 = M_DISPLAY + 0x20;
+	public static final int M_DISPLAY_ASCIIPOS2 = M_DISPLAY + 0x28;
+	public static final int M_DISPLAY_ASCIIPOS3 = M_DISPLAY + 0x30;
+	public static final int M_DISPLAY_ASCIIPOS4 = M_DISPLAY + 0x38;
+	public static final int M_DISPLAY_ASCIIPOS5 = M_DISPLAY + 0x40;
+	public static final int M_DISPLAY_ASCIIPOS6 = M_DISPLAY + 0x48;
+	public static final int M_DISPLAY_ASCIIPOS7 = M_DISPLAY + 0x50;
 	
 	public static final int M_SCSPEC1 = 0x1f10_0010;
 	
@@ -97,22 +120,21 @@ public class Malta implements Device {
 	private final StringBuilder consoleSb = new StringBuilder();
 	// the GT is the northbridge
 	private final GT gt = new GT();
-	private final IOMemory iomem = new IOMemory();
+	private final byte[] asciiPos = new byte[8];
 	
 	private int offset;
 	private int timerCounter0;
 	private int timerControlWord = -1;
 	private int timerCounterByte;
 	private ScheduledFuture<?> timerFuture;
+	private int ledBar = 0;
+	private int asciiWord = 0;
+	private int rtcadr;
+	private int rtcdat;
+	private int picimr;
 	
 	public Malta () {
-		iomem.putWord(M_REVISION, 1);
-		iomem.putByte(M_UART_LSR, (byte) 0x20);
-		iomem.putWord(M_DISPLAY_LEDBAR, 0);
-		iomem.putWord(M_DISPLAY_ASCIIWORD, 0);
-		for (int n = 0; n < 8; n++) {
-			iomem.putWord(M_DISPLAY_ASCIIPOS + (n * 8), 0);
-		}
+		//
 	}
 	
 	public GT getGt () {
@@ -139,8 +161,13 @@ public class Malta implements Device {
 		sym.put(offset + M_PIC_SLAVE_CMD, "M_PIC_SLAVE_CMD", 1);
 		sym.put(offset + M_PIC_SLAVE_IMR, "M_PIC_SLAVE_IMR", 1);
 		sym.put(offset + M_DMA2_MASK_REG, "M_DMA2_MASK_REG");
-		sym.put(offset + M_PORT, "M_PORT", 0x10000);
-		sym.put(offset + M_UART_LSR, "M_UART_LSR", 1);
+		sym.put(offset + M_COM1_RX, "M_COM1_RX/TX", 1);
+		sym.put(offset + M_COM1_IER, "M_COM1_IER", 1);
+		sym.put(offset + M_COM1_IIR, "M_COM1_IIR/FCR", 1);
+		sym.put(offset + M_COM1_LCR, "M_COM1_LCR", 1);
+		sym.put(offset + M_COM1_MCR, "M_COM1_MCR", 1);
+		sym.put(offset + M_COM1_LSR, "M_COM1_LSR", 1);
+		sym.put(offset + M_COM1_MSR, "M_COM1_MSR", 1);
 		sym.put(offset + M_PCI2, "M_PCI2");
 		sym.put(offset + M_GTBASE, "M_GTBASE");
 		sym.put(offset + M_MONITORFLASH, "M_MONITORFLASH");
@@ -159,106 +186,178 @@ public class Malta implements Device {
 	
 	@Override
 	public int systemRead (int addr, int size) {
+		switch (addr) {
+			case M_REVISION:
+				return 1;
+			case M_COM1_LSR:
+				// always ready?
+				return 0x20;
+			case M_PIC_MASTER_IMR:
+				return picimr;
+			case M_RTCDAT:
+				// should compute this from rtcadr each time?
+				return rtcdat;
+			default:
+				break;
+		}
+		
 		if (addr >= M_GTBASE && addr < M_GTBASE + 0x1000) {
 			return gt.systemRead(addr - M_GTBASE, size);
+			
+		} else {
+			throw new RuntimeException("unknown system read " + Cpu.getInstance().getMemory().getSymbols().getNameAddrOffset(offset+addr) + " size " + size);
 		}
-
-//		final CpuLogger log = Cpu.getInstance().getLog();
-//		log.debug("malta read " + getName(addr) + " size " + size);
-		
-		return iomem.get(addr, size);
 	}
 	
 	@Override
 	public void systemWrite (final int addr, final int value, int size) {
-		if (addr >= M_GTBASE && addr < M_GTBASE + 0x1000) {
-			gt.systemWrite(addr - M_GTBASE, value, size);
-			return;
-		}
-		
 		final CpuLogger log = CpuLogger.getInstance();
-		//log.debug("malta write " + getName(addr) + " <= " + Integer.toHexString(value) + " size " + size);
-		
-		iomem.put(addr, value, size);
 		
 		switch (addr) {
-			case M_I8253_TCW: {
+			case M_DISPLAY_ASCIIWORD:
+				asciiWordWrite(value);
+				return;
+				
+			case M_DISPLAY_LEDBAR:
+				ledBarWrite(value);
+				return;
+				
+			case M_DISPLAY_ASCIIPOS0:
+				asciiPosWrite(0, value);
+				return;
+				
+			case M_DISPLAY_ASCIIPOS1:
+				asciiPosWrite(1, value);
+				return;
+				
+			case M_DISPLAY_ASCIIPOS2:
+				asciiPosWrite(2, value);
+				return;
+				
+			case M_DISPLAY_ASCIIPOS3:
+				asciiPosWrite(3, value);
+				return;
+				
+			case M_DISPLAY_ASCIIPOS4:
+				asciiPosWrite(4, value);
+				return;
+				
+			case M_DISPLAY_ASCIIPOS5:
+				asciiPosWrite(5, value);
+				return;
+				
+			case M_DISPLAY_ASCIIPOS6:
+				asciiPosWrite(6, value);
+				return;
+				
+			case M_DISPLAY_ASCIIPOS7:
+				asciiPosWrite(7, value);
+				return;
+				
+			case M_I8253_TCW:
 				timerControlWrite((byte) value);
 				return;
-			}
 			
-			case M_I8253_COUNTER_0: {
+			case M_I8253_COUNTER_0:
 				timerCounter0Write((byte) value);
 				return;
-			}
 			
-			case M_RTCADR: {
-				// mc146818rtc.h
-				// 0 = seconds, 2 = minutes, 4 = hours, 6 = dow, 7 = dom, 8 = month, 9 = year
-				//log.debug("rtc adr write");
-				if (value == 0xa) {
-					boolean uip = (System.currentTimeMillis() % 1000) >= 990;
-					iomem.putByte(M_RTCDAT, (byte) (uip ? 0x80 : 0));
-				} else if (value == 0xb) {
-					iomem.putByte(M_RTCDAT, (byte) 4);
-				} else {
-					final int f = indexToCalendar(value);
-					iomem.putByte(M_RTCDAT, (byte) Calendar.getInstance().get(f));
-				}
+			case M_RTCADR:
+				rtcAdrWrite(value);
 				return;
-			}
 			
-			case M_RTCDAT: {
-				int adr = iomem.getByte(M_RTCADR);
-				if (adr == 0xb && value == 4) {
-					// set mode binary
-					return;
-				} else if (adr == 0xb && value == 0) {
-					// set mode bcd (ugh!)
-					return;
-				}
-				throw new RuntimeException("unexpected rtc write adr " + Integer.toHexString(adr) + " dat " + Integer.toHexString(value));
-			}
+			case M_RTCDAT:
+				rtcDatWrite(value);
+				return;
 			
 			case M_DMA2_MASK_REG:
 				// information in asm/dma.h
 				log.info("enable dma channel 4+" + value);
-				break;
+				return;
 				
-			case M_UART_TX:
+			case M_COM1_RX:
 				consoleWrite(value & 0xff);
-				break;
+				return;
 				
 			case M_PIC_MASTER_CMD:
 				log.info("pic master write command " + Integer.toHexString(value & 0xff));
-				break;
+				return;
 				
 			case M_PIC_MASTER_IMR:
 				log.info("pic master write interrupt mask register " + Integer.toHexString(value & 0xff));
-				// should probably do something here...
-				break;
+				// XXX should probably do something here...
+				picimr = (byte) value;
+				return;
 				
 			case M_PIC_SLAVE_CMD:
 				log.info("pic slave write command " + Integer.toHexString(value & 0xff));
-				break;
+				return;
 				
 			case M_PIC_SLAVE_IMR:
 				log.info("pic slave write interrupt mask register " + Integer.toHexString(value & 0xff));
-				break;
+				return;
 				
 			default:
-				if (addr >= M_UNCACHED_EX_H && addr < M_UNCACHED_EX_H + 0x100) {
-					log.debug("set uncached exception handler " + Symbols.getInstance().getNameOffset(offset + addr) + " <= " + Integer.toHexString(value));
-					break;
-					
-				} else if (addr >= M_DISPLAY && addr < M_DISPLAY + 0x100) {
-					support.firePropertyChange("display", null, displayText());
-					break;
-				}
-				
-				throw new RuntimeException("unknown system write " + Symbols.getInstance().getNameOffset(offset + addr) + " <= " + Integer.toHexString(value));
+				break;
 		}
 		
+		if (addr >= M_GTBASE && addr < M_GTBASE + 0x1000) {
+			gt.systemWrite(addr - M_GTBASE, value, size);
+			return;
+			
+		} else if (addr >= M_UNCACHED_EX_H && addr < M_UNCACHED_EX_H + 0x100) {
+			log.debug("set uncached exception handler " + Symbols.getInstance().getNameOffset(offset + addr) + " <= " + Integer.toHexString(value));
+			return;
+			
+		} else {
+			throw new RuntimeException("unknown system write " + Symbols.getInstance().getNameOffset(offset + addr) + " <= " + Integer.toHexString(value));
+		}
+		
+	}
+	
+	private void asciiPosWrite (int n, int value) {
+		asciiPos[n] = (byte) value;
+		support.firePropertyChange("display", null, displayText());
+	}
+	
+	private void ledBarWrite (int value) {
+		ledBar = value;
+		support.firePropertyChange("display", null, displayText());
+	}
+	
+	private void asciiWordWrite (int value) {
+		asciiWord = value;
+		support.firePropertyChange("display", null, displayText());
+	}
+
+	private void rtcAdrWrite (final int value) {
+		final CpuLogger log = CpuLogger.getInstance();
+		// mc146818rtc.h
+		// 0 = seconds, 2 = minutes, 4 = hours, 6 = dow, 7 = dom, 8 = month, 9 = year
+		log.debug("rtc adr write " + value);
+		rtcadr = (byte) value;
+		if (value == 0xa) {
+			// update in progress
+			boolean uip = (System.currentTimeMillis() % 1000) >= 990;
+			rtcdat = (byte) (uip ? 0x80 : 0);
+		} else if (value == 0xb) {
+			rtcdat = (byte) 4;
+		} else {
+			final int f = indexToCalendar(value);
+			rtcdat = (byte) Calendar.getInstance().get(f);
+		}
+	}
+
+	private void rtcDatWrite (final int value) {
+		final CpuLogger log = CpuLogger.getInstance();
+		if (rtcadr == 0xb && value == 4) {
+			// set mode binary
+			return;
+		} else if (rtcadr == 0xb && value == 0) {
+			// set mode bcd (ugh!)
+			return;
+		}
+		throw new RuntimeException("unexpected rtc write adr " + Integer.toHexString(rtcadr) + " dat " + Integer.toHexString(value));
 	}
 
 	private void timerControlWrite (final int value) {
@@ -270,11 +369,6 @@ public class Malta implements Device {
 		if (value == 0x34 || value == 0x38) {
 			timerControlWord = value;
 			timerCounterByte = 0;
-			if (timerFuture != null) {
-				log.info("cancel timer");
-				timerFuture.cancel(false);
-				timerFuture = null;
-			}
 		} else {
 			throw new RuntimeException("unexpected tcw write " + Integer.toHexString(value));
 		}
@@ -298,12 +392,8 @@ public class Malta implements Device {
 		} else if (timerCounterByte == 1) {
 			timerCounter0 = (timerCounter0 & 0xff) | ((value & 0xff) << 8);
 			timerCounterByte = 0;
-			
-			double hz = 1193182.0 / (timerCounter0 - 0.5);
-			long dur = Math.round(1000.0 / hz);
-			log.info("timer counter c0=" + timerCounter0 + " hz=" + hz + " dur=" + dur);
-			if (hz < 200 || hz > 400) {
-				throw new RuntimeException("c0=" + timerCounter0 + " hz=" + hz + " dur=" + dur);
+			if (timerFuture != null) {
+				timerFuture.cancel(false);
 			}
 			
 			Cpu cpu = Cpu.getInstance();
@@ -312,12 +402,17 @@ public class Malta implements Device {
 			Runnable r = () -> cpu.addException(ep);
 			
 			if (timerControlWord == 0x34) {
-				log.info("schedule pit at fixed rate " + dur);
-				timerFuture = e.scheduleAtFixedRate(r, dur, dur, TimeUnit.MILLISECONDS);
+				// counter never reaches 0...
+				double hz = 1193182.0 / (timerCounter0 - 1.5);
+				long dur = Math.round(1000000.0 / hz);
+				log.info("schedule pit at fixed rate " + hz + " hz " + dur + " us");
+				timerFuture = e.scheduleAtFixedRate(r, dur, dur, TimeUnit.MICROSECONDS);
 				
 			} else if (timerControlWord == 0x38) {
-				log.info("schedule pit once " + dur);
-				timerFuture = e.schedule(r, dur, TimeUnit.MILLISECONDS);
+				double hz = 1193182.0 / (timerCounter0 - 0.5);
+				long dur = Math.round(1000000.0 / hz);
+				log.info("schedule pit once " + hz + " hz " + dur + " us");
+				timerFuture = e.schedule(r, dur, TimeUnit.MICROSECONDS);
 			}
 			
 		} else {
@@ -348,12 +443,10 @@ public class Malta implements Device {
 	
 	public String displayText() {
 		final StringBuilder sb = new StringBuilder();
-		final int leds = iomem.getWord(M_DISPLAY_LEDBAR) & 0xff;
-		sb.append(Integer.toBinaryString(leds)).append(" ");
-		final int word = iomem.getWord(M_DISPLAY_ASCIIWORD);
-		sb.append(Integer.toHexString(word)).append(" ");
+		sb.append(Integer.toBinaryString(ledBar)).append(" ");
+		sb.append(Integer.toHexString(asciiWord)).append(" ");
 		for (int n = 0; n < 8; n++) {
-			int w = iomem.getWord(M_DISPLAY_ASCIIPOS + (n * 8)) & 0xff;
+			int w = asciiPos[n] & 0xff;
 			sb.append(w != 0 ? (char) w : ' ');
 		}
 		return sb.toString();

@@ -248,7 +248,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		for (int n = 0; n < msg.length(); n++) {
 			final char c = msg.charAt(n);
 			sb.append(c);
-			if (l++ > 72 && " /".indexOf(c) >= 0) {
+			if (l++ > 72 && " /:".indexOf(c) >= 0) {
 				sb.append("\n");
 				l = 0;
 			}

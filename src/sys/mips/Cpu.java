@@ -38,7 +38,10 @@ public final class Cpu {
 	
 	private volatile long cycle = 1;
 	
-	/** within execOp: address of current instruction. if pc2 != pc1 + 4 then the current instruction is in a delay slot. */
+	/**
+	 * within execOp: address of current instruction. if pc2 != pc + 4 then the
+	 * current instruction is in a branch delay slot.
+	 */
 	private int pc;
 	/** within execOp: address of next instruction (the branch delay slot) */
 	private int pc2;
@@ -117,7 +120,7 @@ public final class Cpu {
 	 * load pc2 and pc3 (the existing delay slot is discarded).
 	 */
 	public final void setPc (int pc) {
-		// don't set pc, it is set from pc2
+		// don't actually set pc, it is derived from pc2
 		this.pc2 = pc;
 		this.pc3 = pc + 4;
 	}
@@ -221,10 +224,10 @@ public final class Cpu {
 			pitTime = startTime;
 			String[] regstr = new String[32];
 			// this should only be checked during call
-//			int f = memory.getSymbols().getAddr("init_vdso");
-//			if (f == 0) {
-//				throw new RuntimeException();
-//			}
+			//int f = memory.getSymbols().getAddr("init_vdso");
+			//if (f == 0) {
+			//	throw new RuntimeException();
+			//}
 			
 			while (true) {
 				if (register[0] != 0) {
@@ -233,6 +236,7 @@ public final class Cpu {
 				
 				//final boolean printCall = calls.isPrintAfterNext();
 				
+				// set up pc before handling exception
 				pc = pc2;
 				pc2 = pc3;
 				pc3 += 4;
@@ -242,37 +246,36 @@ public final class Cpu {
 				//	calls.setPrintCalls(true);
 				//}
 				
-				boolean ex = false;
-				
-				// every 8192 cycles
-				if ((cycle & 0x1fff) == 0) {
+				// every 1024 cycles
+				if ((cycle & 0xfff) == 0) {
 					// should probably also do this after eret...
-					ex = pollException();
+					if (pollException()) {
+						// start executing exception handler...
+						continue;
+					}
 				}
 				
-				if (!ex) {
-					try {
-						// this might cause tlb miss...
-						final int isn = memory.loadWord(pc);
-						
-						if (disasm || disasmCount > 0) {
-							log.info(CpuUtil.gpRegString(this, regstr));
-							log.info(IsnUtil.isnString(this, isn));
-							if (disasmCount > 0) {
-								disasmCount--;
-							}
+				try {
+					// this might cause tlb miss...
+					final int isn = memory.loadWord(pc);
+					
+					if (disasm || disasmCount > 0) {
+						log.info(CpuUtil.gpRegString(this, regstr));
+						log.info(IsnUtil.isnString(this, isn));
+						if (disasmCount > 0) {
+							disasmCount--;
 						}
-						
-						// to signal an exception, either
-						// 1. call execException and return (more efficient)
-						// 2. throw new CpuException (easier in deep call stack)
-						// the instruction will be re-executed after the exception handler returns.
-						execOp(isn);
-						
-					} catch (CpuException e) {
-						log.info("caught " + e);
-						execException(e.ep);
 					}
+					
+					// to signal an exception, either
+					// 1. call execException and return (more efficient)
+					// 2. throw new CpuException (easier in deep call stack)
+					// the instruction will be re-executed after the exception handler returns.
+					execOp(isn);
+					
+				} catch (CpuException e) {
+					log.info("caught " + e);
+					execException(e.ep);
 				}
 				
 				//if (printCall) {
@@ -291,11 +294,11 @@ public final class Cpu {
 					}
 				}
 				
-				if (singleStep) {
-					while (System.in.read() != 10) {
-						//
-					}
-				}
+				//if (singleStep) {
+				//	while (System.in.read() != 10) {
+				//		//
+				//	}
+				//}
 				
 				cycle++;
 				
@@ -305,7 +308,11 @@ public final class Cpu {
 			}
 			
 		} catch (Exception e) {
-			throw new RuntimeException("cycle " + cycle + " kernel mode " + kernelMode + " interrupts enabled " + interruptsEnabled + " stack " + calls.callString(), e);
+			throw new RuntimeException("exception in cycle " + cycle 
+					+ " km=" + kernelMode 
+					+ " ie=" + interruptsEnabled 
+					+ " execex=" + execException 
+					+ " stack=" + calls.callString(), e);
 			
 		} finally {
 			final long d = System.nanoTime() - startTime;
@@ -315,11 +322,12 @@ public final class Cpu {
 		}
 	}
 	
+	/** exec exception if there is one */
 	private boolean pollException () {
 		if (interruptsEnabled) {
-			if (execException) {
-				throw new RuntimeException();
-			}
+//			if (execException) {
+//				throw new RuntimeException();
+//			}
 			EP ep;
 			synchronized (exceptions) {
 				ep = exceptions.poll();
@@ -349,39 +357,40 @@ public final class Cpu {
 	// traps.c trap_init
 	// genex.S
 	// malta-int.c plat_irq_dispatch (deals with hardware interrupts)
-	private final void execException (EP e) {
-		log.info("exec exception " + e.excode + " " + exceptionName(e.excode) + " interrupt " + e.interrupt + " " + MaltaUtil.interruptName(e.interrupt) + " irq " + MaltaUtil.irqName(e.irq) + " vaddr=" + Integer.toHexString(e.vaddr) + " tlbRefill=" + e.isTlbRefill);
-
-		switch (e.excode) {
+	private final void execException (EP ep) {
+		execException = true;
+		log.info("exec exception " + ep);
+		
+		switch (ep.excode) {
 			case EX_INTERRUPT:
 			case EX_TLB_LOAD:
 			case EX_TLB_STORE:
 				break;
 			default:
-				throw new RuntimeException("unexpected exception " + e.excode);
+				throw new RuntimeException("unexpected exception " + ep.excode);
 		}
 		
 		log.debug(CpuUtil.gpRegString(this, null));
 		log.debug(IsnUtil.isnString(this, memory.loadWord(pc)));
 		
-		final boolean isInterrupt = e.excode == EX_INTERRUPT;
-		final boolean isSbIntr = isInterrupt && e.interrupt == MaltaUtil.INT_SB_INTR;
-		final boolean isTlb = e.excode == EX_TLB_LOAD || e.excode == EX_TLB_STORE;
+		final boolean isInterrupt = ep.excode == EX_INTERRUPT;
+		final boolean isSbIntr = isInterrupt && ep.interrupt == MaltaUtil.INT_SB_INTR;
+		final boolean isTlb = ep.excode == EX_TLB_LOAD || ep.excode == EX_TLB_STORE;
 		
-		if (execException) {
-			throw new RuntimeException("exception in exception handler");
-		}
+//		if (execException) {
+//			throw new RuntimeException("exception in exception handler");
+//		}
 		
-		if (e.excode < 0 || e.excode >= 32) {
-			throw new RuntimeException("invalid excode " + e.excode);
+		if (ep.excode < 0 || ep.excode >= 32) {
+			throw new RuntimeException("invalid excode " + ep.excode);
 		}
 
-		if (isInterrupt && (e.interrupt < 0 || e.interrupt >= 8)) {
-			throw new RuntimeException("invalid interrupt " + e.interrupt);
+		if (isInterrupt && (ep.interrupt < 0 || ep.interrupt >= 8)) {
+			throw new RuntimeException("invalid interrupt " + ep.interrupt);
 		}
 		
-		if (isSbIntr && (e.irq < 0 || e.irq >= 16)) {
-			throw new RuntimeException("invalid irq " + e.irq);
+		if (isSbIntr && (ep.irq < 0 || ep.irq >= 16)) {
+			throw new RuntimeException("invalid irq " + ep.irq);
 		}
 		
 //		if (isTlb && e.vaddr == 0) {
@@ -403,23 +412,23 @@ public final class Cpu {
 		}
 
 		final int interrupts = CPR_STATUS_IM.get(cpReg);
-		final int interruptmask = isInterrupt ? 1 << e.interrupt : 0;
+		final int interruptmask = isInterrupt ? 1 << ep.interrupt : 0;
 		
 		if (isInterrupt && (interrupts & interruptmask) == 0) {
-			throw new RuntimeException("masked interrupt " + e.interrupt);
+			throw new RuntimeException("masked interrupt " + ep.interrupt);
 		}
 		
 		boolean isDelaySlot = pc2 != pc + 4;
 		
 		CPR_STATUS_EXL.set(cpReg, true);
-		CPR_CAUSE_EXCODE.set(cpReg, e.excode);
+		CPR_CAUSE_EXCODE.set(cpReg, ep.excode);
 		CPR_CAUSE_IP.set(cpReg, interruptmask);
 		CPR_CAUSE_BD.set(cpReg, isDelaySlot);
 		CPR_EPC_VALUE.set(cpReg, isDelaySlot ? pc - 4 : pc);
 		
 		if (isTlb) {
-			final int vpn2 = vpn2(e.vaddr);
-			CPR_BADVADDR_BADVADDR.set(cpReg, e.vaddr);
+			final int vpn2 = vpn2(ep.vaddr);
+			CPR_BADVADDR_BADVADDR.set(cpReg, ep.vaddr);
 			CPR_CONTEXT_BADVPN2.set(cpReg, vpn2);
 			CPR_ENTRYHI_VPN2.set(cpReg, vpn2);
 		}
@@ -430,15 +439,14 @@ public final class Cpu {
 		
 		if (isSbIntr) {
 			// uh....
-			memory.getMalta().getGt().setIrq(e.irq);
+			memory.getMalta().getGt().setIrq(ep.irq);
 		}
 		
-		execException = true;
 		exreg = register.clone();
 		exhi = hi;
 		exlo = lo;
 		
-		if (e.isTlbRefill) {
+		if (ep.isTlbRefill) {
 			log.info("jump to tlb refill vector");
 			setPc(EXV_TLBREFILL);
 			
@@ -451,7 +459,7 @@ public final class Cpu {
 			setPc(EXV_EXCEPTION);
 		}
 		
-		calls.push("ex" + e.excode + "int" + e.interrupt + "irq" + e.irq);
+		calls.push("ex" + ep.excode + "int" + ep.interrupt + "irq" + ep.irq);
 		calls.call(pc);
 	}
 	

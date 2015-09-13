@@ -17,19 +17,22 @@ public class EP {
 		this(excode, -1, -1, -1, false);
 	}
 	
+	/** hardware interrupt */
 	public EP (int excode, int interrupt, int irq) {
 		this(excode, interrupt, irq, -1, false);
 	}
 	
+	/** virtual address error */
 	public EP (int excode, int vaddr) {
 		this(excode, -1, -1, vaddr, false);
 	}
 	
+	/** tlb error */
 	public EP (int excode, int vaddr, boolean isTlbRefill) {
 		this(excode, -1, -1, vaddr, isTlbRefill);
 	}
 	
-	public EP (int excode, int interrupt, int irq, int vaddr, boolean isTlbRefill) {
+	private EP (int excode, int interrupt, int irq, int vaddr, boolean isTlbRefill) {
 		this.excode = excode;
 		this.interrupt = interrupt;
 		this.irq = irq;

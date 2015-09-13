@@ -25,6 +25,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	}
 	
 	private static final Font MONO = new Font("Monospaced", Font.BOLD, 14);
+	private static int threadInstance = 1;
 	
 	private final JTextField fileField = new JTextField(10);
 	private final JTextField argsField = new JTextField(10);
@@ -194,7 +195,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 				
 			} catch (Exception e) {
 				System.out.println();
-				cpu.getLog().print(System.out);
+//				cpu.getLog().print(System.out);
 				cpu.getMemory().print(System.out);
 				
 				System.out.println();
@@ -219,7 +220,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 				this.thread = null;
 			}
 		});
-		
+		t.setName("t" + threadInstance++);
 		t.setPriority(Thread.MIN_PRIORITY);
 		t.start();
 		

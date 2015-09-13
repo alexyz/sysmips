@@ -5,6 +5,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import sys.malta.Malta;
 import sys.malta.MaltaUtil;
+import sys.util.Logger;
 import sys.util.Symbols;
 
 import static sys.mips.Constants.*;
@@ -15,6 +16,7 @@ public final class Cpu {
 	
 	private static final ThreadLocal<Cpu> instance = new ThreadLocal<>();
 	private static final int INTERVAL_NS = 4000000;
+	private static final Logger log = new Logger(Cpu.class);
 	
 	/** allow other classes to access cpu */
 	public static Cpu getInstance() {
@@ -25,7 +27,6 @@ public final class Cpu {
 	private final int[] register = new int[32];
 	/** coprocessor 0 registers (register+selection*32) */
 	private final int[] cpReg = new int[64];
-	private final CpuLogger log = new CpuLogger(this);
 	private final Map<String, int[]> isnCount = new HashMap<>();
 	private final Memory memory;
 	private final boolean littleEndian;
@@ -137,10 +138,6 @@ public final class Cpu {
 		register[n] = value;
 	}
 	
-	public final CpuLogger getLog () {
-		return log;
-	}
-	
 	public final long getHilo () {
 		return zeroExtendInt(hi) << 32 | zeroExtendInt(lo);
 	}
@@ -220,7 +217,7 @@ public final class Cpu {
 		try {
 			instance.set(this);
 			calls.call(pc2);
-			log.info("run " + cycle);
+			log.println("run " + cycle);
 			pitTime = startTime;
 			String[] regstr = new String[32];
 			// this should only be checked during call
@@ -260,8 +257,8 @@ public final class Cpu {
 					final int isn = memory.loadWord(pc);
 					
 					if (disasm || disasmCount > 0) {
-						log.info(CpuUtil.gpRegString(this, regstr));
-						log.info(IsnUtil.isnString(this, isn));
+						log.println(CpuUtil.gpRegString(this, regstr));
+						log.println(IsnUtil.isnString(this, isn));
 						if (disasmCount > 0) {
 							disasmCount--;
 						}
@@ -274,7 +271,7 @@ public final class Cpu {
 					execOp(isn);
 					
 				} catch (CpuException e) {
-					log.info("caught " + e);
+					log.println("caught " + e);
 					execException(e.ep);
 				}
 				
@@ -316,7 +313,7 @@ public final class Cpu {
 			
 		} finally {
 			final long d = System.nanoTime() - startTime;
-			log.info("ended, ns per isn: " + (d / cycle));
+			log.println("ended, ns per isn: " + (d / cycle));
 			instance.remove();
 			getExecutor().shutdown();
 		}
@@ -341,7 +338,7 @@ public final class Cpu {
 	}
 
 	public final void addException (final EP ep) {
-		System.out.println("add exn " + ep);
+		log.println("add exn " + ep);
 		synchronized (exceptions) {
 			exceptions.add(ep);
 		}
@@ -359,7 +356,7 @@ public final class Cpu {
 	// malta-int.c plat_irq_dispatch (deals with hardware interrupts)
 	private final void execException (EP ep) {
 		execException = true;
-		log.info("exec exception " + ep);
+		log.println("exec exception " + ep);
 		
 		switch (ep.excode) {
 			case EX_INTERRUPT:
@@ -370,8 +367,8 @@ public final class Cpu {
 				throw new RuntimeException("unexpected exception " + ep.excode);
 		}
 		
-		log.debug(CpuUtil.gpRegString(this, null));
-		log.debug(IsnUtil.isnString(this, memory.loadWord(pc)));
+		log.println(CpuUtil.gpRegString(this, null));
+		log.println(IsnUtil.isnString(this, memory.loadWord(pc)));
 		
 		final boolean isInterrupt = ep.excode == EX_INTERRUPT;
 		final boolean isSbIntr = isInterrupt && ep.interrupt == MaltaUtil.INT_SB_INTR;
@@ -433,7 +430,7 @@ public final class Cpu {
 			CPR_ENTRYHI_VPN2.set(cpReg, vpn2);
 		}
 		
-		log.info("epc=" + memory.getSymbols().getNameAddrOffset(cpReg[CPR_EPC]) + " delaySlot=" + isDelaySlot);
+		log.println("epc=" + memory.getSymbols().getNameAddrOffset(cpReg[CPR_EPC]) + " delaySlot=" + isDelaySlot);
 		
 		statusUpdated();
 		
@@ -447,15 +444,15 @@ public final class Cpu {
 		exlo = lo;
 		
 		if (ep.isTlbRefill) {
-			log.info("jump to tlb refill vector");
+			log.println("jump to tlb refill vector");
 			setPc(EXV_TLBREFILL);
 			
 		} else if (isInterrupt && iv) {
-			log.info("jump to interrupt vector");
+			log.println("jump to interrupt vector");
 			setPc(EXV_INTERRUPT);
 			
 		} else {
-			log.info("jump to general exception vector");
+			log.println("jump to general exception vector");
 			setPc(EXV_EXCEPTION);
 		}
 		
@@ -602,7 +599,7 @@ public final class Cpu {
 					memory.storeWord(va, register[rt]);
 					register[rt] = 1;
 				} else {
-					log.info("sc fail: va=" + Integer.toHexString(va) + " pa=" + Integer.toHexString(pa) + " ll=" + loadLinkedBit);
+					log.println("sc fail: va=" + Integer.toHexString(va) + " pa=" + Integer.toHexString(pa) + " ll=" + loadLinkedBit);
 					register[rt] = 0;
 				}
 				return;
@@ -785,7 +782,7 @@ public final class Cpu {
 				execException(new EP(EX_BREAKPOINT));
 				return;
 			case FN_SYNC:
-				log.debug("sync");
+				log.println("sync");
 				return;
 			case FN_MFHI:
 				register[rd] = hi;
@@ -1005,7 +1002,7 @@ public final class Cpu {
 				}
 				return;
 			case CPR_COMPARE:
-				log.info("set compare " + Integer.toHexString(newValue));
+				log.println("set compare " + Integer.toHexString(newValue));
 				cpReg[cpr] = newValue;
 				return;
 			case CPR_EPC:
@@ -1085,7 +1082,7 @@ public final class Cpu {
 			}
 			case CP_FN_ERET: {
 				final int epc = cpReg[CPR_EPC];
-				log.info("exception return " + memory.getSymbols().getNameAddrOffset(epc));
+				log.println("exception return " + memory.getSymbols().getNameAddrOffset(epc));
 				if (CPR_STATUS_ERL.isSet(cpReg)) {
 					throw new RuntimeException("eret with erl");
 				}
@@ -1099,16 +1096,16 @@ public final class Cpu {
 						if (n != REG_K0 && n != REG_K1) {
 							if (exreg[n] != register[n]) {
 								eq = false;
-								log.debug("register " + n + ": " + gpRegName(n) + " changed from " + Integer.toHexString(exreg[n]) + " to " + Integer.toHexString(register[n]));
+								log.println("register " + n + ": " + gpRegName(n) + " changed from " + Integer.toHexString(exreg[n]) + " to " + Integer.toHexString(register[n]));
 							}
 						}
 					}
 					if (exhi != hi) {
-						log.debug("exhi=" + Integer.toHexString(exhi) + " hi=" + Integer.toHexString(hi));
+						log.println("exhi=" + Integer.toHexString(exhi) + " hi=" + Integer.toHexString(hi));
 						eq = false;
 					}
 					if (exlo != lo) {
-						log.debug("exlo=" + Integer.toHexString(exlo) + " lo=" + Integer.toHexString(lo));
+						log.println("exlo=" + Integer.toHexString(exlo) + " lo=" + Integer.toHexString(lo));
 						eq = false;
 					}
 					if (!eq) {
@@ -1127,7 +1124,7 @@ public final class Cpu {
 	}
 
 	private void updateEntry (final int i) {
-		log.debug("update entry " + i + " in " + memory.getSymbols().getNameAddrOffset(pc));
+		log.println("update entry " + i + " in " + memory.getSymbols().getNameAddrOffset(pc));
 		
 		final Entry e = memory.getEntry(i);
 		e.pageMask = CPR_PAGEMASK_MASK.get(cpReg);
@@ -1143,7 +1140,7 @@ public final class Cpu {
 		e.data[1].dirty = CPR_ENTRYLO1_DIRTY.isSet(cpReg);
 		e.data[1].valid = CPR_ENTRYLO1_VALID.isSet(cpReg);
 		
-		log.info("updated tlb[" + i + "]=" + e);
+		log.println("updated tlb[" + i + "]=" + e);
 		
 		if (e.pageMask != 0) {
 			throw new RuntimeException("non zero page mask");

@@ -3,7 +3,7 @@ package sys.malta;
 import java.lang.reflect.*;
 
 import sys.mips.Cpu;
-import sys.mips.CpuLogger;
+import sys.util.Logger;
 import sys.util.Symbols;
 
 import static sys.util.ByteOrder.*;
@@ -112,6 +112,8 @@ public class GT implements Device {
 	/** PCI_0 Configuration Data Virtual Register */
 	public static final int GT_PCI0_CFGDATA = 0xcfc;
 
+	private static final Logger log = new Logger(GT.class);
+	
 	private static int reg (final int cfgaddr) {
 		return (cfgaddr >>> 2) & 0x3f;
 	}
@@ -174,18 +176,18 @@ public class GT implements Device {
 	}
 	
 	public void setIrq (int irq) {
-		CpuLogger.getInstance().info("gt set irq " + irq);
+		log.println("set irq " + irq);
 		iomem.putWord(GT_PCI0_IACK, irq);
 	}
 
 	@Override
 	public void init (Symbols sym, int offset) {
-		System.out.println("init gt at " + Integer.toHexString(offset));
+		log.println("init gt at " + Integer.toHexString(offset));
 		this.offset = offset;
 		
 		for (Field f : GT.class.getFields()) {
 			final int m = f.getModifiers();
-			if (Modifier.isPublic(m) && Modifier.isStatic(m) && Modifier.isFinal(m)) {
+			if (Modifier.isPublic(m) && Modifier.isStatic(m) && Modifier.isFinal(m) && f.getType().isInstance(String.class)) {
 				try {
 					sym.put(offset + f.getInt(null), f.getName(), 4);
 				} catch (Exception e) {
@@ -204,19 +206,18 @@ public class GT implements Device {
 	
 	@Override
 	public void systemWrite (int addr, int value, int size) {
-		final CpuLogger log = CpuLogger.getInstance();
 		Cpu cpu = Cpu.getInstance();
 		
 		// XXX swap here?
 		value = swap(value);
 		String name = cpu.getMemory().getSymbols().getNameAddrOffset(offset + addr);
 		final String msg = Integer.toHexString(addr) + " (" + name + ") <= " + Integer.toHexString(value) + " size " + size;
-		log.info("gt write " + msg);
+		log.println("write " + msg);
 		iomem.put(addr, value, size);
 		
 		switch (addr) {
 			case GT_PCI0IOREMAP:
-				log.info("set PCI 0 IO remap " + value);
+				log.println("set PCI 0 IO remap " + value);
 				if (value != 0) {
 					throw new RuntimeException("unknown remap");
 				}
@@ -224,7 +225,7 @@ public class GT implements Device {
 				
 			case GT_IC:
 			case GT_PCI0_CMD:
-				log.info("ignore" + value);
+				log.println("ignore" + value);
 				break;
 				
 			case GT_PCI0_CFGADDR:
@@ -242,8 +243,6 @@ public class GT implements Device {
 	}
 	
 	private void setAddr (final int cfgaddr) {
-		final CpuLogger log = CpuLogger.getInstance();
-		
 		// pci configuration space
 		int en = en(cfgaddr);
 		int bus = bus(cfgaddr);
@@ -251,7 +250,7 @@ public class GT implements Device {
 		int func = func(cfgaddr);
 		int reg = reg(cfgaddr);
 		String msg = String.format("address=%x en=%x bus=%x dev=%x func=%x reg=%x", cfgaddr, en, bus, dev, func, reg);
-		log.debug("gt pci0 set addr " + msg);
+		log.println("pci0 set addr " + msg);
 		
 		if (bus == 0 && func == 0) {
 			iomem.putWord(GT_PCI0_CFGDATA, 0);
@@ -262,18 +261,16 @@ public class GT implements Device {
 	}
 
 	private void setData (int value) {
-		final CpuLogger log = CpuLogger.getInstance();
-		
 		int cfgaddr = iomem.getWord(GT_PCI0_CFGADDR);
 		int en = en(cfgaddr);
 		int bus = bus(cfgaddr);
 		int dev = dev(cfgaddr);
 		int func = func(cfgaddr);
 		int reg = reg(cfgaddr);
-		log.info("set PCI0 config data %x en=%d bus=%d dev=%d func=%d reg=%d", value, en, bus, dev, func, reg);
+		log.println(String.format("set PCI0 config data %x en=%x bus=%x dev=%x func=%x reg=%x", value, en, bus, dev, func, reg));
 		
 		if (bus == 0 && dev == 0 && func == 0) {
-			log.info("set GT_PCI0_CFGADDR_CONFIGEN_BIT");
+			log.println("set GT_PCI0_CFGADDR_CONFIGEN_BIT");
 			
 		} else {
 			throw new RuntimeException("set unknown bus/device/function data");

@@ -3,10 +3,12 @@ package sys.mips;
 import java.io.PrintStream;
 
 import sys.malta.Malta;
+import sys.util.Logger;
 import sys.util.Symbols;
 
 public final class Memory {
 	
+	private static final Logger log = new Logger(Memory.class);
 	private static final int KSEG0 = 0x8000_0000;
 	private static final int KSEG1 = 0xa000_0000;
 	private static final int KSEG2 = 0xc000_0000;
@@ -50,13 +52,13 @@ public final class Memory {
 	}
 
 	public void init () {
-		System.out.println("init memory");
+		log.println("init memory");
 		symbols.put(KSEG0, "KSEG0");
 		symbols.put(KSEG1, "KSEG1");
 		symbols.put(KSEG2, "KSEG2");
 		symbols.put(KSEG3, "KSEG3");
 		malta.init(symbols, KSEG1);
-		System.out.println("symbols=" + symbols);
+		log.println("symbols=" + symbols);
 	}
 	
 	public boolean isLittleEndian () {
@@ -174,15 +176,14 @@ public final class Memory {
 	}
 	
 	public final int probe (final int vpn2) {
-		CpuLogger log = Cpu.getInstance().getLog();
 		for (int n = 0; n < entries.length; n++) {
 			Entry e = entries[n];
 			if (e.virtualPageNumber2 == vpn2 && (e.addressSpaceId == asid || e.global)) {
-				log.debug("tlb probe = " + n);
+				log.println("tlb probe = " + n);
 				return n;
 			}
 		}
-		log.debug("tlb probe miss");
+		log.println("tlb probe miss");
 		return -1;
 	}
 	
@@ -213,7 +214,6 @@ public final class Memory {
 	 * translate virtual address to physical
 	 */
 	private final int lookup2 (final int vaddr, final boolean store, final int key, final long exa) {
-		CpuLogger log = Cpu.getInstance().getLog();
 		final int vpn2 = Functions.vpn2(vaddr);
 		final int eo = Functions.evenodd(vaddr);
 		boolean refill = true;
@@ -232,7 +232,7 @@ public final class Memory {
 				//log.debug("tlb hit");
 				EntryData d = e.data[eo];
 				if (!d.valid) {
-					log.debug("entry invalid...");
+					log.println("entry invalid...");
 					refill = false;
 					break;
 				}
@@ -253,12 +253,12 @@ public final class Memory {
 			}
 		}
 		
-		log.debug("tlb miss");
+		log.println("tlb miss");
 		emiss++;
 		
 		for (int n = 0; n < entries.length; n++) {
 			Entry e = entries[n];
-			log.debug("entry[" + n + "]=" + e);
+			log.println("entry[" + n + "]=" + e);
 		}
 		
 		// also need to throw modified exception if page is read only...

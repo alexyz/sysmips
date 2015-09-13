@@ -8,8 +8,8 @@ import java.util.concurrent.TimeUnit;
 
 import sys.mips.Constants;
 import sys.mips.Cpu;
-import sys.mips.CpuLogger;
 import sys.mips.EP;
+import sys.util.Logger;
 import sys.util.Symbols;
 
 /**
@@ -93,6 +93,8 @@ public class Malta implements Device {
 	public static final int M_SCSPEC2 = 0x1fd0_0010;
 	public static final int M_SCSPEC2_BONITO = 0x1fe0_0010;
 	
+	private static final Logger log = new Logger(Malta.class);
+	
 	private static int indexToCalendar (int index) {
 		switch (index) {
 			case 0: 
@@ -143,7 +145,7 @@ public class Malta implements Device {
 	
 	@Override
 	public void init (Symbols sym, int offset) {
-		System.out.println("init malta at " + Integer.toHexString(offset));
+		log.println("init malta at " + Integer.toHexString(offset));
 		this.offset = offset;
 		
 		sym.put(offset + M_SDRAM, "M_SDRAM");
@@ -211,8 +213,6 @@ public class Malta implements Device {
 	
 	@Override
 	public void systemWrite (final int addr, final int value, int size) {
-		final CpuLogger log = CpuLogger.getInstance();
-		
 		switch (addr) {
 			case M_DISPLAY_ASCIIWORD:
 				asciiWordWrite(value);
@@ -272,7 +272,7 @@ public class Malta implements Device {
 			
 			case M_DMA2_MASK_REG:
 				// information in asm/dma.h
-				log.info("enable dma channel 4+" + value);
+				log.println("enable dma channel 4+" + value);
 				return;
 				
 			case M_COM1_RX:
@@ -280,21 +280,21 @@ public class Malta implements Device {
 				return;
 				
 			case M_PIC_MASTER_CMD:
-				log.info("pic master write command " + Integer.toHexString(value & 0xff));
+				log.println("pic master write command " + Integer.toHexString(value & 0xff));
 				return;
 				
 			case M_PIC_MASTER_IMR:
-				log.info("pic master write interrupt mask register " + Integer.toHexString(value & 0xff));
+				log.println("pic master write interrupt mask register " + Integer.toHexString(value & 0xff));
 				// XXX should probably do something here...
 				picimr = (byte) value;
 				return;
 				
 			case M_PIC_SLAVE_CMD:
-				log.info("pic slave write command " + Integer.toHexString(value & 0xff));
+				log.println("pic slave write command " + Integer.toHexString(value & 0xff));
 				return;
 				
 			case M_PIC_SLAVE_IMR:
-				log.info("pic slave write interrupt mask register " + Integer.toHexString(value & 0xff));
+				log.println("pic slave write interrupt mask register " + Integer.toHexString(value & 0xff));
 				return;
 				
 			default:
@@ -306,7 +306,7 @@ public class Malta implements Device {
 			return;
 			
 		} else if (addr >= M_UNCACHED_EX_H && addr < M_UNCACHED_EX_H + 0x100) {
-			log.debug("set uncached exception handler " + Symbols.getInstance().getNameOffset(offset + addr) + " <= " + Integer.toHexString(value));
+			log.println("set uncached exception handler " + Symbols.getInstance().getNameOffset(offset + addr) + " <= " + Integer.toHexString(value));
 			return;
 			
 		} else {
@@ -331,10 +331,9 @@ public class Malta implements Device {
 	}
 
 	private void rtcAdrWrite (final int value) {
-		final CpuLogger log = CpuLogger.getInstance();
 		// mc146818rtc.h
 		// 0 = seconds, 2 = minutes, 4 = hours, 6 = dow, 7 = dom, 8 = month, 9 = year
-		log.debug("rtc adr write " + value);
+		log.println(0, "rtc adr write " + value);
 		rtcadr = (byte) value;
 		if (value == 0xa) {
 			// update in progress
@@ -349,7 +348,6 @@ public class Malta implements Device {
 	}
 
 	private void rtcDatWrite (final int value) {
-		final CpuLogger log = CpuLogger.getInstance();
 		if (rtcadr == 0xb && value == 4) {
 			// set mode binary
 			return;
@@ -361,8 +359,7 @@ public class Malta implements Device {
 	}
 
 	private void timerControlWrite (final int value) {
-		final CpuLogger log = CpuLogger.getInstance();
-		log.info("timer control word write " + Integer.toHexString(value));
+		log.println("timer control word write " + Integer.toHexString(value));
 		// i8253.c init_pit_timer
 		// 34 = binary, rate generator, r/w lsb then msb
 		// 38 = software triggered strobe
@@ -375,8 +372,7 @@ public class Malta implements Device {
 	}
 
 	private void timerCounter0Write (final byte value) {
-		final CpuLogger log = CpuLogger.getInstance();
-		log.info("timer counter 0 write " + Integer.toHexString(value));
+		log.println("timer counter 0 write " + Integer.toHexString(value));
 		// lsb then msb
 		// #define CLOCK_TICK_RATE 1193182
 		// #define LATCH  ((CLOCK_TICK_RATE + HZ/2) / HZ)
@@ -405,13 +401,13 @@ public class Malta implements Device {
 				// counter never reaches 0...
 				double hz = 1193182.0 / (timerCounter0 - 1.5);
 				long dur = Math.round(1000000.0 / hz);
-				log.info("schedule pit at fixed rate " + hz + " hz " + dur + " us");
+				log.println("schedule pit at fixed rate " + hz + " hz " + dur + " us");
 				timerFuture = e.scheduleAtFixedRate(r, dur, dur, TimeUnit.MICROSECONDS);
 				
 			} else if (timerControlWord == 0x38) {
 				double hz = 1193182.0 / (timerCounter0 - 0.5);
 				long dur = Math.round(1000000.0 / hz);
-				log.info("schedule pit once " + hz + " hz " + dur + " us");
+				log.println("schedule pit once " + hz + " hz " + dur + " us");
 				timerFuture = e.schedule(r, dur, TimeUnit.MICROSECONDS);
 			}
 			
@@ -428,9 +424,9 @@ public class Malta implements Device {
 		}
 		if (value == '\n' || consoleSb.length() > 160) {
 			final String line = consoleSb.toString();
-			Cpu.getInstance().getLog().info("# " + line.trim());
+			log.println("# " + line.trim());
 			if (line.contains("WARNING")) {
-				Cpu.getInstance().getLog().info("calls=" + Cpu.getInstance().getCalls().callString());
+				log.println("calls=" + Cpu.getInstance().getCalls().callString());
 			}
 			support.firePropertyChange("console", null, line);
 			consoleSb.delete(0, consoleSb.length());

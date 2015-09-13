@@ -2,10 +2,14 @@ package sys.mips;
 
 import java.util.*;
 
+import sys.util.Logger;
+
 /**
  * log function calls
  */
 public class CallLogger {
+	
+	private static final Logger log = new Logger(CallLogger.class);
 	
 	private final List<List<String>> threads = new ArrayList<>();
 	private final List<String> threadNames = new ArrayList<>();
@@ -54,7 +58,7 @@ public class CallLogger {
 //		}
 		
 		if (printCalls) {
-			cpu.getLog().info("call " + callString());
+			log.println("call " + callString());
 		}
 	}
 	
@@ -78,7 +82,6 @@ public class CallLogger {
 	
 	public void printCall() {
 		final String name = cpu.getMemory().getSymbols().getName(cpu.getPc());
-		final CpuLogger log = cpu.getLog();
 		int a0 = cpu.getRegister(Constants.REG_A0);
 		int a1 = cpu.getRegister(Constants.REG_A1);
 		int a2 = cpu.getRegister(Constants.REG_A2);
@@ -146,7 +149,7 @@ public class CallLogger {
 				throw new RuntimeException("unexpected call " + name);
 		}
 		
-		log.info("call " + name + args);
+		log.println("call " + name + args);
 	}
 	
 	public void ret () {

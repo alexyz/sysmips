@@ -5,7 +5,7 @@ import sys.malta.MaltaUtil;
 /**
  * cpu exception parameters
  */
-public class EP {
+public class CpuExceptionParams {
 	
 	public final int excode;
 	public final int interrupt;
@@ -13,26 +13,26 @@ public class EP {
 	public final int vaddr;
 	public final boolean isTlbRefill;
 	
-	public EP (int excode) {
+	public CpuExceptionParams (int excode) {
 		this(excode, -1, -1, -1, false);
 	}
 	
 	/** hardware interrupt */
-	public EP (int excode, int interrupt, int irq) {
+	public CpuExceptionParams (int excode, int interrupt, int irq) {
 		this(excode, interrupt, irq, -1, false);
 	}
 	
 	/** virtual address error */
-	public EP (int excode, int vaddr) {
+	public CpuExceptionParams (int excode, int vaddr) {
 		this(excode, -1, -1, vaddr, false);
 	}
 	
 	/** tlb error */
-	public EP (int excode, int vaddr, boolean isTlbRefill) {
+	public CpuExceptionParams (int excode, int vaddr, boolean isTlbRefill) {
 		this(excode, -1, -1, vaddr, isTlbRefill);
 	}
 	
-	private EP (int excode, int interrupt, int irq, int vaddr, boolean isTlbRefill) {
+	private CpuExceptionParams (int excode, int interrupt, int irq, int vaddr, boolean isTlbRefill) {
 		this.excode = excode;
 		this.interrupt = interrupt;
 		this.irq = irq;
@@ -42,6 +42,6 @@ public class EP {
 	
 	@Override
 	public String toString () {
-		return "EP[" + IsnUtil.exceptionName(excode) + ", " + MaltaUtil.interruptName(interrupt) + ", " + MaltaUtil.irqName(irq) + ", " + Integer.toHexString(vaddr) + ", " + isTlbRefill + "]";
+		return getClass().getSimpleName() + "[ex=" + IsnUtil.exceptionName(excode) + " int=" + MaltaUtil.interruptName(interrupt) + " irq=" + MaltaUtil.irqName(irq) + " va=" + Integer.toHexString(vaddr) + " tlb=" + isTlbRefill + "]";
 	}
 }

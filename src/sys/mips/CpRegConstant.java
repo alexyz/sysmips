@@ -1,7 +1,7 @@
 package sys.mips;
 
 /** represents a field in a system coprocessor register */
-public final class Constant {
+public final class CpRegConstant {
 	
 	public final int register;
 	public final int leftShift;
@@ -9,7 +9,7 @@ public final class Constant {
 	public final int max;
 	public final int mask;
 	
-	public Constant (int register, int leftShift, int size) {
+	public CpRegConstant (int register, int leftShift, int size) {
 		if (register >= 0 && register < 64 && leftShift >= 0 && leftShift < 32 && size > 0 && size <= 32 && leftShift + size <= 32) {
 			this.register = register;
 			this.leftShift = leftShift;

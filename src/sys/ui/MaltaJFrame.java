@@ -29,13 +29,13 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	
 	private final JTextField fileField = new JTextField(10);
 	private final JTextField argsField = new JTextField(10);
-	private final JTextField envField = new JTextField(10);
+//	private final JTextField envField = new JTextField(10);
 	private final JLabel displayLabel = new JLabel("            ");
 	private final JLabel cycleLabel = new JLabel("");
 	private final JTextArea consoleArea = new JTextArea();
 	private final JButton fileButton = new JButton("...");
 	private final JButton runButton = new JButton("Run");
-	private final JButton stopButton = new JButton("Stop");
+//	private final JButton stopButton = new JButton("Stop");
 	private final JSpinner memSpinner = new JSpinner(new SpinnerNumberModel(32,32,512,1));
 	private final Timer timer;
 	
@@ -54,7 +54,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		fileField.setText("images/vmlinux-3.2.0-4-4kc-malta");
 		fileButton.addActionListener(ae -> selectFile());
 		argsField.setText("debug initcall_debug ignore_loglevel");
-		envField.setText("");
+//		envField.setText("");
 		
 		runButton.addActionListener(ae -> start());
 		
@@ -145,20 +145,20 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		}
 		
 		List<String> env = new ArrayList<>();
-		{
-			StringTokenizer st = new StringTokenizer(envField.getText());
-			while (st.hasMoreTokens()) {
-				String t = st.nextToken();
-				int i = t.indexOf("=");
-				if (i > 1) {
-					env.add(t.substring(0, i));
-					env.add(t.substring(i + 1));
-				} else {
-					showErrorDialog("Start", "Invalid environment: " + t);
-					return;
-				}
-			}
-		}
+//		{
+//			StringTokenizer st = new StringTokenizer(envField.getText());
+//			while (st.hasMoreTokens()) {
+//				String t = st.nextToken();
+//				int i = t.indexOf("=");
+//				if (i > 1) {
+//					env.add(t.substring(0, i));
+//					env.add(t.substring(i + 1));
+//				} else {
+//					showErrorDialog("Start", "Invalid environment: " + t);
+//					return;
+//				}
+//			}
+//		}
 		env.add("memsize");
 		env.add(String.valueOf(memsize));
 		

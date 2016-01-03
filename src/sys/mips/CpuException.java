@@ -3,9 +3,9 @@ package sys.mips;
 /** internal exception */
 public class CpuException extends RuntimeException {
 	
-	public final EP ep;
+	public final CpuExceptionParams ep;
 
-	public CpuException (EP ep) {
+	public CpuException (CpuExceptionParams ep) {
 		this.ep = ep;
 	}
 	

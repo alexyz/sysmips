@@ -1,7 +1,8 @@
 package sys.mips;
 
 import java.util.*;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 import sys.malta.Malta;
 import sys.malta.MaltaUtil;
@@ -26,16 +27,16 @@ public final class Cpu {
 	/** general purpose registers */
 	private final int[] register = new int[32];
 	/** coprocessor 0 registers (register+selection*32) */
-	private final int[] cpReg = new int[64];
+	private final int[] cpRegister = new int[64];
 	private final Map<String, int[]> isnCount = new HashMap<>();
 	private final Memory memory;
 	private final boolean littleEndian;
-	private final Deque<EP> exceptions = new ArrayDeque<>();
+	private final Deque<CpuExceptionParams> exceptions = new ArrayDeque<>();
 	private final CallLogger calls = new CallLogger(this);
 	/** 0 for le, 3 for be */
 	private final int wordAddrXor;
 	private final Fpu fpu = new Fpu(this);
-	private final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
+	private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 	
 	private volatile long cycle = 1;
 	
@@ -78,31 +79,32 @@ public final class Cpu {
 		}
 		
 		// default values on reboot
-		CPR_STATUS_EXL.set(cpReg, true);
-		CPR_STATUS_ERL.set(cpReg, true);
-		CPR_STATUS_BEV.set(cpReg, true);
-		CPR_STATUS_CU0.set(cpReg, true);
-		CPR_STATUS_CU1.set(cpReg, true);
+		CPR_STATUS_EXL.set(cpRegister, true);
+		CPR_STATUS_ERL.set(cpRegister, true);
+		CPR_STATUS_BEV.set(cpRegister, true);
+		CPR_STATUS_CU0.set(cpRegister, true);
+		CPR_STATUS_CU1.set(cpRegister, true);
 		statusUpdated();
 		
 		// 0x10000 = MIPS, 0x8000 = 4KC 
-		CPR_PRID_PROCID.set(cpReg, 0x80);
-		CPR_PRID_COMPANYID.set(cpReg, 1);
+		CPR_PRID_PROCID.set(cpRegister, 0x80);
+		CPR_PRID_COMPANYID.set(cpRegister, 1);
 		
 		// 15: big endian, 7: TLB
-		cpReg[CPR_CONFIG] = (1 << 31) | ((littleEndian?0:1) << 15) | (1 << 7) | (1 << 1);
+		cpRegister[CPR_CONFIG] = (1 << 31) | ((littleEndian?0:1) << 15) | (1 << 7) | (1 << 1);
 		
 		// 25: tlb entries - 1
 		// should enable 3: watch registers and 1: ejtag, but we don't want them
-		cpReg[CPR_CONFIG1] = (15 << 25);
+		cpRegister[CPR_CONFIG1] = (15 << 25);
 		
-		cpReg[CPR_COMPARE] = -1;
+		cpRegister[CPR_COMPARE] = -1;
 		
-		setPc(EXV_RESET);
+		// entry point should be set by elf loader
+		//setPc(EXV_RESET);
 	}
 	
 	public final int[] getCpRegisters () {
-		return cpReg;
+		return cpRegister;
 	}
 	
 	public final long getCycle () {
@@ -206,7 +208,7 @@ public final class Cpu {
 		this.pitEnabled = pitEnabled;
 	}
 
-	public ScheduledThreadPoolExecutor getExecutor () {
+	public ScheduledExecutorService getExecutor () {
 		return executor;
 	}
 
@@ -267,7 +269,7 @@ public final class Cpu {
 					// to signal an exception, either
 					// 1. call execException and return (more efficient)
 					// 2. throw new CpuException (easier in deep call stack)
-					// the instruction will be re-executed after the exception handler returns.
+					// this instruction will be re-executed after the exception handler returns.
 					execOp(isn);
 					
 				} catch (CpuException e) {
@@ -283,7 +285,7 @@ public final class Cpu {
 				//	isnCount.get(IsnSet.getInstance().getIsn(isn).name)[0]++;
 				//}
 				
-				final int cmp = cpReg[CPR_COMPARE];
+				final int cmp = cpRegister[CPR_COMPARE];
 				final int count = (int) (cycle >>> 1);
 				if (cmp == count) {
 					if (interruptsEnabled) {
@@ -315,7 +317,7 @@ public final class Cpu {
 			final long d = System.nanoTime() - startTime;
 			log.println("ended, ns per isn: " + (d / cycle));
 			instance.remove();
-			getExecutor().shutdown();
+			executor.shutdown();
 		}
 	}
 	
@@ -325,7 +327,7 @@ public final class Cpu {
 //			if (execException) {
 //				throw new RuntimeException();
 //			}
-			EP ep;
+			CpuExceptionParams ep;
 			synchronized (exceptions) {
 				ep = exceptions.poll();
 			}
@@ -337,7 +339,7 @@ public final class Cpu {
 		return false;
 	}
 
-	public final void addException (final EP ep) {
+	public final void addException (final CpuExceptionParams ep) {
 		log.println("add exn " + ep);
 		synchronized (exceptions) {
 			exceptions.add(ep);
@@ -354,7 +356,7 @@ public final class Cpu {
 	// traps.c trap_init
 	// genex.S
 	// malta-int.c plat_irq_dispatch (deals with hardware interrupts)
-	private final void execException (EP ep) {
+	private final void execException (CpuExceptionParams ep) {
 		execException = true;
 		log.println("exec exception " + ep);
 		
@@ -394,9 +396,9 @@ public final class Cpu {
 //			throw new RuntimeException("tlb with zero address");
 //		}
 		
-		final boolean bev = CPR_STATUS_BEV.isSet(cpReg);
-		final boolean exl = CPR_STATUS_EXL.isSet(cpReg);
-		final boolean iv = CPR_CAUSE_IV.isSet(cpReg);
+		final boolean bev = CPR_STATUS_BEV.isSet(cpRegister);
+		final boolean exl = CPR_STATUS_EXL.isSet(cpRegister);
+		final boolean iv = CPR_CAUSE_IV.isSet(cpRegister);
 		
 		if (bev) {
 			// we don't have a boot rom...
@@ -408,7 +410,7 @@ public final class Cpu {
 			throw new RuntimeException("exception in exception...");
 		}
 
-		final int interrupts = CPR_STATUS_IM.get(cpReg);
+		final int interrupts = CPR_STATUS_IM.get(cpRegister);
 		final int interruptmask = isInterrupt ? 1 << ep.interrupt : 0;
 		
 		if (isInterrupt && (interrupts & interruptmask) == 0) {
@@ -417,20 +419,20 @@ public final class Cpu {
 		
 		boolean isDelaySlot = pc2 != pc + 4;
 		
-		CPR_STATUS_EXL.set(cpReg, true);
-		CPR_CAUSE_EXCODE.set(cpReg, ep.excode);
-		CPR_CAUSE_IP.set(cpReg, interruptmask);
-		CPR_CAUSE_BD.set(cpReg, isDelaySlot);
-		CPR_EPC_VALUE.set(cpReg, isDelaySlot ? pc - 4 : pc);
+		CPR_STATUS_EXL.set(cpRegister, true);
+		CPR_CAUSE_EXCODE.set(cpRegister, ep.excode);
+		CPR_CAUSE_IP.set(cpRegister, interruptmask);
+		CPR_CAUSE_BD.set(cpRegister, isDelaySlot);
+		CPR_EPC_VALUE.set(cpRegister, isDelaySlot ? pc - 4 : pc);
 		
 		if (isTlb) {
 			final int vpn2 = vpn2(ep.vaddr);
-			CPR_BADVADDR_BADVADDR.set(cpReg, ep.vaddr);
-			CPR_CONTEXT_BADVPN2.set(cpReg, vpn2);
-			CPR_ENTRYHI_VPN2.set(cpReg, vpn2);
+			CPR_BADVADDR_BADVADDR.set(cpRegister, ep.vaddr);
+			CPR_CONTEXT_BADVPN2.set(cpRegister, vpn2);
+			CPR_ENTRYHI_VPN2.set(cpRegister, vpn2);
 		}
 		
-		log.println("epc=" + memory.getSymbols().getNameAddrOffset(cpReg[CPR_EPC]) + " delaySlot=" + isDelaySlot);
+		log.println("epc=" + memory.getSymbols().getNameAddrOffset(cpRegister[CPR_EPC]) + " delaySlot=" + isDelaySlot);
 		
 		statusUpdated();
 		
@@ -581,6 +583,7 @@ public final class Cpu {
 				memory.storeByte(register[rs] + simm, (byte) register[rt]);
 				return;
 			case OP_LUI:
+				// short promoted to int for shift
 				register[rt] = simm << 16;
 				return;
 			case OP_LL: {
@@ -776,10 +779,10 @@ public final class Cpu {
 			case FN_SYSCALL:
 				// won't this try to re-execute the syscall?
 				// unless linux is smart enough to add 4 to the return address...
-				execException(new EP(EX_SYSCALL));
+				execException(new CpuExceptionParams(EX_SYSCALL));
 				return;
 			case FN_BREAK:
-				execException(new EP(EX_BREAKPOINT));
+				execException(new CpuExceptionParams(EX_BREAKPOINT));
 				return;
 			case FN_SYNC:
 				log.println("sync");
@@ -866,7 +869,7 @@ public final class Cpu {
 			}
 			case FN_TNE:
 				if (register[rs] != register[rt]) {
-					execException(new EP(EX_TRAP));
+					execException(new CpuExceptionParams(EX_TRAP));
 					throw new RuntimeException("trap");
 				}
 				return;
@@ -948,13 +951,13 @@ public final class Cpu {
 				break;
 			case CPR_COUNT:
 				// update this only when read
-				cpReg[cpr] = (int) (cycle >>> 1);
+				cpRegister[cpr] = (int) (cycle >>> 1);
 				break;
 			default:
 				throw new RuntimeException("move from unknown cp reg " + cpRegName(rd, sel));
 		}
 		
-		register[rt] = cpReg[cpr];
+		register[rt] = cpRegister[cpr];
 		return;
 	}
 	
@@ -963,7 +966,7 @@ public final class Cpu {
 		final int rd = rd(isn);
 		final int sel = sel(isn);
 		final int cpr = cpr(rd, sel);
-		final int oldValue = cpReg[cpr];
+		final int oldValue = cpRegister[cpr];
 		final int newValue = register[rt(isn)];
 		if (oldValue != newValue) {
 			//log.debug("mtc0 " + cpRegName(rd, sel) + " 0x" + Integer.toHexString(oldValue) + " <- 0x" + Integer.toHexString(newValue));
@@ -971,18 +974,18 @@ public final class Cpu {
 		
 		switch (cpr) {
 			case CPR_INDEX:
-				cpReg[cpr] = newValue & 0xf;
+				cpRegister[cpr] = newValue & 0xf;
 				return;
 			case CPR_ENTRYLO0:
 			case CPR_ENTRYLO1:
-				cpReg[cpr] = newValue & 0x7fff_ffff;
+				cpRegister[cpr] = newValue & 0x7fff_ffff;
 				return;
 			case CPR_ENTRYHI:
-				cpReg[cpr] = newValue & 0xffff_f0ff;
-				memory.setAsid(CPR_ENTRYHI_ASID.get(cpReg));
+				cpRegister[cpr] = newValue & 0xffff_f0ff;
+				memory.setAsid(CPR_ENTRYHI_ASID.get(cpRegister));
 				return;
 			case CPR_PAGEMASK:
-				cpReg[cpr] = newValue & 0x00ff_f000;
+				cpRegister[cpr] = newValue & 0x00ff_f000;
 				return;
 			case CPR_CONTEXT:
 			case CPR_WIRED:
@@ -1003,10 +1006,10 @@ public final class Cpu {
 				return;
 			case CPR_COMPARE:
 				log.println("set compare " + Integer.toHexString(newValue));
-				cpReg[cpr] = newValue;
+				cpRegister[cpr] = newValue;
 				return;
 			case CPR_EPC:
-				cpReg[cpr] = newValue;
+				cpRegister[cpr] = newValue;
 				return;
 			default:
 				throw new RuntimeException("move to unknown cp reg " + cpRegName(rd, sel));
@@ -1014,13 +1017,13 @@ public final class Cpu {
 	}
 	
 	private final void setCpCause (final int newValue) {
-		final int value = cpReg[CPR_CAUSE];
+		final int value = cpRegister[CPR_CAUSE];
 		// only allow change to mask
 		int mask = CPR_CAUSE_IV.mask;
 		if ((newValue & ~mask) != 0) {
 			throw new RuntimeException("unknown cause value " + Integer.toHexString(newValue));
 		}
-		cpReg[CPR_CAUSE] = (value & ~mask) | (newValue & mask);
+		cpRegister[CPR_CAUSE] = (value & ~mask) | (newValue & mask);
 	}
 	
 	private final void setCpStatus (final int newValue) {
@@ -1033,16 +1036,16 @@ public final class Cpu {
 		}
 		
 		// don't need to preserve anything
-		cpReg[CPR_STATUS] = newValue & mask;
+		cpRegister[CPR_STATUS] = newValue & mask;
 
 		statusUpdated();
 	}
 	
 	private final void statusUpdated () {
-		final boolean ie = CPR_STATUS_IE.isSet(cpReg);
-		final boolean exl = CPR_STATUS_EXL.isSet(cpReg);
-		final boolean erl = CPR_STATUS_ERL.isSet(cpReg);
-		final boolean um = CPR_STATUS_UM.isSet(cpReg);
+		final boolean ie = CPR_STATUS_IE.isSet(cpRegister);
+		final boolean exl = CPR_STATUS_EXL.isSet(cpRegister);
+		final boolean erl = CPR_STATUS_ERL.isSet(cpRegister);
+		final boolean um = CPR_STATUS_UM.isSet(cpRegister);
 		//log.debug("ie=" + ie + " exl=" + exl + " erl=" + erl + " um=" + um);
 		
 		// kernel mode if UM = 0, or EXL = 1, or ERL = 1
@@ -1065,30 +1068,30 @@ public final class Cpu {
 		
 		switch (fn) {
 			case CP_FN_TLBWI:
-				updateEntry(CPR_INDEX_INDEX.get(cpReg));
+				updateEntry(CPR_INDEX_INDEX.get(cpRegister));
 				return;
 			case CP_FN_TLBWR:
 				updateEntry(random());
 				return;
 			case CP_FN_TLBP: {
-				int i = memory.probe(CPR_ENTRYHI_VPN2.get(cpReg));
+				int i = memory.probe(CPR_ENTRYHI_VPN2.get(cpRegister));
 				if (i >= 0) {
-					CPR_INDEX_INDEX.set(cpReg, i);
-					CPR_INDEX_PROBEFAIL.set(cpReg, false);
+					CPR_INDEX_INDEX.set(cpRegister, i);
+					CPR_INDEX_PROBEFAIL.set(cpRegister, false);
 				} else {
-					CPR_INDEX_PROBEFAIL.set(cpReg, true);
+					CPR_INDEX_PROBEFAIL.set(cpRegister, true);
 				}
 				return;
 			}
 			case CP_FN_ERET: {
-				final int epc = cpReg[CPR_EPC];
+				final int epc = cpRegister[CPR_EPC];
 				log.println("exception return " + memory.getSymbols().getNameAddrOffset(epc));
-				if (CPR_STATUS_ERL.isSet(cpReg)) {
+				if (CPR_STATUS_ERL.isSet(cpRegister)) {
 					throw new RuntimeException("eret with erl");
 				}
 				// no delay slot
 				setPc(epc);
-				CPR_STATUS_EXL.set(cpReg, false);
+				CPR_STATUS_EXL.set(cpRegister, false);
 				loadLinkedBit = false;
 				if (execException) {
 					boolean eq = true;
@@ -1127,18 +1130,18 @@ public final class Cpu {
 		log.println("update entry " + i + " in " + memory.getSymbols().getNameAddrOffset(pc));
 		
 		final Entry e = memory.getEntry(i);
-		e.pageMask = CPR_PAGEMASK_MASK.get(cpReg);
-		e.virtualPageNumber2 = CPR_ENTRYHI_VPN2.get(cpReg);
-		e.addressSpaceId = CPR_ENTRYHI_ASID.get(cpReg);
-		e.global = CPR_ENTRYLO0_GLOBAL.isSet(cpReg) && CPR_ENTRYLO1_GLOBAL.isSet(cpReg);
+		e.pageMask = CPR_PAGEMASK_MASK.get(cpRegister);
+		e.virtualPageNumber2 = CPR_ENTRYHI_VPN2.get(cpRegister);
+		e.addressSpaceId = CPR_ENTRYHI_ASID.get(cpRegister);
+		e.global = CPR_ENTRYLO0_GLOBAL.isSet(cpRegister) && CPR_ENTRYLO1_GLOBAL.isSet(cpRegister);
 		
-		e.data[0].physicalFrameNumber = CPR_ENTRYLO0_PFN.get(cpReg);
-		e.data[0].dirty = CPR_ENTRYLO0_DIRTY.isSet(cpReg);
-		e.data[0].valid = CPR_ENTRYLO0_VALID.isSet(cpReg);
+		e.data[0].physicalFrameNumber = CPR_ENTRYLO0_PFN.get(cpRegister);
+		e.data[0].dirty = CPR_ENTRYLO0_DIRTY.isSet(cpRegister);
+		e.data[0].valid = CPR_ENTRYLO0_VALID.isSet(cpRegister);
 		
-		e.data[1].physicalFrameNumber = CPR_ENTRYLO1_PFN.get(cpReg);
-		e.data[1].dirty = CPR_ENTRYLO1_DIRTY.isSet(cpReg);
-		e.data[1].valid = CPR_ENTRYLO1_VALID.isSet(cpReg);
+		e.data[1].physicalFrameNumber = CPR_ENTRYLO1_PFN.get(cpRegister);
+		e.data[1].dirty = CPR_ENTRYLO1_DIRTY.isSet(cpRegister);
+		e.data[1].valid = CPR_ENTRYLO1_VALID.isSet(cpRegister);
 		
 		log.println("updated tlb[" + i + "]=" + e);
 		

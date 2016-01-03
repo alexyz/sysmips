@@ -1,6 +1,8 @@
 # Sysmips
 
-MIPS32 4Kc/Malta/GT-64120A/PIIX4 system emulator, intended to run Linux 3.2
+A MIPS Technologies Malta system emulator, with a MIPS32 4Kc processor, Galileo GT-64120A northbridge and Intel PIIX4 southbridge
+
+Intended to run Linux 3.2
 
 Loosely based on the mipsem project (a user-level MIPS R2000A/Linux emulator)
 
@@ -23,7 +25,7 @@ This project is NOT officially associated with Imagination Technologies, Galileo
 
 ## Suggested Software
 
-* [Linux 3.2 kernel image](https://packages.debian.org/stable/kernel/linux-image-3.2.0-4-4kc-malta) 
+* [Linux 3.2 kernel image](https://packages.debian.org/stable/kernel/linux-image-3.2.0-4-4kc-malta), extract using ar -x *.deb; tar -xf data.tar.xz
 * Linux 3.2.68 source code, particularly arch/mips/include/asm and arch/mips/mti-malta
 * MIPS YAMON source code
 * GRUB source code

@@ -2,13 +2,13 @@ package sys.malta;
 
 import java.beans.PropertyChangeSupport;
 import java.util.Calendar;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import sys.mips.Constants;
 import sys.mips.Cpu;
-import sys.mips.EP;
+import sys.mips.CpuExceptionParams;
 import sys.util.Logger;
 import sys.util.Symbols;
 
@@ -393,8 +393,8 @@ public class Malta implements Device {
 			}
 			
 			Cpu cpu = Cpu.getInstance();
-			ScheduledThreadPoolExecutor e = cpu.getExecutor();
-			EP ep = new EP(Constants.EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER);
+			ScheduledExecutorService e = cpu.getExecutor();
+			CpuExceptionParams ep = new CpuExceptionParams(Constants.EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER);
 			Runnable r = () -> cpu.addException(ep);
 			
 			if (timerControlWord == 0x34) {
@@ -424,7 +424,7 @@ public class Malta implements Device {
 		}
 		if (value == '\n' || consoleSb.length() > 160) {
 			final String line = consoleSb.toString();
-			log.println("# " + line.trim());
+			log.println("console: " + line.trim());
 			if (line.contains("WARNING")) {
 				log.println("calls=" + Cpu.getInstance().getCalls().callString());
 			}

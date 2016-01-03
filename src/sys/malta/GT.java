@@ -201,7 +201,7 @@ public class GT implements Device {
 	@Override
 	public int systemRead (int addr, int size) {
 		// swap due to an expected bug in GT
-		return swap(iomem.get(addr, size));
+		return swapInt(iomem.get(addr, size));
 	}
 	
 	@Override
@@ -209,7 +209,7 @@ public class GT implements Device {
 		Cpu cpu = Cpu.getInstance();
 		
 		// XXX swap here?
-		value = swap(value);
+		value = swapInt(value);
 		String name = cpu.getMemory().getSymbols().getNameAddrOffset(offset + addr);
 		final String msg = Integer.toHexString(addr) + " (" + name + ") <= " + Integer.toHexString(value) + " size " + size;
 		log.println("write " + msg);

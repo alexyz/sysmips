@@ -82,7 +82,7 @@ public class ELF32Header {
 	public short decode (short s) {
 		switch (data) {
 			case 1:
-				return ByteOrder.swap(s);
+				return ByteOrder.swapShort(s);
 			case 2:
 				return s;
 			default:
@@ -93,7 +93,7 @@ public class ELF32Header {
 	public int decode (int i) {
 		switch (data) {
 			case 1:
-				return ByteOrder.swap(i);
+				return ByteOrder.swapInt(i);
 			case 2:
 				return i;
 			default:

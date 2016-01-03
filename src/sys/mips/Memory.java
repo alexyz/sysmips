@@ -87,7 +87,7 @@ public final class Memory {
 	
 	public final int loadWord (final int vaddr) {
 		if ((vaddr & 3) != 0) {
-			throw new CpuException(new EP(Constants.EX_ADDR_ERROR_LOAD, vaddr));
+			throw new CpuException(new CpuExceptionParams(Constants.EX_ADDR_ERROR_LOAD, vaddr));
 		}
 		if (isSystem(vaddr)) {
 			return malta.systemRead(vaddr & KSEG_MASK, 4);
@@ -98,7 +98,7 @@ public final class Memory {
 	
 	public final void storeWord (final int vaddr, final int value) {
 		if ((vaddr & 3) != 0) {
-			throw new CpuException(new EP(Constants.EX_ADDR_ERROR_STORE, vaddr));
+			throw new CpuException(new CpuExceptionParams(Constants.EX_ADDR_ERROR_STORE, vaddr));
 		}
 		if (isSystem(vaddr)) {
 			malta.systemWrite(vaddr & KSEG_MASK, value, 4);
@@ -109,7 +109,7 @@ public final class Memory {
 	
 	public final short loadHalfWord (final int vaddr) {
 		if ((vaddr & 1) != 0) {
-			throw new CpuException(new EP(Constants.EX_ADDR_ERROR_LOAD, vaddr));
+			throw new CpuException(new CpuExceptionParams(Constants.EX_ADDR_ERROR_LOAD, vaddr));
 		}
 		if (isSystem(vaddr)) {
 			return (short) malta.systemRead(vaddr & KSEG_MASK, 2);
@@ -120,7 +120,7 @@ public final class Memory {
 	
 	public final void storeHalfWord (final int vaddr, final short value) {
 		if ((vaddr & 1) != 0) {
-			throw new CpuException(new EP(Constants.EX_ADDR_ERROR_STORE, vaddr));
+			throw new CpuException(new CpuExceptionParams(Constants.EX_ADDR_ERROR_STORE, vaddr));
 		}
 		if (isSystem(vaddr)) {
 			malta.systemWrite(vaddr & KSEG_MASK, value, 2);
@@ -262,7 +262,7 @@ public final class Memory {
 		}
 		
 		// also need to throw modified exception if page is read only...
-		throw new CpuException(new EP(store ? Constants.EX_TLB_STORE : Constants.EX_TLB_LOAD, vaddr));
+		throw new CpuException(new CpuExceptionParams(store ? Constants.EX_TLB_STORE : Constants.EX_TLB_LOAD, vaddr));
 	}
 	
 	private final byte loadByteImpl (final int paddr) {

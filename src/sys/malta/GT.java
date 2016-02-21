@@ -34,7 +34,7 @@ public class GT implements Device {
 	public void init (Symbols sym, int offset) {
 		log.println("init gt at " + Integer.toHexString(offset));
 		this.offset = offset;
-		sym.initInts(GTUtil.class, offset);
+		sym.init(GTUtil.class, offset);
 	}
 	
 	@Override

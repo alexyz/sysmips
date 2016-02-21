@@ -74,16 +74,6 @@ public class Malta implements Device {
 	
 	public static final int M_DEVICES = 0x1f00_0000;
 	public static final int M_DISPLAY = 0x1f00_0400;
-	public static final int M_DISPLAY_LEDBAR = M_DISPLAY + 0x8;
-	public static final int M_DISPLAY_ASCIIWORD = M_DISPLAY + 0x10;
-	public static final int M_DISPLAY_ASCIIPOS0 = M_DISPLAY + 0x18;
-	public static final int M_DISPLAY_ASCIIPOS1 = M_DISPLAY + 0x20;
-	public static final int M_DISPLAY_ASCIIPOS2 = M_DISPLAY + 0x28;
-	public static final int M_DISPLAY_ASCIIPOS3 = M_DISPLAY + 0x30;
-	public static final int M_DISPLAY_ASCIIPOS4 = M_DISPLAY + 0x38;
-	public static final int M_DISPLAY_ASCIIPOS5 = M_DISPLAY + 0x40;
-	public static final int M_DISPLAY_ASCIIPOS6 = M_DISPLAY + 0x48;
-	public static final int M_DISPLAY_ASCIIPOS7 = M_DISPLAY + 0x50;
 	
 	public static final int M_SCSPEC1 = 0x1f10_0010;
 	
@@ -129,15 +119,13 @@ public class Malta implements Device {
 	private final StringBuilder consoleSb = new StringBuilder();
 	// the GT is the northbridge
 	private final GT gt = new GT();
-	private final byte[] asciiPos = new byte[8];
+	private final Display display = new Display(this);
 	
 	private int offset;
 	private int timerCounter0;
 	private int timerControlWord = -1;
 	private int timerCounterByte;
 	private ScheduledFuture<?> timerFuture;
-	private int ledBar = 0;
-	private int asciiWord = 0;
 	private int rtcadr;
 	private int rtcdat;
 	private int picimr;
@@ -159,6 +147,8 @@ public class Malta implements Device {
 	public void init (Symbols sym, int offset) {
 		log.println("init malta at " + Integer.toHexString(offset));
 		this.offset = offset;
+		
+		display.init(sym, offset + M_DISPLAY);
 		
 		sym.put(offset + M_SDRAM, "M_SDRAM");
 		sym.put(offset + M_UNCACHED_EX_H, "M_UNCACHED_EX_H", 0x80);
@@ -233,47 +223,13 @@ public class Malta implements Device {
 	
 	@Override
 	public void systemWrite (final int addr, final int value, int size) {
+		
+		if (display.isMapped(addr - M_DISPLAY)) {
+			display.systemWrite(addr - M_DISPLAY, value, size);
+			return;
+		}
+		
 		switch (addr) {
-			case M_DISPLAY_ASCIIWORD:
-				asciiWordWrite(value);
-				return;
-				
-			case M_DISPLAY_LEDBAR:
-				ledBarWrite(value);
-				return;
-				
-			case M_DISPLAY_ASCIIPOS0:
-				asciiPosWrite(0, value);
-				return;
-				
-			case M_DISPLAY_ASCIIPOS1:
-				asciiPosWrite(1, value);
-				return;
-				
-			case M_DISPLAY_ASCIIPOS2:
-				asciiPosWrite(2, value);
-				return;
-				
-			case M_DISPLAY_ASCIIPOS3:
-				asciiPosWrite(3, value);
-				return;
-				
-			case M_DISPLAY_ASCIIPOS4:
-				asciiPosWrite(4, value);
-				return;
-				
-			case M_DISPLAY_ASCIIPOS5:
-				asciiPosWrite(5, value);
-				return;
-				
-			case M_DISPLAY_ASCIIPOS6:
-				asciiPosWrite(6, value);
-				return;
-				
-			case M_DISPLAY_ASCIIPOS7:
-				asciiPosWrite(7, value);
-				return;
-				
 			case M_I8253_TCW:
 				timerControlWrite((byte) value);
 				return;
@@ -359,21 +315,6 @@ public class Malta implements Device {
 		
 	}
 	
-	private void asciiPosWrite (int n, int value) {
-		asciiPos[n] = (byte) value;
-		support.firePropertyChange("display", null, displayText());
-	}
-	
-	private void ledBarWrite (int value) {
-		ledBar = value;
-		support.firePropertyChange("display", null, displayText());
-	}
-	
-	private void asciiWordWrite (int value) {
-		asciiWord = value;
-		support.firePropertyChange("display", null, displayText());
-	}
-
 	private void rtcAdrWrite (final int value) {
 		// mc146818rtc.h
 		// 0 = seconds, 2 = minutes, 4 = hours, 6 = dow, 7 = dom, 8 = month, 9 = year
@@ -479,17 +420,6 @@ public class Malta implements Device {
 	
 	public PropertyChangeSupport getSupport () {
 		return support;
-	}
-	
-	public String displayText() {
-		final StringBuilder sb = new StringBuilder();
-		sb.append(Integer.toBinaryString(ledBar)).append(" ");
-		sb.append(Integer.toHexString(asciiWord)).append(" ");
-		for (int n = 0; n < 8; n++) {
-			int w = asciiPos[n] & 0xff;
-			sb.append(w != 0 ? (char) w : ' ');
-		}
-		return sb.toString();
 	}
 	
 }

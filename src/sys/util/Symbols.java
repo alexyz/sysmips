@@ -91,7 +91,7 @@ public final class Symbols {
 		}
 	}
 	
-	public void initInts(Class<?> c, int offset) {
+	public void init(Class<?> c, int offset) {
 		for (Field f : c.getFields()) {
 			final int m = f.getModifiers();
 			if (Modifier.isPublic(m) && Modifier.isStatic(m) && Modifier.isFinal(m) && f.getType().isAssignableFrom(int.class)) {

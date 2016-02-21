@@ -9,6 +9,8 @@ import sys.util.Logger;
  */
 public class CallLogger {
 	
+	private static final String INLINE = "#";
+
 	private static final Logger log = new Logger(CallLogger.class);
 	
 	private final List<List<String>> threads = new ArrayList<>();
@@ -50,7 +52,7 @@ public class CallLogger {
 	private void call (int addr, boolean noret) {
 		final List<String> calls = threads.get(0);
 		final String nameos = cpu.getMemory().getSymbols().getNameOffset(addr);
-		calls.add(noret ? "#" + nameos : nameos);
+		calls.add(noret ? INLINE + nameos : nameos);
 		
 //		final String name = cpu.getMemory().getSymbols().getName(addr);
 //		if (printCall(name)) {
@@ -154,7 +156,7 @@ public class CallLogger {
 	
 	public void ret () {
 		final List<String> calls = threads.get(0);
-		while (calls.size() > 0 && calls.get(calls.size() - 1).startsWith("#")) {
+		while (calls.size() > 0 && calls.get(calls.size() - 1).startsWith(INLINE)) {
 			calls.remove(calls.size() - 1);
 		}
 		if (calls.size() > 0) {
@@ -186,14 +188,13 @@ public class CallLogger {
 	}
 	
 	public String callString () {
-		final StringBuilder sb = new StringBuilder(threadNames.get(0));
+		final StringBuilder sb = new StringBuilder();
+		sb.append("thread: " + threadNames.get(0));
+
 		final List<String> calls = threads.get(0);
-		
 		for (String call : calls) {
-			sb.append("/").append(call);
+			sb.append("\n  at: " + call);
 		}
-		
-		sb.append(":").append(cpu.getMemory().getSymbols().getNameAddrOffset(cpu.getPc()));
 		
 		return sb.toString();
 	}

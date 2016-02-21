@@ -26,7 +26,7 @@ This project is NOT officially associated with Imagination Technologies, Galileo
 ## Suggested Software
 
 * [Linux 3.2 kernel image](https://packages.debian.org/stable/kernel/linux-image-3.2.0-4-4kc-malta), extract using ar -x *.deb; tar -xf data.tar.xz
-* Linux 3.2.68 source code, particularly arch/mips/include/asm and arch/mips/mti-malta
+* [Linux 3.2.68 source code](https://cdn.kernel.org/pub/linux/kernel/v3.x/), particularly arch/mips/include/asm and arch/mips/mti-malta
 * MIPS YAMON source code
 * GRUB source code
 

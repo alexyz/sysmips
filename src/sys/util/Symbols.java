@@ -1,5 +1,7 @@
 package sys.util;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.*;
 
 import sys.mips.Cpu;
@@ -9,7 +11,7 @@ public final class Symbols {
 	public static Symbols getInstance() {
 		return Cpu.getInstance().getMemory().getSymbols();
 	}
-
+	
 	// needs to be long so it can naturally sort
 	private final TreeMap<Long, Symbol> map = new TreeMap<>();
 	private final TreeMap<String, Integer> revmap = new TreeMap<>();
@@ -86,6 +88,19 @@ public final class Symbols {
 				map.put(key, new Symbol(name, size));
 			}
 			revmap.put(name, addr);
+		}
+	}
+	
+	public void initInts(Class<?> c, int offset) {
+		for (Field f : c.getFields()) {
+			final int m = f.getModifiers();
+			if (Modifier.isPublic(m) && Modifier.isStatic(m) && Modifier.isFinal(m) && f.getType().isAssignableFrom(int.class)) {
+				try {
+					put(offset + f.getInt(null), f.getName(), 4);
+				} catch (Exception e) {
+					throw new RuntimeException(e);
+				}
+			}
 		}
 	}
 	

@@ -22,10 +22,10 @@ public class MaltaDriver {
 		}
 		CpuUtil.setMainArgs(cpu, top[0] + 0x100000, kargs, kenv);
 		cpu.getMemory().print(System.out);
-		System.out.println("press enter");
-		while (System.in.read() != '\n') {
-			//
-		}
+//		System.out.println("press enter");
+//		while (System.in.read() != '\n') {
+//			//
+//		}
 		cpu.run();
 	}
 	

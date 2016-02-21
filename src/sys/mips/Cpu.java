@@ -310,12 +310,15 @@ public final class Cpu {
 			throw new RuntimeException("exception in cycle " + cycle 
 					+ " km=" + kernelMode 
 					+ " ie=" + interruptsEnabled 
-					+ " execex=" + execException 
-					+ " stack=" + calls.callString(), e);
+					+ " execex=" + execException
+					+ " pc=" + memory.getSymbols().getNameAddrOffset(pc)
+					+ "\n" + calls.callString(), e);
 			
 		} finally {
-			final long d = System.nanoTime() - startTime;
-			log.println("ended, ns per isn: " + (d / cycle));
+			final long endTime = System.nanoTime();
+			final long duration = endTime - startTime;
+			log.println("ended");
+			log.println("ns per isn (or cc per isn at 1ghz): " + (duration / cycle));
 			instance.remove();
 			executor.shutdown();
 		}

@@ -223,10 +223,11 @@ public final class Cpu {
 			pitTime = startTime;
 			String[] regstr = new String[32];
 			// this should only be checked during call
-			//int f = memory.getSymbols().getAddr("init_vdso");
-			//if (f == 0) {
-			//	throw new RuntimeException();
-			//}
+//			int f = memory.getSymbols().getAddr("serial8250_config_port");
+//			if (f == 0) {
+//				throw new RuntimeException();
+//			}
+//			boolean x = false;
 			
 			while (true) {
 				if (register[0] != 0) {
@@ -240,16 +241,21 @@ public final class Cpu {
 				pc2 = pc3;
 				pc3 += 4;
 				
-				//if (pc == f) {
-				//	disasm = true;
-				//	calls.setPrintCalls(true);
-				//}
+//				if (pc == f) {
+//					disasm = true;
+//					calls.setPrintCalls(true);
+//					x = true;
+//				}
+				
+//				if (x) {
+//					log.println(memory.getSymbols().getNameOffset(pc));
+//				}
 				
 				// every 1024 cycles
 				if ((cycle & 0xfff) == 0) {
 					// should probably also do this after eret...
-					if (pollException()) {
-						// start executing exception handler...
+					if (checkException()) {
+						// restart loop, start executing exception handler...
 						continue;
 					}
 				}
@@ -310,7 +316,7 @@ public final class Cpu {
 			throw new RuntimeException("exception in cycle " + cycle 
 					+ " km=" + kernelMode 
 					+ " ie=" + interruptsEnabled 
-					+ " execex=" + execException
+					+ " ex=" + execException
 					+ " pc=" + memory.getSymbols().getNameAddrOffset(pc)
 					+ "\n" + calls.callString(), e);
 			
@@ -325,7 +331,7 @@ public final class Cpu {
 	}
 	
 	/** exec exception if there is one */
-	private boolean pollException () {
+	private boolean checkException () {
 		if (interruptsEnabled) {
 //			if (execException) {
 //				throw new RuntimeException();

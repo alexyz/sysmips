@@ -15,6 +15,10 @@ public class Logger {
 		println(1, msg);
 	}
 	
+	public void println (String format, Object... args) {
+		println(1, String.format(format, args));
+	}
+	
 	public void println (int level, String msg) {
 		if (level >= rootLevel) {
 			Cpu cpu = Cpu.getInstance();

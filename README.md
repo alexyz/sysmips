@@ -22,6 +22,7 @@ This project is NOT officially associated with Imagination Technologies, Galileo
 * Galileo GT-64120A System Controller Datasheet (2001)
 * Intel 82371AB PCI-TO-ISA / IDE XCELERATOR (PIIX4) (1997)
 * System V Application Binary Interface MIPS RISC Processor Supplement 3rd Edition (1996)
+* SMSC FDC37M81x PC98/99 Compliant Enhanced Super I/O Controller (2000)
 
 ## Suggested Software
 

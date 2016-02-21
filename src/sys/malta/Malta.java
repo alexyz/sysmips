@@ -16,6 +16,7 @@ import sys.util.Symbols;
  * this class kind-of represents the southbridge, but it is also doing device
  * mapping
  */
+// COM port detection - 8250.c - autoconfig()
 public class Malta implements Device {
 	
 	public static final int M_SDRAM = 0x0;
@@ -44,16 +45,15 @@ public class Malta implements Device {
 	
 	// the first uart is on the isa bus connected to the PIIX4
 	public static final int M_COM1 = M_PIIX4 + 0x3f8;
-	/** receive */
-	public static final int M_COM1_RX = M_COM1 + 0;
-	/** transmit */
-	public static final int M_COM1_TX = M_COM1 + 0;
+	/** receive (write) / transmit (read) */
+	public static final int M_COM1_RX_TX = M_COM1 + 0;
 	/** interrupt enable */
 	public static final int M_COM1_IER = M_COM1 + 1;
-	/** interrupt id register */
-	public static final int M_COM1_IIR = M_COM1 + 2;
-	/** fifo control register */
-	public static final int M_COM1_FCR = M_COM1 + 2;
+	/**
+	 * fifo control register (writes) / interrupt identification register
+	 * (reads) / extended features register (not supported)
+	 */
+	public static final int M_COM1_FCR_IIR_EFR = M_COM1 + 2;
 	/** line control register */
 	public static final int M_COM1_LCR = M_COM1 + 3;
 	/** modem control register */
@@ -92,6 +92,13 @@ public class Malta implements Device {
 	
 	public static final int M_SCSPEC2 = 0x1fd0_0010;
 	public static final int M_SCSPEC2_BONITO = 0x1fe0_0010;
+	
+	/** enables both the XMIT and RCVR FIFOs */
+	public static final int FCR_ENABLE_FIFO = 1;
+	/** clears all bytes in the RCVR FIFO */
+	public static final int FCR_CLEAR_RCVR = 2;
+	/** clears all bytes in the XMIT FIFO */
+	public static final int FCR_CLEAR_XMIT = 3;
 	
 	private static final Logger log = new Logger(Malta.class);
 	
@@ -135,6 +142,11 @@ public class Malta implements Device {
 	private int rtcdat;
 	private int picimr;
 	
+	private byte ier;
+	private byte mcr;
+	private byte lcr;
+	private byte iir;
+	
 	public Malta () {
 		//
 	}
@@ -163,9 +175,9 @@ public class Malta implements Device {
 		sym.put(offset + M_PIC_SLAVE_CMD, "M_PIC_SLAVE_CMD", 1);
 		sym.put(offset + M_PIC_SLAVE_IMR, "M_PIC_SLAVE_IMR", 1);
 		sym.put(offset + M_DMA2_MASK_REG, "M_DMA2_MASK_REG");
-		sym.put(offset + M_COM1_RX, "M_COM1_RX/TX", 1);
+		sym.put(offset + M_COM1_RX_TX, "M_COM1_RX_TX", 1);
 		sym.put(offset + M_COM1_IER, "M_COM1_IER", 1);
-		sym.put(offset + M_COM1_IIR, "M_COM1_IIR/FCR", 1);
+		sym.put(offset + M_COM1_FCR_IIR_EFR, "M_COM1_FCR_IIR_EFR", 1);
 		sym.put(offset + M_COM1_LCR, "M_COM1_LCR", 1);
 		sym.put(offset + M_COM1_MCR, "M_COM1_MCR", 1);
 		sym.put(offset + M_COM1_LSR, "M_COM1_LSR", 1);
@@ -199,6 +211,14 @@ public class Malta implements Device {
 			case M_RTCDAT:
 				// should compute this from rtcadr each time?
 				return rtcdat;
+			case M_COM1_IER:
+				return ier;
+			case M_COM1_MCR:
+				return mcr;
+			case M_COM1_LCR:
+				return lcr;
+			case M_COM1_FCR_IIR_EFR:
+				return iir;
 			default:
 				break;
 		}
@@ -275,26 +295,50 @@ public class Malta implements Device {
 				log.println("enable dma channel 4+" + value);
 				return;
 				
-			case M_COM1_RX:
+			case M_COM1_RX_TX:
 				consoleWrite(value & 0xff);
 				return;
 				
+			case M_COM1_IER:
+				log.println("set com1 ier %x", value);
+				// we only want bottom 4 bits, linux might set more to autodetect other chips
+				ier = (byte) (value & 0xf);
+				return;
+				
+			case M_COM1_MCR:
+				log.println("set com1 mcr %x", value);
+				ier = (byte) value;
+				return;
+				
+			case M_COM1_LCR:
+				log.println("set com1 lcr %x", value);
+				lcr = (byte) value;
+				return;
+				
+			case M_COM1_FCR_IIR_EFR:
+				log.println("set com1 fcr %x", value);
+				if (value == FCR_ENABLE_FIFO) {
+					// this will call autoconfig_16550a
+					iir |= 0b1100_0000;
+				}
+				return;
+			
 			case M_PIC_MASTER_CMD:
-				log.println("pic master write command " + Integer.toHexString(value & 0xff));
+				log.println("pic master write command %x", value & 0xff);
 				return;
 				
 			case M_PIC_MASTER_IMR:
-				log.println("pic master write interrupt mask register " + Integer.toHexString(value & 0xff));
+				log.println("pic master write interrupt mask register %x", value & 0xff);
 				// XXX should probably do something here...
 				picimr = (byte) value;
 				return;
 				
 			case M_PIC_SLAVE_CMD:
-				log.println("pic slave write command " + Integer.toHexString(value & 0xff));
+				log.println("pic slave write command %x", value & 0xff);
 				return;
 				
 			case M_PIC_SLAVE_IMR:
-				log.println("pic slave write interrupt mask register " + Integer.toHexString(value & 0xff));
+				log.println("pic slave write interrupt mask register %x", value & 0xff);
 				return;
 				
 			default:

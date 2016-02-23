@@ -1,5 +1,6 @@
 package sys.malta;
 
+import sys.mips.Cpu;
 import sys.util.Logger;
 import sys.util.Symbols;
 
@@ -22,21 +23,16 @@ public class Display implements Device {
 	private static final Logger log = new Logger(Display.class);
 	
 	private final byte[] asciiPos = new byte[8];
-	private final Malta malta;
 	
 	private int offset;
 	private int ledBar = 0;
 	private int asciiWord = 0;
 	
-	public Display (Malta malta) {
-		this.malta = malta;
-	}
-	
 	@Override
 	public void init (Symbols sym, int offset) {
 		log.println("init display at " + Integer.toHexString(offset));
 		this.offset = offset;
-		sym.init(Display.class, offset);
+		sym.init(Display.class, "M_", null, offset, 4);
 	}
 	
 	public boolean isMapped (int addr) {
@@ -98,17 +94,17 @@ public class Display implements Device {
 	
 	private void asciiPosWrite (int n, int value) {
 		asciiPos[n] = (byte) value;
-		malta.getSupport().firePropertyChange("display", null, displayText());
+		Cpu.getInstance().getSupport().firePropertyChange("display", null, displayText());
 	}
 	
 	private void ledBarWrite (int value) {
 		ledBar = value;
-		malta.getSupport().firePropertyChange("display", null, displayText());
+		Cpu.getInstance().getSupport().firePropertyChange("display", null, displayText());
 	}
 	
 	private void asciiWordWrite (int value) {
 		asciiWord = value;
-		malta.getSupport().firePropertyChange("display", null, displayText());
+		Cpu.getInstance().getSupport().firePropertyChange("display", null, displayText());
 	}
 
 	public String displayText() {

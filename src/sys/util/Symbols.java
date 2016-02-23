@@ -91,14 +91,20 @@ public final class Symbols {
 		}
 	}
 	
-	public void init(Class<?> c, int offset) {
+	public void init(Class<?> c, String prefix, String rep, int offset, int size) {
 		for (Field f : c.getFields()) {
-			final int m = f.getModifiers();
-			if (Modifier.isPublic(m) && Modifier.isStatic(m) && Modifier.isFinal(m) && f.getType().isAssignableFrom(int.class)) {
-				try {
-					put(offset + f.getInt(null), f.getName(), 4);
-				} catch (Exception e) {
-					throw new RuntimeException(e);
+			String name = f.getName();
+			if (name.startsWith(prefix)) {
+				final int m = f.getModifiers();
+				if (Modifier.isPublic(m) && Modifier.isStatic(m) && Modifier.isFinal(m) && f.getType().isAssignableFrom(int.class)) {
+					try {
+						if (rep != null) {
+							name = rep + name.substring(prefix.length());
+						}
+						put(offset + f.getInt(null), name, size);
+					} catch (Exception e) {
+						throw new RuntimeException(e);
+					}
 				}
 			}
 		}

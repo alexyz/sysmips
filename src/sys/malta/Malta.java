@@ -1,6 +1,5 @@
 package sys.malta;
 
-import java.beans.PropertyChangeSupport;
 import java.util.Calendar;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -45,23 +44,6 @@ public class Malta implements Device {
 	
 	// the first uart is on the isa bus connected to the PIIX4
 	public static final int M_COM1 = M_PIIX4 + 0x3f8;
-	/** receive (write) / transmit (read) */
-	public static final int M_COM1_RX_TX = M_COM1 + 0;
-	/** interrupt enable */
-	public static final int M_COM1_IER = M_COM1 + 1;
-	/**
-	 * fifo control register (writes) / interrupt identification register
-	 * (reads) / extended features register (not supported)
-	 */
-	public static final int M_COM1_FCR_IIR_EFR = M_COM1 + 2;
-	/** line control register */
-	public static final int M_COM1_LCR = M_COM1 + 3;
-	/** modem control register */
-	public static final int M_COM1_MCR = M_COM1 + 4;
-	/** line status register */
-	public static final int M_COM1_LSR = M_COM1 + 5;
-	/** modem status register */
-	public static final int M_COM1_MSR = M_COM1 + 6;
 	
 	public static final int M_PCI2 = 0x1800_0000;
 	
@@ -82,13 +64,6 @@ public class Malta implements Device {
 	
 	public static final int M_SCSPEC2 = 0x1fd0_0010;
 	public static final int M_SCSPEC2_BONITO = 0x1fe0_0010;
-	
-	/** enables both the XMIT and RCVR FIFOs */
-	public static final int FCR_ENABLE_FIFO = 1;
-	/** clears all bytes in the RCVR FIFO */
-	public static final int FCR_CLEAR_RCVR = 2;
-	/** clears all bytes in the XMIT FIFO */
-	public static final int FCR_CLEAR_XMIT = 3;
 	
 	private static final Logger log = new Logger(Malta.class);
 	
@@ -114,12 +89,10 @@ public class Malta implements Device {
 		}
 	}
 	
-	// this should probably live on the cpu
-	private final PropertyChangeSupport support = new PropertyChangeSupport(this);
-	private final StringBuilder consoleSb = new StringBuilder();
 	// the GT is the northbridge
 	private final GT gt = new GT();
-	private final Display display = new Display(this);
+	private final Display display = new Display();
+	private final Uart com1 = new Uart("COM1");
 	
 	private int offset;
 	private int timerCounter0;
@@ -129,11 +102,6 @@ public class Malta implements Device {
 	private int rtcadr;
 	private int rtcdat;
 	private int picimr;
-	
-	private byte ier;
-	private byte mcr;
-	private byte lcr;
-	private byte iir;
 	
 	public Malta () {
 		//
@@ -149,6 +117,7 @@ public class Malta implements Device {
 		this.offset = offset;
 		
 		display.init(sym, offset + M_DISPLAY);
+		com1.init(sym, offset + M_COM1);
 		
 		sym.put(offset + M_SDRAM, "M_SDRAM");
 		sym.put(offset + M_UNCACHED_EX_H, "M_UNCACHED_EX_H", 0x80);
@@ -165,13 +134,6 @@ public class Malta implements Device {
 		sym.put(offset + M_PIC_SLAVE_CMD, "M_PIC_SLAVE_CMD", 1);
 		sym.put(offset + M_PIC_SLAVE_IMR, "M_PIC_SLAVE_IMR", 1);
 		sym.put(offset + M_DMA2_MASK_REG, "M_DMA2_MASK_REG");
-		sym.put(offset + M_COM1_RX_TX, "M_COM1_RX_TX", 1);
-		sym.put(offset + M_COM1_IER, "M_COM1_IER", 1);
-		sym.put(offset + M_COM1_FCR_IIR_EFR, "M_COM1_FCR_IIR_EFR", 1);
-		sym.put(offset + M_COM1_LCR, "M_COM1_LCR", 1);
-		sym.put(offset + M_COM1_MCR, "M_COM1_MCR", 1);
-		sym.put(offset + M_COM1_LSR, "M_COM1_LSR", 1);
-		sym.put(offset + M_COM1_MSR, "M_COM1_MSR", 1);
 		sym.put(offset + M_PCI2, "M_PCI2");
 		sym.put(offset + M_GTBASE, "M_GTBASE");
 		sym.put(offset + M_MONITORFLASH, "M_MONITORFLASH");
@@ -189,47 +151,49 @@ public class Malta implements Device {
 	}
 	
 	@Override
+	public boolean isMapped (int addr) {
+		// root device, everything is mapped
+		throw new RuntimeException();
+	}
+	
+	@Override
 	public int systemRead (int addr, int size) {
-		switch (addr) {
+		
+		if (gt.isMapped(addr - M_GTBASE)) {
+			return gt.systemRead(addr - M_GTBASE, size);
+			
+		} else if (com1.isMapped(addr - M_COM1)) {
+			return com1.systemRead(addr - M_COM1, size);
+			
+		} else switch (addr) {
 			case M_REVISION:
 				return 1;
-			case M_COM1_LSR:
-				// always ready?
-				return 0x20;
 			case M_PIC_MASTER_IMR:
 				return picimr;
 			case M_RTCDAT:
 				// should compute this from rtcadr each time?
 				return rtcdat;
-			case M_COM1_IER:
-				return ier;
-			case M_COM1_MCR:
-				return mcr;
-			case M_COM1_LCR:
-				return lcr;
-			case M_COM1_FCR_IIR_EFR:
-				return iir;
 			default:
-				break;
-		}
-		
-		if (addr >= M_GTBASE && addr < M_GTBASE + 0x1000) {
-			return gt.systemRead(addr - M_GTBASE, size);
-			
-		} else {
-			throw new RuntimeException("unknown system read " + Cpu.getInstance().getMemory().getSymbols().getNameAddrOffset(offset+addr) + " size " + size);
+				throw new RuntimeException("unknown system read " + Cpu.getInstance().getMemory().getSymbols().getNameAddrOffset(offset+addr) + " size " + size);
 		}
 	}
 	
 	@Override
 	public void systemWrite (final int addr, final int value, int size) {
 		
-		if (display.isMapped(addr - M_DISPLAY)) {
+		if (gt.isMapped(addr - M_GTBASE)) {
+			gt.systemWrite(addr - M_GTBASE, value, size);
+			
+		} else if (com1.isMapped(addr - M_COM1)) {
+			com1.systemWrite(addr - M_COM1, value, size);
+			
+		} else if (addr >= M_UNCACHED_EX_H && addr < M_UNCACHED_EX_H + 0x100) {
+			log.println("set uncached exception handler " + Symbols.getInstance().getNameOffset(offset + addr) + " <= " + Integer.toHexString(value));
+			
+		} else if (display.isMapped(addr - M_DISPLAY)) {
 			display.systemWrite(addr - M_DISPLAY, value, size);
-			return;
-		}
-		
-		switch (addr) {
+			
+		} else switch (addr) {
 			case M_I8253_TCW:
 				timerControlWrite((byte) value);
 				return;
@@ -251,34 +215,6 @@ public class Malta implements Device {
 				log.println("enable dma channel 4+" + value);
 				return;
 				
-			case M_COM1_RX_TX:
-				consoleWrite(value & 0xff);
-				return;
-				
-			case M_COM1_IER:
-				log.println("set com1 ier %x", value);
-				// we only want bottom 4 bits, linux might set more to autodetect other chips
-				ier = (byte) (value & 0xf);
-				return;
-				
-			case M_COM1_MCR:
-				log.println("set com1 mcr %x", value);
-				ier = (byte) value;
-				return;
-				
-			case M_COM1_LCR:
-				log.println("set com1 lcr %x", value);
-				lcr = (byte) value;
-				return;
-				
-			case M_COM1_FCR_IIR_EFR:
-				log.println("set com1 fcr %x", value);
-				if (value == FCR_ENABLE_FIFO) {
-					// this will call autoconfig_16550a
-					iir |= 0b1100_0000;
-				}
-				return;
-			
 			case M_PIC_MASTER_CMD:
 				log.println("pic master write command %x", value & 0xff);
 				return;
@@ -298,19 +234,7 @@ public class Malta implements Device {
 				return;
 				
 			default:
-				break;
-		}
-		
-		if (addr >= M_GTBASE && addr < M_GTBASE + 0x1000) {
-			gt.systemWrite(addr - M_GTBASE, value, size);
-			return;
-			
-		} else if (addr >= M_UNCACHED_EX_H && addr < M_UNCACHED_EX_H + 0x100) {
-			log.println("set uncached exception handler " + Symbols.getInstance().getNameOffset(offset + addr) + " <= " + Integer.toHexString(value));
-			return;
-			
-		} else {
-			throw new RuntimeException("unknown system write " + Symbols.getInstance().getNameOffset(offset + addr) + " <= " + Integer.toHexString(value));
+				throw new RuntimeException("unknown system write " + Symbols.getInstance().getNameOffset(offset + addr) + " <= " + Integer.toHexString(value));
 		}
 		
 	}
@@ -399,27 +323,6 @@ public class Malta implements Device {
 		} else {
 			throw new RuntimeException("tcw write " + timerCounterByte);
 		}
-	}
-
-	private void consoleWrite (int value) {
-		if ((value >= 32 && value < 127) || value == '\n') {
-			consoleSb.append((char) value);
-		} else if (value != '\r') {
-			consoleSb.append("{" + Integer.toHexString(value) + "}");
-		}
-		if (value == '\n' || consoleSb.length() > 160) {
-			final String line = consoleSb.toString();
-			log.println("console: " + line.trim());
-			if (line.contains("WARNING")) {
-				log.println("calls=" + Cpu.getInstance().getCalls().callString());
-			}
-			support.firePropertyChange("console", null, line);
-			consoleSb.delete(0, consoleSb.length());
-		}
-	}
-	
-	public PropertyChangeSupport getSupport () {
-		return support;
 	}
 	
 }

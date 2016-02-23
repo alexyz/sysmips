@@ -34,7 +34,12 @@ public class GT implements Device {
 	public void init (Symbols sym, int offset) {
 		log.println("init gt at " + Integer.toHexString(offset));
 		this.offset = offset;
-		sym.init(GTUtil.class, offset);
+		sym.init(GTUtil.class, "GT_", null, offset, 4);
+	}
+	
+	@Override
+	public boolean isMapped (int addr) {
+		return addr >= 0 && addr < 0x1000;
 	}
 	
 	@Override

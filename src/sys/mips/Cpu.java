@@ -1,5 +1,6 @@
 package sys.mips;
 
+import java.beans.PropertyChangeSupport;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -37,6 +38,7 @@ public final class Cpu {
 	private final int wordAddrXor;
 	private final Fpu fpu = new Fpu(this);
 	private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+	private final PropertyChangeSupport support = new PropertyChangeSupport(this);
 	
 	private volatile long cycle = 1;
 	
@@ -210,6 +212,10 @@ public final class Cpu {
 
 	public ScheduledExecutorService getExecutor () {
 		return executor;
+	}
+
+	public PropertyChangeSupport getSupport () {
+		return support;
 	}
 
 	/** never returns, throws runtime exception... */

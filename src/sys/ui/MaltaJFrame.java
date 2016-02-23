@@ -180,7 +180,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		}
 		
 		cpu.getMemory().print(System.out);
-		cpu.getMemory().getMalta().getSupport().addPropertyChangeListener(this);
+		cpu.getSupport().addPropertyChangeListener(this);
 		
 		this.cpu = cpu;
 		updateCycle();

@@ -65,7 +65,7 @@ public class MaltaUtil {
 			case IRQ_FLOPPY:
 				return "Floppy";
 			case IRQ_PARALLEL:
-				return "Paralell";
+				return "Parallel";
 			case IRQ_RTC:
 				return "RealTimeClock";
 			case IRQ_I2C:

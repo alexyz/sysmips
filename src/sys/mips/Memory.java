@@ -22,8 +22,8 @@ public final class Memory {
 	private final boolean littleEndian;
 	private final Entry[] entries = new Entry[16];
 	private final long[] xcache = new long[32];
+	private final Malta malta;
 	
-	private Malta malta;
 	private boolean kernelMode;
 	private int asid;
 	private int ehit, emiss;
@@ -37,6 +37,7 @@ public final class Memory {
 		for (int n = 0; n < entries.length; n++) {
 			entries[n] = new Entry();
 		}
+		this.malta = new Malta(KSEG1);
 	}
 	
 	public Entry getEntry (int n) {
@@ -57,7 +58,7 @@ public final class Memory {
 		symbols.put(KSEG1, "KSEG1");
 		symbols.put(KSEG2, "KSEG2");
 		symbols.put(KSEG3, "KSEG3");
-		malta.init(symbols, KSEG1);
+		malta.init(symbols);
 		log.println("symbols=" + symbols);
 	}
 	
@@ -77,10 +78,6 @@ public final class Memory {
 		return malta;
 	}
 	
-	public void setMalta (Malta malta) {
-		this.malta = malta;
-	}
-	
 	public Symbols getSymbols () {
 		return symbols;
 	}
@@ -90,7 +87,7 @@ public final class Memory {
 			throw new CpuException(new CpuExceptionParams(Constants.EX_ADDR_ERROR_LOAD, vaddr));
 		}
 		if (isSystem(vaddr)) {
-			return malta.systemRead(vaddr & KSEG_MASK, 4);
+			return malta.systemRead(vaddr, 4);
 		} else {
 			return loadWordImpl(translate(vaddr, false));
 		}
@@ -101,7 +98,7 @@ public final class Memory {
 			throw new CpuException(new CpuExceptionParams(Constants.EX_ADDR_ERROR_STORE, vaddr));
 		}
 		if (isSystem(vaddr)) {
-			malta.systemWrite(vaddr & KSEG_MASK, value, 4);
+			malta.systemWrite(vaddr, value, 4);
 		} else {
 			storeWordImpl(translate(vaddr, true), value);
 		}
@@ -112,7 +109,7 @@ public final class Memory {
 			throw new CpuException(new CpuExceptionParams(Constants.EX_ADDR_ERROR_LOAD, vaddr));
 		}
 		if (isSystem(vaddr)) {
-			return (short) malta.systemRead(vaddr & KSEG_MASK, 2);
+			return (short) malta.systemRead(vaddr, 2);
 		} else {
 			return loadHalfWordImpl(translate(vaddr, false));
 		}
@@ -123,7 +120,7 @@ public final class Memory {
 			throw new CpuException(new CpuExceptionParams(Constants.EX_ADDR_ERROR_STORE, vaddr));
 		}
 		if (isSystem(vaddr)) {
-			malta.systemWrite(vaddr & KSEG_MASK, value, 2);
+			malta.systemWrite(vaddr, value, 2);
 		} else {
 			storeHalfWordImpl(translate(vaddr, true), value);
 		}
@@ -131,7 +128,7 @@ public final class Memory {
 	
 	public final byte loadByte (final int vaddr) {
 		if (isSystem(vaddr)) {
-			return (byte) malta.systemRead(vaddr & KSEG_MASK, 1);
+			return (byte) malta.systemRead(vaddr, 1);
 		} else {
 			return loadByteImpl(translate(vaddr, false));
 		}
@@ -139,7 +136,7 @@ public final class Memory {
 	
 	public final void storeByte (final int vaddr, final byte value) {
 		if (isSystem(vaddr)) {
-			malta.systemWrite(vaddr & KSEG_MASK, value, 1);
+			malta.systemWrite(vaddr, value, 1);
 		} else {
 			storeByteImpl(translate(vaddr, true), value);
 		}

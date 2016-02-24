@@ -90,11 +90,11 @@ public class Malta implements Device {
 	}
 	
 	// the GT is the northbridge
-	private final GT gt = new GT();
-	private final Display display = new Display();
-	private final Uart com1 = new Uart("COM1");
+	private final int baseAddr;
+	private final GT gt;
+	private final Display display;
+	private final Uart com1;
 	
-	private int offset;
 	private int timerCounter0;
 	private int timerControlWord = -1;
 	private int timerCounterByte;
@@ -103,8 +103,11 @@ public class Malta implements Device {
 	private int rtcdat;
 	private int picimr;
 	
-	public Malta () {
-		//
+	public Malta (int baseAddr) {
+		this.baseAddr = baseAddr;
+		this.gt = new GT(baseAddr + M_GTBASE);
+		this.com1 = new Uart(baseAddr + M_COM1, "COM1");
+		this.display = new Display(baseAddr + M_DISPLAY);
 	}
 	
 	public GT getGt () {
@@ -112,42 +115,40 @@ public class Malta implements Device {
 	}
 	
 	@Override
-	public void init (Symbols sym, int offset) {
-		log.println("init malta at " + Integer.toHexString(offset));
-		this.offset = offset;
+	public void init (Symbols sym) {
+		log.println("init malta at " + Integer.toHexString(baseAddr));
 		
-		display.init(sym, offset + M_DISPLAY);
-		com1.init(sym, offset + M_COM1);
+		display.init(sym);
+		com1.init(sym);
+		gt.init(sym);
 		
-		sym.put(offset + M_SDRAM, "M_SDRAM");
-		sym.put(offset + M_UNCACHED_EX_H, "M_UNCACHED_EX_H", 0x80);
-		sym.put(offset + M_PCI1, "M_PCI1");
-		sym.put(offset + M_PIIX4, "M_PIIX4");
-		sym.put(offset + M_PIC_MASTER_CMD, "M_PIC_MASTER_CMD", 1);
-		sym.put(offset + M_PIC_MASTER_IMR, "M_PIC_MASTER_IMR", 1);
-		sym.put(offset + M_I8253_COUNTER_0, "M_I8253_COUNTER_0", 1);
-		sym.put(offset + M_I8253_COUNTER_1, "M_I8253_COUNTER_1", 1);
-		sym.put(offset + M_I8253_COUNTER_2, "M_I8253_COUNTER_2", 1);
-		sym.put(offset + M_I8253_TCW, "M_I8253_TCW", 1);
-		sym.put(offset + M_RTCADR, "M_RTCADR");
-		sym.put(offset + M_RTCDAT, "M_RTCDAT");
-		sym.put(offset + M_PIC_SLAVE_CMD, "M_PIC_SLAVE_CMD", 1);
-		sym.put(offset + M_PIC_SLAVE_IMR, "M_PIC_SLAVE_IMR", 1);
-		sym.put(offset + M_DMA2_MASK_REG, "M_DMA2_MASK_REG");
-		sym.put(offset + M_PCI2, "M_PCI2");
-		sym.put(offset + M_GTBASE, "M_GTBASE");
-		sym.put(offset + M_MONITORFLASH, "M_MONITORFLASH");
-		sym.put(offset + M_RESERVED, "M_RESERVED");
-		sym.put(offset + M_DEVICES, "M_DEVICES");
-		sym.put(offset + M_DISPLAY, "M_DISPLAY");
-		sym.put(offset + M_SCSPEC1, "M_SCSPEC1");
-		sym.put(offset + M_SCSPEC2, "M_SCSPEC2");
-		sym.put(offset + M_SCSPEC2_BONITO, "M_SCSPEC2_BONITO");
-		sym.put(offset + M_CBUS, "M_CBUS");
-		sym.put(offset + M_BOOTROM, "M_BOOTROM");
-		sym.put(offset + M_REVISION, "M_REVISION", 8);
-		
-		gt.init(sym, offset + M_GTBASE);
+		sym.put(baseAddr + M_SDRAM, "M_SDRAM");
+		sym.put(baseAddr + M_UNCACHED_EX_H, "M_UNCACHED_EX_H", 0x80);
+		sym.put(baseAddr + M_PCI1, "M_PCI1");
+		sym.put(baseAddr + M_PIIX4, "M_PIIX4");
+		sym.put(baseAddr + M_PIC_MASTER_CMD, "M_PIC_MASTER_CMD", 1);
+		sym.put(baseAddr + M_PIC_MASTER_IMR, "M_PIC_MASTER_IMR", 1);
+		sym.put(baseAddr + M_I8253_COUNTER_0, "M_I8253_COUNTER_0", 1);
+		sym.put(baseAddr + M_I8253_COUNTER_1, "M_I8253_COUNTER_1", 1);
+		sym.put(baseAddr + M_I8253_COUNTER_2, "M_I8253_COUNTER_2", 1);
+		sym.put(baseAddr + M_I8253_TCW, "M_I8253_TCW", 1);
+		sym.put(baseAddr + M_RTCADR, "M_RTCADR");
+		sym.put(baseAddr + M_RTCDAT, "M_RTCDAT");
+		sym.put(baseAddr + M_PIC_SLAVE_CMD, "M_PIC_SLAVE_CMD", 1);
+		sym.put(baseAddr + M_PIC_SLAVE_IMR, "M_PIC_SLAVE_IMR", 1);
+		sym.put(baseAddr + M_DMA2_MASK_REG, "M_DMA2_MASK_REG");
+		sym.put(baseAddr + M_PCI2, "M_PCI2");
+		sym.put(baseAddr + M_GTBASE, "M_GTBASE");
+		sym.put(baseAddr + M_MONITORFLASH, "M_MONITORFLASH");
+		sym.put(baseAddr + M_RESERVED, "M_RESERVED");
+		sym.put(baseAddr + M_DEVICES, "M_DEVICES");
+		sym.put(baseAddr + M_DISPLAY, "M_DISPLAY");
+		sym.put(baseAddr + M_SCSPEC1, "M_SCSPEC1");
+		sym.put(baseAddr + M_SCSPEC2, "M_SCSPEC2");
+		sym.put(baseAddr + M_SCSPEC2_BONITO, "M_SCSPEC2_BONITO");
+		sym.put(baseAddr + M_CBUS, "M_CBUS");
+		sym.put(baseAddr + M_BOOTROM, "M_BOOTROM");
+		sym.put(baseAddr + M_REVISION, "M_REVISION", 8);
 	}
 	
 	@Override
@@ -158,83 +159,87 @@ public class Malta implements Device {
 	
 	@Override
 	public int systemRead (int addr, int size) {
-		
-		if (gt.isMapped(addr - M_GTBASE)) {
-			return gt.systemRead(addr - M_GTBASE, size);
+		if (gt.isMapped(addr)) {
+			return gt.systemRead(addr, size);
 			
-		} else if (com1.isMapped(addr - M_COM1)) {
-			return com1.systemRead(addr - M_COM1, size);
+		} else if (com1.isMapped(addr)) {
+			return com1.systemRead(addr, size);
 			
-		} else switch (addr) {
-			case M_REVISION:
-				return 1;
-			case M_PIC_MASTER_IMR:
-				return picimr;
-			case M_RTCDAT:
-				// should compute this from rtcadr each time?
-				return rtcdat;
-			default:
-				throw new RuntimeException("unknown system read " + Cpu.getInstance().getMemory().getSymbols().getNameAddrOffset(offset+addr) + " size " + size);
+		} else {
+			int offset = addr - baseAddr;
+			switch (offset) {
+				case M_REVISION:
+					return 1;
+				case M_PIC_MASTER_IMR:
+					return picimr;
+				case M_RTCDAT:
+					// should compute this from rtcadr each time?
+					return rtcdat;
+				default:
+					throw new RuntimeException("unknown system read " + Cpu.getInstance().getMemory().getSymbols().getNameAddrOffset(addr) + " size " + size);
+			}
 		}
 	}
 	
 	@Override
 	public void systemWrite (final int addr, final int value, int size) {
-		
-		if (gt.isMapped(addr - M_GTBASE)) {
-			gt.systemWrite(addr - M_GTBASE, value, size);
+		if (gt.isMapped(addr)) {
+			gt.systemWrite(addr, value, size);
 			
-		} else if (com1.isMapped(addr - M_COM1)) {
-			com1.systemWrite(addr - M_COM1, value, size);
+		} else if (com1.isMapped(addr)) {
+			com1.systemWrite(addr, value, size);
 			
-		} else if (addr >= M_UNCACHED_EX_H && addr < M_UNCACHED_EX_H + 0x100) {
-			log.println("set uncached exception handler " + Symbols.getInstance().getNameOffset(offset + addr) + " <= " + Integer.toHexString(value));
+		} else if (addr >= baseAddr + M_UNCACHED_EX_H && addr < baseAddr + M_UNCACHED_EX_H + 0x100) {
+			log.println("set uncached exception handler " + Symbols.getInstance().getNameOffset(baseAddr + addr) + " <= " + Integer.toHexString(value));
 			
-		} else if (display.isMapped(addr - M_DISPLAY)) {
-			display.systemWrite(addr - M_DISPLAY, value, size);
+		} else if (display.isMapped(addr)) {
+			display.systemWrite(addr, value, size);
 			
-		} else switch (addr) {
-			case M_I8253_TCW:
-				timerControlWrite((byte) value);
-				return;
-			
-			case M_I8253_COUNTER_0:
-				timerCounter0Write((byte) value);
-				return;
-			
-			case M_RTCADR:
-				rtcAdrWrite(value);
-				return;
-			
-			case M_RTCDAT:
-				rtcDatWrite(value);
-				return;
-			
-			case M_DMA2_MASK_REG:
-				// information in asm/dma.h
-				log.println("enable dma channel 4+" + value);
-				return;
-				
-			case M_PIC_MASTER_CMD:
-				log.println("pic master write command %x", value & 0xff);
-				return;
-				
-			case M_PIC_MASTER_IMR:
-				log.println("pic master write interrupt mask register %x", value & 0xff);
-				// XXX should probably do something here...
-				picimr = (byte) value;
-				return;
-				
-			case M_PIC_SLAVE_CMD:
-				log.println("pic slave write command %x", value & 0xff);
-				return;
-				
-			case M_PIC_SLAVE_IMR:
-				log.println("pic slave write interrupt mask register %x", value & 0xff);
-				return;
-				
-			default:
-				throw new RuntimeException("unknown system write " + Symbols.getInstance().getNameOffset(offset + addr) + " <= " + Integer.toHexString(value));
+		} else {
+			int offset = addr - baseAddr;
+			switch (offset) {
+				case M_I8253_TCW:
+					timerControlWrite((byte) value);
+					return;
+					
+				case M_I8253_COUNTER_0:
+					timerCounter0Write((byte) value);
+					return;
+					
+				case M_RTCADR:
+					rtcAdrWrite(value);
+					return;
+					
+				case M_RTCDAT:
+					rtcDatWrite(value);
+					return;
+					
+				case M_DMA2_MASK_REG:
+					// information in asm/dma.h
+					log.println("enable dma channel 4+" + value);
+					return;
+					
+				case M_PIC_MASTER_CMD:
+					log.println("pic master write command %x", value & 0xff);
+					return;
+					
+				case M_PIC_MASTER_IMR:
+					log.println("pic master write interrupt mask register %x", value & 0xff);
+					// XXX should probably do something here...
+					picimr = (byte) value;
+					return;
+					
+				case M_PIC_SLAVE_CMD:
+					log.println("pic slave write command %x", value & 0xff);
+					return;
+					
+				case M_PIC_SLAVE_IMR:
+					log.println("pic slave write interrupt mask register %x", value & 0xff);
+					return;
+					
+				default:
+					throw new RuntimeException("unknown system write " + Symbols.getInstance().getNameOffset(addr) + " <= " + Integer.toHexString(value));
+			}
 		}
 		
 	}
@@ -255,7 +260,7 @@ public class Malta implements Device {
 			rtcdat = (byte) Calendar.getInstance().get(f);
 		}
 	}
-
+	
 	private void rtcDatWrite (final int value) {
 		if (rtcadr == 0xb && value == 4) {
 			// set mode binary
@@ -266,7 +271,7 @@ public class Malta implements Device {
 		}
 		throw new RuntimeException("unexpected rtc write adr " + Integer.toHexString(rtcadr) + " dat " + Integer.toHexString(value));
 	}
-
+	
 	private void timerControlWrite (final int value) {
 		log.println("timer control word write " + Integer.toHexString(value));
 		// i8253.c init_pit_timer
@@ -279,7 +284,7 @@ public class Malta implements Device {
 			throw new RuntimeException("unexpected tcw write " + Integer.toHexString(value));
 		}
 	}
-
+	
 	private void timerCounter0Write (final byte value) {
 		log.println("timer counter 0 write " + Integer.toHexString(value));
 		// lsb then msb

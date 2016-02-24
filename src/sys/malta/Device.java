@@ -4,15 +4,15 @@ import sys.util.Symbols;
 
 public interface Device {
 	
-	/** init at the physical address the device exists at */
-	public void init (Symbols sym, int offset);
+	/** init symbol table */
+	public void init (Symbols sym);
 	
-	/** return true if read/write at this logical address is allowed */
+	/** return true if read/write at this address is allowed */
 	public boolean isMapped (int addr);
 	
-	/** read at the logical address */
+	/** read at the address */
 	public int systemRead (int addr, int size);
 	
-	/** write at the logical address */
+	/** write at the address */
 	public void systemWrite (final int addr, final int value, int size);
 }

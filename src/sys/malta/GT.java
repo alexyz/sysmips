@@ -16,13 +16,14 @@ public class GT implements Device {
 	
 	private static final Logger log = new Logger(GT.class);
 	
-	private int offset;
+	private final int baseAddr;
+	
 	private int configData;
 	private int configAddr;
 	private int irq;
 	
-	public GT () {
-		//
+	public GT (int baseAddr) {
+		this.baseAddr = baseAddr;
 	}
 	
 	public void setIrq (int irq) {
@@ -31,15 +32,14 @@ public class GT implements Device {
 	}
 	
 	@Override
-	public void init (Symbols sym, int offset) {
-		log.println("init gt at " + Integer.toHexString(offset));
-		this.offset = offset;
-		sym.init(GTUtil.class, "GT_", null, offset, 4);
+	public void init (Symbols sym) {
+		log.println("init gt at " + Integer.toHexString(baseAddr));
+		sym.init(GTUtil.class, "GT_", null, baseAddr, 4);
 	}
 	
 	@Override
 	public boolean isMapped (int addr) {
-		return addr >= 0 && addr < 0x1000;
+		return addr >= baseAddr && addr < baseAddr + 0x1000;
 	}
 	
 	@Override
@@ -49,7 +49,8 @@ public class GT implements Device {
 	}
 	
 	private int systemRead2 (int addr, int size) {
-		switch (addr) {
+		int offset = addr - baseAddr;
+		switch (offset) {
 			case GT_PCI0IOLD:
 				return 0x80;
 			case GT_PCI0IOHD:
@@ -77,20 +78,21 @@ public class GT implements Device {
 			case GT_INTERRUPT_CAUSE:
 				return 0;
 			default:
-				throw new RuntimeException("could not read " + Integer.toHexString(addr));
+				throw new RuntimeException("could not read " + Integer.toHexString(offset));
 		}
 	}
 	
 	@Override
 	public void systemWrite (int addr, int value, int size) {
+		int offset = addr - baseAddr;
 		Cpu cpu = Cpu.getInstance();
 		
 		// XXX swap here?
 		value = swapInt(value);
-		String name = cpu.getMemory().getSymbols().getNameAddrOffset(offset + addr);
-		log.println(String.format("write addr=%x name=%s <= value %x size %d", addr, name, value, size));
+		String name = cpu.getMemory().getSymbols().getNameAddrOffset(addr);
+		log.println(String.format("write addr=%x name=%s <= value %x size %d", offset, name, value, size));
 		
-		switch (addr) {
+		switch (offset) {
 			case GT_PCI0IOREMAP:
 				log.println("set PCI 0 IO remap " + value);
 				if (value != 0) {
@@ -121,7 +123,7 @@ public class GT implements Device {
 				break;
 				
 			default:
-				throw new RuntimeException(String.format("invalid gt write %x", addr));
+				throw new RuntimeException(String.format("invalid gt write %x", offset));
 		}
 		
 	}

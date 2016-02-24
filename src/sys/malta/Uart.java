@@ -36,34 +36,36 @@ public class Uart implements Device {
 	
 	private static final Logger log = new Logger(Display.class);
 	
+	private final int baseAddr;
 	private final String name;
 	private final StringBuilder consoleSb = new StringBuilder();
 	
-	private int offset;
 	private byte ier;
 	private byte mcr;
 	private byte lcr;
 	private byte iir;
 	
-	public Uart(String name) {
+	public Uart(int baseAddr, String name) {
+		this.baseAddr = baseAddr;
 		this.name = name;
 	}
 	
 	@Override
-	public void init (Symbols sym, int offset) {
-		log.println("init display at " + Integer.toHexString(offset));
-		this.offset = offset;
-		sym.init(Display.class, "M_", "M_" + name, offset, 1);
+	public void init (Symbols sym) {
+		log.println("init display at " + Integer.toHexString(baseAddr));
+		sym.init(Display.class, "M_", "M_" + name, baseAddr, 1);
 	}
 	
 	@Override
 	public boolean isMapped (int addr) {
-		return addr >= 0 && addr <= 7;
+		return addr >= baseAddr && addr <= baseAddr + 7;
 	}
 
 	@Override
 	public int systemRead (int addr, int size) {
-		switch (addr) {
+		int offset = addr - baseAddr;
+		
+		switch (offset) {
 			case M_COM1_LSR:
 				// always ready?
 				return 0x20;
@@ -82,7 +84,9 @@ public class Uart implements Device {
 
 	@Override
 	public void systemWrite (int addr, int value, int size) {
-		switch (addr) {
+		int offset = addr - baseAddr;
+		
+		switch (offset) {
 			case M_COM1_RX_TX:
 				consoleWrite(value & 0xff);
 				return;
@@ -111,7 +115,7 @@ public class Uart implements Device {
 				}
 				return;
 			default:
-				throw new RuntimeException("unknown uart write " + Cpu.getInstance().getMemory().getSymbols().getNameAddrOffset(offset + addr));
+				throw new RuntimeException("unknown uart write " + Cpu.getInstance().getMemory().getSymbols().getNameAddrOffset(addr));
 		}
 	}
 

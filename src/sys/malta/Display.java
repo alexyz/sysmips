@@ -23,20 +23,24 @@ public class Display implements Device {
 	private static final Logger log = new Logger(Display.class);
 	
 	private final byte[] asciiPos = new byte[8];
+	private final int baseAddr;
 	
-	private int offset;
 	private int ledBar = 0;
 	private int asciiWord = 0;
 	
-	@Override
-	public void init (Symbols sym, int offset) {
-		log.println("init display at " + Integer.toHexString(offset));
-		this.offset = offset;
-		sym.init(Display.class, "M_", null, offset, 4);
+	public Display(int baseAddr) {
+		this.baseAddr = baseAddr;
 	}
 	
+	@Override
+	public void init (Symbols sym) {
+		log.println("init display at " + Integer.toHexString(baseAddr));
+		sym.init(Display.class, "M_", null, baseAddr, 4);
+	}
+	
+	@Override
 	public boolean isMapped (int addr) {
-		return addr >= 0 && addr <= 80;
+		return addr >= baseAddr && addr <= baseAddr + 80;
 	}
 	
 	@Override
@@ -46,7 +50,9 @@ public class Display implements Device {
 	
 	@Override
 	public void systemWrite (final int addr, final int value, int size) {
-		switch (addr) {
+		final int offset = addr - baseAddr;
+		
+		switch (offset) {
 			case M_DISPLAY_ASCIIWORD:
 				asciiWordWrite(value);
 				return;

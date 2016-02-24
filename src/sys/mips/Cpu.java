@@ -73,7 +73,6 @@ public final class Cpu {
 		this.littleEndian = littleEndian;
 		this.wordAddrXor = littleEndian ? 0 : 3;
 		
-		memory.setMalta(new Malta());
 		memory.setKernelMode(true);
 		memory.init();
 		for (String name : IsnSet.getInstance().getNameMap().keySet()) {

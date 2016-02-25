@@ -6,7 +6,8 @@ Intended to run Linux 3.2
 
 Loosely based on the mipsem project (a user-level MIPS R2000A/Linux emulator)
 
-This project is NOT officially associated with Imagination Technologies, Galileo Technology, Intel or any other company
+This project is NOT officially associated with Imagination Technologies or any 
+other company
 
 ## Suggested Reading
 
@@ -17,7 +18,7 @@ This project is NOT officially associated with Imagination Technologies, Galileo
 * MIPS32 4K Processor Core Family Software User's Manual (c. 2001-2002)
 * Tool Interface Standard (TIS) Executable and Linking Format (ELF) Specification Version 1.2 (1995)
 * MIPS Malta User's Manual (c. 2001-2002)
-* MIPS YAMON User's Manual
+* MIPS YAMON User's Manual (c. 2004?)
 * MIPS YAMON Reference Manual (c. 2001)
 * Galileo GT-64120A System Controller Datasheet (2001)
 * Intel 82371AB PCI-TO-ISA / IDE XCELERATOR (PIIX4) (1997)

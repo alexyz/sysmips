@@ -228,10 +228,10 @@ public final class Cpu {
 			pitTime = startTime;
 			String[] regstr = new String[32];
 			// this should only be checked during call
-//			int f = memory.getSymbols().getAddr("serial8250_config_port");
-//			if (f == 0) {
-//				throw new RuntimeException();
-//			}
+			int f = memory.getSymbols().getAddr("size_fifo");
+			if (f == 0) {
+				throw new RuntimeException();
+			}
 //			boolean x = false;
 			
 			while (true) {
@@ -246,11 +246,12 @@ public final class Cpu {
 				pc2 = pc3;
 				pc3 += 4;
 				
-//				if (pc == f) {
+				if (pc == f) {
+					log.println("----- size_fifo -----");
 //					disasm = true;
 //					calls.setPrintCalls(true);
 //					x = true;
-//				}
+				}
 				
 //				if (x) {
 //					log.println(memory.getSymbols().getNameOffset(pc));
@@ -383,8 +384,8 @@ public final class Cpu {
 				throw new RuntimeException("unexpected exception " + ep.excode);
 		}
 		
-		log.println(CpuUtil.gpRegString(this, null));
-		log.println(IsnUtil.isnString(this, memory.loadWord(pc)));
+//		log.println(CpuUtil.gpRegString(this, null));
+//		log.println(IsnUtil.isnString(this, memory.loadWord(pc)));
 		
 		final boolean isInterrupt = ep.excode == EX_INTERRUPT;
 		final boolean isSbIntr = isInterrupt && ep.interrupt == MaltaUtil.INT_SB_INTR;
@@ -394,9 +395,9 @@ public final class Cpu {
 //			throw new RuntimeException("exception in exception handler");
 //		}
 		
-		if (ep.excode < 0 || ep.excode >= 32) {
-			throw new RuntimeException("invalid excode " + ep.excode);
-		}
+//		if (ep.excode < 0 || ep.excode >= 32) {
+//			throw new RuntimeException("invalid excode " + ep.excode);
+//		}
 
 		if (isInterrupt && (ep.interrupt < 0 || ep.interrupt >= 8)) {
 			throw new RuntimeException("invalid interrupt " + ep.interrupt);
@@ -836,7 +837,7 @@ public final class Cpu {
 				// result is unpredictable for zero, no exceptions thrown
 				int rsValue = register[rs];
 				int rtValue = register[rt];
-				if (rt != 0) {
+				if (rtValue != 0) {
 					lo = rsValue / rtValue;
 					hi = rsValue % rtValue;
 				}

@@ -1,10 +1,12 @@
 package sys.util;
 
-class Symbol {
+public class Symbol {
 	public final String name;
 	public final int size;
+	public final int addr;
 	
-	public Symbol (String name, int size) {
+	public Symbol (int addr, String name, int size) {
+		this.addr = addr;
 		this.name = name;
 		this.size = size;
 	}

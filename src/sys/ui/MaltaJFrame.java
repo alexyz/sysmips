@@ -16,6 +16,7 @@ import javax.swing.text.*;
 
 import sys.mips.Cpu;
 import sys.mips.CpuUtil;
+import sys.util.SymbolsJDialog;
 
 public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	
@@ -29,34 +30,37 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	
 	private final JTextField fileField = new JTextField(10);
 	private final JTextField argsField = new JTextField(10);
-//	private final JTextField envField = new JTextField(10);
 	private final JLabel displayLabel = new JLabel("            ");
 	private final JLabel cycleLabel = new JLabel("");
 	private final JTextArea consoleArea = new JTextArea();
-	private final JButton fileButton = new JButton("...");
+	private final JButton fileButton = new JButton("File");
+	private final JButton loadButton = new JButton("Load");
 	private final JButton runButton = new JButton("Run");
+	private final JButton symbolsButton = new JButton("Symbols");
 //	private final JButton stopButton = new JButton("Stop");
 	private final JSpinner memSpinner = new JSpinner(new SpinnerNumberModel(32,32,512,1));
 	private final Timer timer;
 	
 	private volatile Thread thread;
 	private Cpu cpu;
+	private SymbolsJDialog symbolsDialog;
 	
 	public MaltaJFrame () {
 		super("Sysmips");
 		
-		timer = new Timer(100, e -> updateCycle());
-		timer.start();
+		timer = new Timer(1000, e -> updateCycle());
 		
-		// should load these from prefs
-		// command line of console=ttyS0 initrd=? root=?
-		// environment keys: ethaddr, modetty0, memsize (defaults to 32MB)
+		loadButton.addActionListener(ae -> load());
+		runButton.addActionListener(ae -> run());
+		symbolsButton.addActionListener(e -> showSymbols());
+		
+		// should load this from prefs
 		fileField.setText("images/vmlinux-3.2.0-4-4kc-malta");
 		fileButton.addActionListener(ae -> selectFile());
-		argsField.setText("debug initcall_debug ignore_loglevel");
-//		envField.setText("");
 		
-		runButton.addActionListener(ae -> start());
+		// command line of console=ttyS0 initrd=? root=?
+		// environment keys: ethaddr, modetty0, memsize (defaults to 32MB)
+		argsField.setText("debug initcall_debug ignore_loglevel");
 		
 //		stopButton.addActionListener(ae -> stop());
 		
@@ -79,7 +83,9 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		topPanel1.add(argsField);
 		//topPanel1.add(new JLabel("Env"));
 		//topPanel1.add(envField);
+		topPanel1.add(loadButton);
 		topPanel1.add(runButton);
+		topPanel1.add(symbolsButton);
 		//topPanel1.add(stopButton);
 		
 		JPanel topPanel2 = new JPanel();
@@ -101,6 +107,27 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		setContentPane(p);
 		pack();
 	}
+	
+	private void showSymbols () {
+		if (symbolsDialog == null) {
+			symbolsDialog = new SymbolsJDialog(this);
+		}
+		if (cpu != null) {
+			symbolsDialog.setSymbols(cpu.getMemory().getSymbols());
+		}
+		symbolsDialog.setLocationRelativeTo(this);
+		symbolsDialog.setVisible(true);
+	}
+
+	@Override
+	public void setVisible (boolean b) {
+		if (b) {
+			timer.start();
+		} else {
+			timer.stop();
+		}
+		super.setVisible(b);
+	}
 
 //	private void stop () {
 //		if (cpu != null) {
@@ -120,7 +147,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		fileField.setText(file);
 	}
 	
-	private void start () {
+	private void load () {
 		if (thread != null) {
 			showErrorDialog("Run", "Already running");
 			return;
@@ -145,26 +172,11 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		}
 		
 		List<String> env = new ArrayList<>();
-//		{
-//			StringTokenizer st = new StringTokenizer(envField.getText());
-//			while (st.hasMoreTokens()) {
-//				String t = st.nextToken();
-//				int i = t.indexOf("=");
-//				if (i > 1) {
-//					env.add(t.substring(0, i));
-//					env.add(t.substring(i + 1));
-//				} else {
-//					showErrorDialog("Start", "Invalid environment: " + t);
-//					return;
-//				}
-//			}
-//		}
 		env.add("memsize");
 		env.add(String.valueOf(memsize));
 		
 		displayLabel.setText(" ");
 		consoleArea.setText("");
-		
 		
 		final Cpu cpu;
 		
@@ -184,11 +196,22 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		
 		this.cpu = cpu;
 		updateCycle();
-		
-		run();
 	}
 	
 	private void run() {
+		System.out.println("run");
+		
+		if (thread != null) {
+			return;
+		}
+		
+		if (cpu == null) {
+			load();
+			if (cpu == null) {
+				return;
+			}
+		}
+		
 		Thread t = new Thread(() -> {
 			try {
 				cpu.run();

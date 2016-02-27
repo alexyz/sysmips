@@ -14,10 +14,14 @@ public final class Symbols {
 	
 	// needs to be long so it can naturally sort
 	private final TreeMap<Long, Symbol> map = new TreeMap<>();
-	private final TreeMap<String, Integer> revmap = new TreeMap<>();
+	private final TreeMap<String, Long> reverseMap = new TreeMap<>();
 	
 	public Symbols () {
 		//
+	}
+	
+	public final Collection<Symbol> getSymbols() {
+		return Collections.unmodifiableCollection(map.values());
 	}
 	
 	/** get name, no address or offset */
@@ -70,7 +74,7 @@ public final class Symbols {
 	}
 	
 	public int getAddr (String name) {
-		return revmap.get(name);
+		return reverseMap.get(name).intValue();
 	}
 	
 	public void put (final int addr, String name) {
@@ -83,11 +87,11 @@ public final class Symbols {
 			final Long key = new Long(addr & 0xffff_ffffL);
 			final Symbol prev = map.get(key);
 			if (prev != null && !prev.name.equals(name)) {
-				map.put(key, new Symbol(prev.name + "," + name, Math.max(prev.size, size)));
+				map.put(key, new Symbol(addr, prev.name + "," + name, Math.max(prev.size, size)));
 			} else {
-				map.put(key, new Symbol(name, size));
+				map.put(key, new Symbol(addr, name, size));
 			}
-			revmap.put(name, addr);
+			reverseMap.put(name, key);
 		}
 	}
 	

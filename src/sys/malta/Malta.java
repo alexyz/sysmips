@@ -65,7 +65,7 @@ public class Malta implements Device {
 	public static final int M_SCSPEC2 = 0x1fd0_0010;
 	public static final int M_SCSPEC2_BONITO = 0x1fe0_0010;
 	
-	private static final Logger log = new Logger(Malta.class);
+	private static final Logger log = new Logger("Malta");
 	
 	private static int indexToCalendar (int index) {
 		switch (index) {
@@ -190,7 +190,7 @@ public class Malta implements Device {
 			com1.systemWrite(addr, value, size);
 			
 		} else if (addr >= baseAddr + M_UNCACHED_EX_H && addr < baseAddr + M_UNCACHED_EX_H + 0x100) {
-			log.println("set uncached exception handler " + Symbols.getInstance().getNameOffset(baseAddr + addr) + " <= " + Integer.toHexString(value));
+			//log.println("set uncached exception handler " + Symbols.getInstance().getNameOffset(baseAddr + addr) + " <= " + Integer.toHexString(value));
 			
 		} else if (display.isMapped(addr)) {
 			display.systemWrite(addr, value, size);
@@ -216,11 +216,11 @@ public class Malta implements Device {
 					
 				case M_DMA2_MASK_REG:
 					// information in asm/dma.h
-					log.println("enable dma channel 4+" + value);
+					log.println("enable dma channel 4+ ignored" + value);
 					return;
 					
 				case M_PIC_MASTER_CMD:
-					log.println("pic master write command %x", value & 0xff);
+					log.println("pic master write command %x ignored", value & 0xff);
 					return;
 					
 				case M_PIC_MASTER_IMR:
@@ -230,11 +230,11 @@ public class Malta implements Device {
 					return;
 					
 				case M_PIC_SLAVE_CMD:
-					log.println("pic slave write command %x", value & 0xff);
+					log.println("pic slave write command %x ignored", value & 0xff);
 					return;
 					
 				case M_PIC_SLAVE_IMR:
-					log.println("pic slave write interrupt mask register %x", value & 0xff);
+					log.println("pic slave write interrupt mask register %x ignored", value & 0xff);
 					return;
 					
 				default:

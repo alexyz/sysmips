@@ -16,7 +16,6 @@ import javax.swing.text.*;
 
 import sys.mips.Cpu;
 import sys.mips.CpuUtil;
-import sys.util.SymbolsJDialog;
 
 public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	
@@ -30,20 +29,21 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	
 	private final JTextField fileField = new JTextField(10);
 	private final JTextField argsField = new JTextField(10);
-	private final JLabel displayLabel = new JLabel("            ");
-	private final JLabel cycleLabel = new JLabel("");
+	private final JTextField displayField = new JTextField();
+	private final JLabel cycleLabel = new JLabel();
 	private final JTextArea consoleArea = new JTextArea();
 	private final JButton fileButton = new JButton("File");
 	private final JButton loadButton = new JButton("Load");
 	private final JButton runButton = new JButton("Run");
-	private final JButton symbolsButton = new JButton("Symbols");
 //	private final JButton stopButton = new JButton("Stop");
 	private final JSpinner memSpinner = new JSpinner(new SpinnerNumberModel(32,32,512,1));
+	private final JTabbedPane tabbedPane = new JTabbedPane();
+	private final SymbolJPanel symbolsPanel = new SymbolJPanel();
+	private final LoggerJPanel loggerPanel = new LoggerJPanel();
 	private final Timer timer;
 	
 	private volatile Thread thread;
 	private Cpu cpu;
-	private SymbolsJDialog symbolsDialog;
 	
 	public MaltaJFrame () {
 		super("Sysmips");
@@ -52,20 +52,22 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		
 		loadButton.addActionListener(ae -> load());
 		runButton.addActionListener(ae -> run());
-		symbolsButton.addActionListener(e -> showSymbols());
 		
+		fileField.setColumns(20);
 		// should load this from prefs
 		fileField.setText("images/vmlinux-3.2.0-4-4kc-malta");
 		fileButton.addActionListener(ae -> selectFile());
 		
+		argsField.setColumns(20);
 		// command line of console=ttyS0 initrd=? root=?
 		// environment keys: ethaddr, modetty0, memsize (defaults to 32MB)
 		argsField.setText("debug initcall_debug ignore_loglevel");
 		
 //		stopButton.addActionListener(ae -> stop());
 		
-		displayLabel.setFont(MONO);
-		displayLabel.setBorder(new EtchedBorder());
+		displayField.setFont(MONO);
+		displayField.setColumns(20);
+		displayField.setEditable(false);
 		
 		consoleArea.setColumns(100);
 		consoleArea.setRows(24);
@@ -85,40 +87,34 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		//topPanel1.add(envField);
 		topPanel1.add(loadButton);
 		topPanel1.add(runButton);
-		topPanel1.add(symbolsButton);
 		//topPanel1.add(stopButton);
 		
 		JPanel topPanel2 = new JPanel();
-		topPanel2.add(displayLabel);
+		topPanel2.add(displayField);
 		topPanel2.add(cycleLabel);
 		
-		JPanel topPanel = new JPanel(new GridLayout(2, 1));
+		JPanel topPanel = new JPanel();
+		topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.Y_AXIS));
 		topPanel.add(topPanel1);
 		topPanel.add(topPanel2);
 		
-		JScrollPane consoleSp = new JScrollPane(consoleArea);
-		consoleSp.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-		consoleSp.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
-		JPanel p = new JPanel(new BorderLayout());
-		p.add(topPanel, BorderLayout.NORTH);
-		p.add(consoleSp, BorderLayout.CENTER);
+		JScrollPane consoleSp = new JScrollPane(consoleArea, ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+		consoleSp.setBorder(new EmptyBorder(5,5,5,5));
+		
+		tabbedPane.add("Console", consoleSp);
+		tabbedPane.add("Symbols", symbolsPanel);
+		tabbedPane.add("Logger", loggerPanel);
+		
+		JPanel contentPanel = new JPanel(new BorderLayout());
+		contentPanel.add(topPanel, BorderLayout.NORTH);
+		contentPanel.add(tabbedPane, BorderLayout.CENTER);
+		contentPanel.setBorder(new EmptyBorder(5,5,5,5));
 		
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
-		setContentPane(p);
+		setContentPane(contentPanel);
 		pack();
 	}
 	
-	private void showSymbols () {
-		if (symbolsDialog == null) {
-			symbolsDialog = new SymbolsJDialog(this);
-		}
-		if (cpu != null) {
-			symbolsDialog.setSymbols(cpu.getMemory().getSymbols());
-		}
-		symbolsDialog.setLocationRelativeTo(this);
-		symbolsDialog.setVisible(true);
-	}
-
 	@Override
 	public void setVisible (boolean b) {
 		if (b) {
@@ -175,7 +171,6 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		env.add("memsize");
 		env.add(String.valueOf(memsize));
 		
-		displayLabel.setText(" ");
 		consoleArea.setText("");
 		
 		final Cpu cpu;
@@ -195,6 +190,9 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		cpu.getSupport().addPropertyChangeListener(this);
 		
 		this.cpu = cpu;
+		
+		symbolsPanel.setSymbols(cpu.getMemory().getSymbols());
+		
 		updateCycle();
 	}
 	
@@ -290,8 +288,8 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		// System.out.println("jframe update " + propertyName);
 		switch (propertyName) {
 			case "display":
-				displayLabel.setText((String) newValue);
-				displayLabel.repaint();
+				displayField.setText((String) newValue);
+				displayField.repaint();
 				break;
 			case "console": {
 				Document doc = consoleArea.getDocument();

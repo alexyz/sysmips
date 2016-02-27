@@ -18,7 +18,7 @@ public final class Cpu {
 	
 	private static final ThreadLocal<Cpu> instance = new ThreadLocal<>();
 	private static final int INTERVAL_NS = 4000000;
-	private static final Logger log = new Logger(Cpu.class);
+	private static final Logger log = new Logger("Cpu");
 	
 	/** allow other classes to access cpu */
 	public static Cpu getInstance() {
@@ -224,7 +224,7 @@ public final class Cpu {
 		try {
 			instance.set(this);
 			calls.call(pc2);
-			log.println("run " + cycle);
+			log.println("run");
 			pitTime = startTime;
 			String[] regstr = new String[32];
 			// this should only be checked during call
@@ -355,7 +355,7 @@ public final class Cpu {
 	}
 
 	public final void addException (final CpuExceptionParams ep) {
-		log.println("add exn " + ep);
+		//log.println("add exn " + ep);
 		synchronized (exceptions) {
 			exceptions.add(ep);
 		}
@@ -373,7 +373,7 @@ public final class Cpu {
 	// malta-int.c plat_irq_dispatch (deals with hardware interrupts)
 	private final void execException (CpuExceptionParams ep) {
 		execException = true;
-		log.println("exec exception " + ep);
+		//log.println("exec exception " + ep);
 		
 		switch (ep.excode) {
 			case EX_INTERRUPT:
@@ -447,7 +447,7 @@ public final class Cpu {
 			CPR_ENTRYHI_VPN2.set(cpRegister, vpn2);
 		}
 		
-		log.println("epc=" + memory.getSymbols().getNameAddrOffset(cpRegister[CPR_EPC]) + " delaySlot=" + isDelaySlot);
+		//log.println("epc=" + memory.getSymbols().getNameAddrOffset(cpRegister[CPR_EPC]) + " delaySlot=" + isDelaySlot);
 		
 		statusUpdated();
 		
@@ -461,15 +461,15 @@ public final class Cpu {
 		exlo = lo;
 		
 		if (ep.isTlbRefill) {
-			log.println("jump to tlb refill vector");
+			//log.println("jump to tlb refill vector");
 			setPc(EXV_TLBREFILL);
 			
 		} else if (isInterrupt && iv) {
-			log.println("jump to interrupt vector");
+			//log.println("jump to interrupt vector");
 			setPc(EXV_INTERRUPT);
 			
 		} else {
-			log.println("jump to general exception vector");
+			//log.println("jump to general exception vector");
 			setPc(EXV_EXCEPTION);
 		}
 		
@@ -1100,7 +1100,7 @@ public final class Cpu {
 			}
 			case CP_FN_ERET: {
 				final int epc = cpRegister[CPR_EPC];
-				log.println("exception return " + memory.getSymbols().getNameAddrOffset(epc));
+				//log.println("exception return " + memory.getSymbols().getNameAddrOffset(epc));
 				if (CPR_STATUS_ERL.isSet(cpRegister)) {
 					throw new RuntimeException("eret with erl");
 				}

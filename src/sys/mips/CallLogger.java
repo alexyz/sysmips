@@ -11,7 +11,7 @@ public class CallLogger {
 	
 	private static final String INLINE = "#";
 
-	private static final Logger log = new Logger(CallLogger.class);
+	private static final Logger log = new Logger("Calls");
 	
 	private final List<List<String>> threads = new ArrayList<>();
 	private final List<String> threadNames = new ArrayList<>();

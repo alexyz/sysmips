@@ -8,7 +8,7 @@ import sys.util.Symbols;
 
 public final class Memory {
 	
-	private static final Logger log = new Logger(Memory.class);
+	private static final Logger log = new Logger("Memory");
 	private static final int KSEG0 = 0x8000_0000;
 	private static final int KSEG1 = 0xa000_0000;
 	private static final int KSEG2 = 0xc000_0000;

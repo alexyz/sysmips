@@ -6,7 +6,7 @@ import java.awt.event.KeyEvent;
 import java.util.*;
 
 import javax.swing.*;
-import javax.swing.table.AbstractTableModel;
+import javax.swing.border.EmptyBorder;
 
 import sys.util.Symbol;
 import sys.util.Symbols;
@@ -23,14 +23,23 @@ public class SymbolJPanel extends JPanel {
 	
 	public SymbolJPanel() {
 		super(new BorderLayout());
+		textField.setColumns(20);
 		textField.addKeyListener(new KeyAdapter() {
 			@Override
 			public void keyTyped (KeyEvent e) {
 				update();
 			}
 		});
-		add(textField, BorderLayout.NORTH);
-		add(new JScrollPane(table), BorderLayout.CENTER);
+		table.setAutoCreateRowSorter(true);
+		
+		JPanel northPanel = new JPanel();
+		northPanel.add(textField);
+		
+		JScrollPane scrollPane = new JScrollPane(table);
+		
+		add(northPanel, BorderLayout.NORTH);
+		add(scrollPane, BorderLayout.CENTER);
+		setBorder(new EmptyBorder(5,5,5,5));
 	}
 	
 	public void setSymbols(Symbols s) {
@@ -50,47 +59,4 @@ public class SymbolJPanel extends JPanel {
 			tableModel.setSymbols(l);
 		}
 	}
-}
-
-class SymbolsTableModel extends AbstractTableModel {
-
-	private final List<Symbol> symbols = new ArrayList<>();
-	
-	@Override
-	public int getRowCount () {
-		return symbols.size();
-	}
-
-	public void setSymbols (List<Symbol> l) {
-		symbols.clear();
-		symbols.addAll(l);
-		fireTableDataChanged();
-	}
-
-	@Override
-	public int getColumnCount () {
-		return 3;
-	}
-	
-	@Override
-	public String getColumnName (int col) {
-		switch (col) {
-			case 0: return "Address";
-			case 1: return "Name";
-			case 2: return "Size";
-			default: throw new RuntimeException();
-		}
-	}
-
-	@Override
-	public Object getValueAt (int row, int col) {
-		Symbol s = symbols.get(row);
-		switch (col) {
-			case 0: return Integer.toHexString(s.addr);
-			case 1: return s.name;
-			case 2: return s.size;
-			default: throw new RuntimeException();
-		}
-	}
-	
 }

@@ -14,7 +14,7 @@ import static sys.malta.GTUtil.*;
  */
 public class GT implements Device {
 	
-	private static final Logger log = new Logger(GT.class);
+	private static final Logger log = new Logger("GT");
 	
 	private final int baseAddr;
 	
@@ -27,7 +27,7 @@ public class GT implements Device {
 	}
 	
 	public void setIrq (int irq) {
-		log.println("set irq " + irq);
+		//log.println("set irq " + irq);
 		this.irq = irq;
 	}
 	

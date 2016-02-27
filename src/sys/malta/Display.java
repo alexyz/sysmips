@@ -20,7 +20,7 @@ public class Display implements Device {
 	public static final int M_DISPLAY_ASCIIPOS6 = 0x48;
 	public static final int M_DISPLAY_ASCIIPOS7 = 0x50;
 	
-	private static final Logger log = new Logger(Display.class);
+	private static final Logger log = new Logger("Display");
 	
 	private final byte[] asciiPos = new byte[8];
 	private final int baseAddr;

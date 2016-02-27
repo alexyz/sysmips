@@ -9,6 +9,8 @@ import sys.util.Symbols;
  */
 public class Uart implements Device {
 
+	private static final Logger log = new Logger("Uart");
+	
 	/** receive (write) / transmit (read) */
 	public static final int M_COM1_RX_TX = 0;
 	/** interrupt enable */
@@ -95,8 +97,6 @@ public class Uart implements Device {
 	private static boolean fcrClearTransmitFifo (int value) {
 		return (value & 0x4) != 0;
 	}
-	
-	private static final Logger log = new Logger(Display.class);
 	
 	private final int baseAddr;
 	private final String name;
@@ -217,7 +217,7 @@ public class Uart implements Device {
 		}
 		if (value == '\n' || consoleSb.length() > 160) {
 			final String line = consoleSb.toString();
-			log.println("console: " + line.trim());
+			log.println(line.trim());
 			if (line.contains("WARNING")) {
 				log.println("calls=" + Cpu.getInstance().getCalls().callString());
 			}

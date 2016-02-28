@@ -43,6 +43,7 @@ public class Malta implements Device {
 	public static final int M_DMA2_MASK_REG = M_PIIX4 + 0xD4;
 	
 	// the first uart is on the isa bus connected to the PIIX4
+	public static final int M_COM2 = M_PIIX4 + 0x2f8;
 	public static final int M_COM1 = M_PIIX4 + 0x3f8;
 	
 	public static final int M_PCI2 = 0x1800_0000;
@@ -94,6 +95,7 @@ public class Malta implements Device {
 	private final GT gt;
 	private final Display display;
 	private final Uart com1;
+	private final Uart com2;
 	
 	private int timerCounter0;
 	private int timerControlWord = -1;
@@ -107,6 +109,8 @@ public class Malta implements Device {
 		this.baseAddr = baseAddr;
 		this.gt = new GT(baseAddr + M_GTBASE);
 		this.com1 = new Uart(baseAddr + M_COM1, "COM1");
+		// XXX need to disable the console output on this
+		this.com2 = new Uart(baseAddr + M_COM2, "COM2");
 		this.display = new Display(baseAddr + M_DISPLAY);
 	}
 	
@@ -120,6 +124,7 @@ public class Malta implements Device {
 		
 		display.init(sym);
 		com1.init(sym);
+		com2.init(sym);
 		gt.init(sym);
 		
 		sym.put(baseAddr + M_SDRAM, "M_SDRAM");

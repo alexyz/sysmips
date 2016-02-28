@@ -4,6 +4,8 @@ import sys.mips.Cpu;
 import sys.util.Logger;
 import sys.util.Symbols;
 
+import static sys.malta.UartUtil.*;
+
 /**
  * 16550A emulation
  */
@@ -11,111 +13,28 @@ public class Uart implements Device {
 
 	private static final Logger log = new Logger("Uart");
 	
-	/** receive (write) / transmit (read) */
-	public static final int M_UART_RX_TX = 0;
-	/** interrupt enable */
-	public static final int M_UART_IER = 1;
-	/**
-	 * fifo control register (writes) / interrupt identification register
-	 * (reads) / extended features register (not supported)
-	 */
-	public static final int M_UART_FCR_IIR_EFR = 2;
-	/** line control register */
-	public static final int M_UART_LCR = 3;
-	/** modem control register */
-	public static final int M_UART_MCR = 4;
-	/** line status register */
-	public static final int M_UART_LSR = 5;
-	/** modem status register */
-	public static final int M_UART_MSR = 6;
-	
-	private static int lcrWordLength(int x) {
-		return (x & 0x3) + 5;
-	}
-	
-	private static float lcrStopBits(int x) {
-		if ((x & 0x4) == 0) {
-			return 1;
-		} else {
-			if ((x & 0x3) == 0) {
-				return 1.5f;
-			} else {
-				return 2;
-			}
-		}
-	}
-	
-	private static char lcrParity(int x) {
-		if ((x & 0x8) == 0) {
-			return 'N';
-		} else switch ((x & 0x30) >> 4) {
-			case 0: return 'O';
-			case 1: return 'E';
-			case 2: return 'H';
-			case 3: return 'L';
-			default: throw new RuntimeException();
-		}
-	}
-	
-	private static boolean lcrBreak(int x) {
-		return (x & 0x40) != 0;
-	}
-	
-	private static boolean lcrDivisorLatch(int x) {
-		return (x & 0x80) != 0;
-	}
-	
-	private static boolean mcrForceDataTerminalReady(int x) {
-		return (x & 0x1) != 0;
-	}
-	
-	private static boolean mcrForceRequestToSend(int x) {
-		return (x & 0x2) != 0;
-	}
-	
-	private static boolean mcrOutput1(int x) {
-		return (x & 0x4) != 0;
-	}
-	
-	// enable uart interrupts?
-	private static boolean mcrOutput2(int x) {
-		return (x & 0x8) != 0;
-	}
-	
-	private static boolean mcrLoopback(int x) {
-		return (x & 0x10) != 0;
-	}
-	
-	private static boolean fcrEnableFifo (int value) {
-		return (value & 0x1) != 0;
-	}
-	
-	private static boolean fcrClearReceiveFifo (int value) {
-		return (value & 0x2) != 0;
-	}
-
-	private static boolean fcrClearTransmitFifo (int value) {
-		return (value & 0x4) != 0;
-	}
-	
 	private final int baseAddr;
 	private final String name;
 	private final StringBuilder consoleSb = new StringBuilder();
+	private final byte[] rxFifo = new byte[16];
 	
 	private int ier;
 	private int mcr;
 	private int lcr;
 	private int iir;
+	private int lsr;
+	private int rxRead, rxWrite;
 	
 	public Uart(int baseAddr, String name) {
 		this.baseAddr = baseAddr;
 		this.name = name;
+		this.lsr |= LSR_THRE;
 	}
 	
 	@Override
 	public void init (Symbols sym) {
 		log.println("init uart " + name + " at " + Integer.toHexString(baseAddr));
-		sym.init(Uart.class, "M_", "M_" + name + "_", baseAddr, 1);
+		sym.init(UartUtil.class, "M_", "M_" + name + "_", baseAddr, 1);
 	}
 	
 	@Override
@@ -128,18 +47,40 @@ public class Uart implements Device {
 		int offset = addr - baseAddr;
 		
 		switch (offset) {
-			case M_UART_RX_TX:
-				return 0;
-			case M_UART_LSR:
-				// always ready?
-				return 0x20;
-			case M_UART_IER:
+			case M_RX_TX:
+				// should probably check if fifo enabled first
+				if (rxRead == rxWrite) {
+					log.println("uart rx underrun");
+					return 0;
+				} else {
+					byte x = rxFifo[rxRead];
+					rxRead = (rxRead + 1) & 0xf;
+					int rem = ((rxWrite + 16) - rxRead) & 0xf;
+					if (rem == 0) {
+						// reset ready bit
+						lsr &= ~LSR_DR;
+					}
+					log.println("uart receiver buffer read %x remaining %d", x, rem);
+					return x;
+				}
+			case M_LSR: {
+				int x = lsr;
+				//log.println("uart read lsr %x", x);
+				// reset overrun bit on read
+				lsr &= ~LSR_OE;
+				return x;
+			}
+			case M_IER:
+				log.println("uart read ier %x", ier);
 				return ier;
-			case M_UART_MCR:
+			case M_MCR:
+				log.println("uart read mcr %x", mcr);
 				return mcr;
-			case M_UART_LCR:
+			case M_LCR:
+				log.println("uart read lcr %x", lcr);
 				return lcr;
-			case M_UART_FCR_IIR_EFR:
+			case M_FCR_IIR_EFR:
+				log.println("uart read iir %x", iir);
 				return iir;
 			default:
 				throw new RuntimeException("unknown uart read " + offset);
@@ -155,53 +96,75 @@ public class Uart implements Device {
 		value = value & 0xff;
 		
 		switch (offset) {
-			case M_UART_RX_TX:
-				if (mcrLoopback(mcr)) {
-					// do these go into the xmit fifo?
-					throw new RuntimeException("loopback");
+			case M_RX_TX:
+				if ((mcr & MCR_LOOPBACK) != 0) {
+					// this is a guess...
+					// should trigger interrupt at some point?
+					int i = (rxWrite + 1) & 0xf;
+					if (i != rxRead) {
+						rxFifo[rxWrite] = (byte) value;
+						rxWrite = i;
+						// set ready bit
+						lsr |= LSR_DR;
+					} else {
+						// set overrun bit
+						//log.println("uart tx overrun");
+						lsr |= LSR_OE;
+					}
 				} else {
 					consoleWrite(value);
 				}
 				return;
 				
-			case M_UART_IER:
-				log.println("set com1 ier %x", value);
+			case M_IER: {
+				boolean ms = (value & IER_MSI) != 0;
+				boolean rda = (value & IER_RDAI) != 0;
+				boolean rls = (value & IER_RLSI) != 0;
+				boolean thre = (value & IER_THREI) != 0;
+				log.println("set %s ier %x =%s%s%s%s", 
+						name, value, ms?" modem-status":"", rda?" received-data-available":"", 
+								rls?" received-line-status":"", thre?" transmitter-holding-register-empty":"");
 				// we only want bottom 4 bits, linux might set more to autodetect other chips
 				ier = (byte) (value & 0xf);
 				return;
-				
-			case M_UART_MCR: {
+			}
+			case M_MCR: {
 				mcr = (byte) value;
-				boolean dtr = mcrForceDataTerminalReady(value);
-				boolean rts = mcrForceRequestToSend(value);
-				boolean out1 = mcrOutput1(value);
-				boolean out2 = mcrOutput2(value);
-				boolean loop = mcrLoopback(value);
-				log.println("set com1 mcr %s %s %s %s %s",
-						dtr ? "dtr" : "", rts ? "rts" : "", out1 ? "out1" : "", out2 ? "out2" : "", loop ? "loopback" : "");
+				boolean dtr = (value & MCR_DTR) != 0;
+				boolean rts = (value & MCR_RTS) != 0;
+				boolean out1 = (value & MCR_OUTPUT1) != 0;
+				boolean out2 = (value & MCR_OUTPUT2) != 0;
+				boolean loop = (value & MCR_LOOPBACK) != 0;
+				log.println("set %s mcr %x =%s%s%s%s%s",
+						name, value, dtr ? " dtr" : "", rts ? " rts" : "", out1 ? " out1" : "", out2 ? " out2" : "", loop ? " loopback" : "");
 				return;
 			}
-			case M_UART_LCR: {
+			case M_LCR: {
 				lcr = (byte) value;
 				int w = lcrWordLength(value);
 				float s = lcrStopBits(value);
 				char p = lcrParity(value);
-				boolean br = lcrBreak(value);
-				boolean dl = lcrDivisorLatch(value);
-				log.println("set com1 lcr %d-%s-%.1f %s %s",
-						w, p, s, br ? "break" : "", dl ? "dlab" : "");
+				boolean br = (value & LCR_BREAK) != 0;
+				boolean dl = (value & LCR_DLAB) != 0;
+				log.println("set %s lcr %x = %d-%s-%.1f%s%s", 
+						name, value, w, p, s, br ? " break" : "", dl ? " dlab" : "");
 				return;
 			}
-			case M_UART_FCR_IIR_EFR: {
-				boolean en = fcrEnableFifo(value);
-				boolean cr = fcrClearReceiveFifo(value);
-				boolean cx = fcrClearTransmitFifo(value);
+			case M_FCR_IIR_EFR: {
+				boolean en = (value & FCR_ENABLE_FIFO) != 0;
+				boolean cr = (value & FCR_CLEAR_RCVR) != 0;
+				boolean cx = (value & FCR_CLEAR_XMIT) != 0;
 				if (en) {
 					// this will call autoconfig_16550a
-					iir |= 0b1100_0000;
+					iir |= IIR_FIFO;
 				}
-				log.println("set com1 fcr %s %s %s",
-						en ? "enable-fifo" : "", cr ? "clear-rcvr" : "", cx ? "clear-xmit" : "");
+				if (!en || cr) {
+					// clear the receive fifo
+					rxRead = 0;
+					rxWrite = 0;
+				}
+				log.println("set %s fcr %x =%s%s%s",
+						name, value, en ? " enable-fifo" : "", cr ? " clear-rcvr" : "", cx ? " clear-xmit" : "");
 				return;
 			}
 			default:

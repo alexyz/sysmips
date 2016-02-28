@@ -453,7 +453,7 @@ public final class Cpu {
 		
 		if (isSbIntr) {
 			// uh....
-			memory.getMalta().getGt().setIrq(ep.irq);
+			memory.getMalta().setIrq(ep.irq);
 		}
 		
 		if (ep.isTlbRefill) {

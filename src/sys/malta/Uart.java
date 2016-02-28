@@ -8,6 +8,7 @@ import static sys.malta.UartUtil.*;
 
 /**
  * 16550A emulation
+ * COM port detection - 8250.c - autoconfig()
  */
 public class Uart implements Device {
 

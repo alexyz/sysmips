@@ -5,9 +5,9 @@ import sys.util.Logger;
 import sys.util.Symbols;
 
 /**
- * malta display
+ * malta on board display
  */
-public class Display implements Device {
+public class MaltaDisplay implements Device {
 	
 	public static final int M_DISPLAY_LEDBAR = 0x8;
 	public static final int M_DISPLAY_ASCIIWORD = 0x10;
@@ -28,14 +28,14 @@ public class Display implements Device {
 	private int ledBar = 0;
 	private int asciiWord = 0;
 	
-	public Display(int baseAddr) {
+	public MaltaDisplay(int baseAddr) {
 		this.baseAddr = baseAddr;
 	}
 	
 	@Override
 	public void init (Symbols sym) {
 		log.println("init display at " + Integer.toHexString(baseAddr));
-		sym.init(Display.class, "M_", null, baseAddr, 4);
+		sym.init(MaltaDisplay.class, "M_", null, baseAddr, 4);
 	}
 	
 	@Override

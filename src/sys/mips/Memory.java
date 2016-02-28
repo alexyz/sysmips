@@ -6,13 +6,28 @@ import sys.malta.Malta;
 import sys.util.Logger;
 import sys.util.Symbols;
 
+/**
+ * int[] backed memory as described in the MIPS32 4K processor core family
+ * software user's manual
+ */
 public final class Memory {
 	
 	private static final Logger log = new Logger("Memory");
+	/**
+	 * kseg0 - 0x80.. to 0x9f.. (512MB) - direct mapping to physical memory
+	 * address 0
+	 */
 	private static final int KSEG0 = 0x8000_0000;
+	/**
+	 * kseg1 - 0xa0.. to 0xbf.. (512MB) - direct mapping to physical memory
+	 * address 0, uncached, intercepted by malta board services
+	 */
 	private static final int KSEG1 = 0xa000_0000;
+	/** kseg2 - 0xc0.. to 0xdf... (512MB) - mapped through tlb */
 	private static final int KSEG2 = 0xc000_0000;
+	/** kseg3 - 0xe0.. to 0xff... (512MB) - mapped through tlb */
 	private static final int KSEG3 = 0xe000_0000;
+	
 	private static final int KSEG_MASK = 0x1fff_ffff;
 	
 	private final int[] data;
@@ -21,15 +36,12 @@ public final class Memory {
 	private final int halfWordAddrXor;
 	private final boolean littleEndian;
 	private final Entry[] entries = new Entry[16];
-	private final long[] xcache = new long[32];
 	private final Malta malta;
 	
 	private boolean kernelMode;
 	private int asid;
-	private int ehit, emiss;
-	private int amiss, ahit, bhit, bmiss;
 	
-	public Memory (int size, boolean littleEndian) {
+	public Memory(int size, boolean littleEndian) {
 		this.data = new int[size >> 2];
 		this.littleEndian = littleEndian;
 		this.wordAddrXor = littleEndian ? 0 : 3;
@@ -47,11 +59,11 @@ public final class Memory {
 	public int getAsid () {
 		return asid;
 	}
-
+	
 	public void setAsid (int asid) {
 		this.asid = asid;
 	}
-
+	
 	public void init () {
 		log.println("init memory");
 		symbols.put(KSEG0, "KSEG0");
@@ -151,13 +163,10 @@ public final class Memory {
 			return lookup(vaddr, store);
 			
 		} else if (kernelMode) {
-			if (vaddr < KSEG1) {
-				// kseg0 (direct)
+			if (vaddr < KSEG2) {
+				// kseg0,1 (direct, though kseg1 is intercepted by system)
 				return vaddr & KSEG_MASK;
-			} else if (vaddr < KSEG2) {
-				// kseg1 (direct, system)
-				// XXX should pass through to memory?
-				throw new RuntimeException("cannot translate kseg1: " + Integer.toHexString(vaddr));
+				
 			} else {
 				// kseg2,3
 				return lookup(vaddr, store);
@@ -184,82 +193,51 @@ public final class Memory {
 		return -1;
 	}
 	
-	private final int lookup (final int va, final boolean store) {
-		// XXX super experimental
-		final int key = ((va >>> 27) ^ (va >>> 22) ^ (va >>> 17) 
-				^ (va >>> 12) ^ (asid >>> 5) ^ asid) & 0x1f;
-		final int exa = (va & 0xfffff000) | asid;
-		final long value = xcache[key];
-		final int a = (int) (value >>> 32);
-		final int b = (int) value;
-		final int pa1 = lookup2(va,store,key,exa);
-		if (a == exa) {
-			ahit++;
-			final int pa2 = b + (va & 0xfff);
-			if (pa1 == pa2) {
-				bhit++;
-			} else {
-				bmiss++;
-			}
-		} else {
-			amiss++;
-		}
-		return pa1;
-	}
-	
 	/**
 	 * translate virtual address to physical
 	 */
-	private final int lookup2 (final int vaddr, final boolean store, final int key, final long exa) {
+	private final int lookup (final int vaddr, final boolean store) {
 		final int vpn2 = Functions.vpn2(vaddr);
 		final int eo = Functions.evenodd(vaddr);
 		boolean refill = true;
 		
-//		log.debug("lookup vaddr=" + Integer.toHexString(vaddr) + " asid=" + Integer.toHexString(asid) + " vpn2=" + Integer.toHexString(vpn2));
-		// futex_init deliberately forces null pointer dereference...
-//		if (vaddr >= 0 && vaddr < 0x400000) {
-//			throw new RuntimeException("lookup " + Integer.toHexString(vaddr));
-//		}
+		// log.debug("lookup vaddr=" + Integer.toHexString(vaddr) + " asid=" +
+		// Integer.toHexString(asid) + " vpn2=" + Integer.toHexString(vpn2));
 		
 		for (int n = 0; n < entries.length; n++) {
 			Entry e = entries[n];
-			//log.debug("entry[" + n + "]=" + e);
+			// log.debug("entry[" + n + "]=" + e);
 			
 			if (e.virtualPageNumber2 == vpn2 && (e.addressSpaceId == asid || e.global)) {
-				//log.debug("tlb hit");
+				// log.debug("tlb hit");
 				EntryData d = e.data[eo];
 				if (!d.valid) {
-					log.println("entry invalid...");
+					log.println("entry invalid (not a refill)...");
 					refill = false;
 					break;
 				}
-				
-				ehit++;
-				// XXX need dirty bit... if (store && !d) miss
-				final long value = (exa << 32) | (d.physicalFrameNumber << 12);
-				//log.debug("xcache[" + key + "] <= " + Long.toHexString(value));
-				xcache[key] = value;
 				
 				if (store && !d.dirty) {
 					// XXX set dirty if write? how does os know?
 					d.dirty = true;
 				}
+				
 				final int paddr = (d.physicalFrameNumber << 12) | (vaddr & 0xfff);
-//				log.debug("translated " + Integer.toHexString(vaddr) + " to " + Integer.toHexString(paddr));
+				// log.debug("translated " + Integer.toHexString(vaddr) + " to "
+				// + Integer.toHexString(paddr));
 				return paddr;
 			}
 		}
 		
 		log.println("tlb miss");
-		emiss++;
 		
-		for (int n = 0; n < entries.length; n++) {
-			Entry e = entries[n];
-			log.println("entry[" + n + "]=" + e);
-		}
+//		for (int n = 0; n < entries.length; n++) {
+//			Entry e = entries[n];
+//			log.println("entry[" + n + "]=" + e);
+//		}
 		
-		// also need to throw modified exception if page is read only...
-		throw new CpuException(new CpuExceptionParams(store ? Constants.EX_TLB_STORE : Constants.EX_TLB_LOAD, vaddr));
+		// TODO also need to throw modified exception if page is read only...
+		throw new CpuException(new CpuExceptionParams(store ? Constants.EX_TLB_STORE : Constants.EX_TLB_LOAD, vaddr, refill));
 	}
 	
 	private final byte loadByteImpl (final int paddr) {
@@ -271,7 +249,7 @@ public final class Memory {
 			// 0,1,2,3 -> 3,2,1,0 -> 24,16,8,0
 			final int s = ((paddr & 3) ^ wordAddrXor) << 3;
 			return (byte) (w >>> s);
-		
+			
 		} catch (ArrayIndexOutOfBoundsException e) {
 			throw new RuntimeException("load unmapped " + Integer.toHexString(paddr), e);
 		}
@@ -347,13 +325,13 @@ public final class Memory {
 		// hack to translate addr
 		final int vaddr = paddr & KSEG_MASK;
 		final int i = vaddr >> 2;
-			if (i >= 0 && i < data.length) {
-				final int w = data[i];
-				return Integer.valueOf(w);
-				
-			} else {
-				return null;
-			}
+		if (i >= 0 && i < data.length) {
+			final int w = data[i];
+			return Integer.valueOf(w);
+			
+		} else {
+			return null;
+		}
 	}
 	
 	/** load boxed word, null if unmapped */
@@ -382,12 +360,6 @@ public final class Memory {
 			}
 			ps.println("  addr 0x" + Integer.toHexString(j * 4) + " usage " + (c / 0x100000));
 		}
-		ps.println("ehit=" + ehit);
-		ps.println("emiss=" + emiss);
-		ps.println("ahit =" + ahit);
-		ps.println("amiss=" + amiss);
-		ps.println("bhit=" + bhit);
-		ps.println("bmiss=" + bmiss);
 	}
 	
 	@Override

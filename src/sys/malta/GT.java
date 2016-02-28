@@ -9,8 +9,7 @@ import static sys.util.ByteOrder.*;
 import static sys.malta.GTUtil.*;
 
 /**
- * this class kind-of represents the northbridge, but doesn't really handle any
- * device mapping
+ * the GT64120A northbridge
  */
 public class GT implements Device {
 	

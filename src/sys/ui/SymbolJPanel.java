@@ -7,6 +7,8 @@ import java.util.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 import sys.util.Symbol;
 import sys.util.Symbols;
@@ -24,9 +26,17 @@ public class SymbolJPanel extends JPanel {
 	public SymbolJPanel() {
 		super(new BorderLayout());
 		textField.setColumns(20);
-		textField.addKeyListener(new KeyAdapter() {
+		textField.getDocument().addDocumentListener(new DocumentListener() {
 			@Override
-			public void keyTyped (KeyEvent e) {
+			public void removeUpdate (DocumentEvent e) {
+				update();
+			}
+			@Override
+			public void insertUpdate (DocumentEvent e) {
+				update();
+			}
+			@Override
+			public void changedUpdate (DocumentEvent e) {
 				update();
 			}
 		});
@@ -52,7 +62,7 @@ public class SymbolJPanel extends JPanel {
 			String t = textField.getText().trim().toLowerCase();
 			List<Symbol> l = new ArrayList<>();
 			for (Symbol s : symbols.getSymbols()) {
-				if (t.length() == 0 || s.name.contains(t) || s.name.toLowerCase().contains(t) || Integer.toHexString(s.addr).contains(t)) {
+				if (t.length() == 0 || s.name.toLowerCase().contains(t) || Integer.toHexString(s.addr).contains(t)) {
 					l.add(s);
 				}
 			}

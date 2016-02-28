@@ -12,22 +12,22 @@ public class Uart implements Device {
 	private static final Logger log = new Logger("Uart");
 	
 	/** receive (write) / transmit (read) */
-	public static final int M_COM1_RX_TX = 0;
+	public static final int M_UART_RX_TX = 0;
 	/** interrupt enable */
-	public static final int M_COM1_IER = 1;
+	public static final int M_UART_IER = 1;
 	/**
 	 * fifo control register (writes) / interrupt identification register
 	 * (reads) / extended features register (not supported)
 	 */
-	public static final int M_COM1_FCR_IIR_EFR = 2;
+	public static final int M_UART_FCR_IIR_EFR = 2;
 	/** line control register */
-	public static final int M_COM1_LCR = 3;
+	public static final int M_UART_LCR = 3;
 	/** modem control register */
-	public static final int M_COM1_MCR = 4;
+	public static final int M_UART_MCR = 4;
 	/** line status register */
-	public static final int M_COM1_LSR = 5;
+	public static final int M_UART_LSR = 5;
 	/** modem status register */
-	public static final int M_COM1_MSR = 6;
+	public static final int M_UART_MSR = 6;
 	
 	private static int lcrWordLength(int x) {
 		return (x & 0x3) + 5;
@@ -114,8 +114,8 @@ public class Uart implements Device {
 	
 	@Override
 	public void init (Symbols sym) {
-		log.println("init display at " + Integer.toHexString(baseAddr));
-		sym.init(Display.class, "M_", "M_" + name, baseAddr, 1);
+		log.println("init uart " + name + " at " + Integer.toHexString(baseAddr));
+		sym.init(Uart.class, "M_", "M_" + name + "_", baseAddr, 1);
 	}
 	
 	@Override
@@ -128,18 +128,18 @@ public class Uart implements Device {
 		int offset = addr - baseAddr;
 		
 		switch (offset) {
-			case M_COM1_RX_TX:
+			case M_UART_RX_TX:
 				return 0;
-			case M_COM1_LSR:
+			case M_UART_LSR:
 				// always ready?
 				return 0x20;
-			case M_COM1_IER:
+			case M_UART_IER:
 				return ier;
-			case M_COM1_MCR:
+			case M_UART_MCR:
 				return mcr;
-			case M_COM1_LCR:
+			case M_UART_LCR:
 				return lcr;
-			case M_COM1_FCR_IIR_EFR:
+			case M_UART_FCR_IIR_EFR:
 				return iir;
 			default:
 				throw new RuntimeException("unknown uart read " + offset);
@@ -155,7 +155,7 @@ public class Uart implements Device {
 		value = value & 0xff;
 		
 		switch (offset) {
-			case M_COM1_RX_TX:
+			case M_UART_RX_TX:
 				if (mcrLoopback(mcr)) {
 					// do these go into the xmit fifo?
 					throw new RuntimeException("loopback");
@@ -164,13 +164,13 @@ public class Uart implements Device {
 				}
 				return;
 				
-			case M_COM1_IER:
+			case M_UART_IER:
 				log.println("set com1 ier %x", value);
 				// we only want bottom 4 bits, linux might set more to autodetect other chips
 				ier = (byte) (value & 0xf);
 				return;
 				
-			case M_COM1_MCR: {
+			case M_UART_MCR: {
 				mcr = (byte) value;
 				boolean dtr = mcrForceDataTerminalReady(value);
 				boolean rts = mcrForceRequestToSend(value);
@@ -181,7 +181,7 @@ public class Uart implements Device {
 						dtr ? "dtr" : "", rts ? "rts" : "", out1 ? "out1" : "", out2 ? "out2" : "", loop ? "loopback" : "");
 				return;
 			}
-			case M_COM1_LCR: {
+			case M_UART_LCR: {
 				lcr = (byte) value;
 				int w = lcrWordLength(value);
 				float s = lcrStopBits(value);
@@ -192,7 +192,7 @@ public class Uart implements Device {
 						w, p, s, br ? "break" : "", dl ? "dlab" : "");
 				return;
 			}
-			case M_COM1_FCR_IIR_EFR: {
+			case M_UART_FCR_IIR_EFR: {
 				boolean en = fcrEnableFifo(value);
 				boolean cr = fcrClearReceiveFifo(value);
 				boolean cx = fcrClearTransmitFifo(value);

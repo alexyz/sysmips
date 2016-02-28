@@ -1,6 +1,7 @@
 package sys.ui;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import javax.swing.table.AbstractTableModel;
@@ -16,17 +17,16 @@ public class LogsTableModel extends AbstractTableModel {
 		return logs.size();
 	}
 
-	public void setLogs (List<Log> l) {
-		logs.clear();
-		logs.addAll(l);
+	public void addLogs (Log[] a) {
+		if (logs.size() > 10000) {
+			logs.subList(0, 1000).clear();
+		}
+		//int i = logs.size();
+		logs.addAll(Arrays.asList(a));
 		fireTableDataChanged();
+		//fireTableRowsInserted(i, this.logs.size() - 1);
 	}
 
-	public void addLog (Log l) {
-		logs.add(l);
-		fireTableRowsInserted(logs.size() - 1, logs.size() - 1);
-	}
-	
 	@Override
 	public int getColumnCount () {
 		return 6;

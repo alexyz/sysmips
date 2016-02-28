@@ -4,9 +4,10 @@ import java.beans.PropertyChangeSupport;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
-import sys.malta.Malta;
 import sys.malta.MaltaUtil;
+import sys.util.Log;
 import sys.util.Logger;
 import sys.util.Symbols;
 
@@ -39,8 +40,10 @@ public final class Cpu {
 	private final Fpu fpu = new Fpu(this);
 	private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 	private final PropertyChangeSupport support = new PropertyChangeSupport(this);
+	private final List<Log> logs = new ArrayList<>();
 	
 	private volatile long cycle = 1;
+	private volatile boolean logScheduled;
 	
 	/**
 	 * within execOp: address of current instruction. if pc2 != pc + 4 then the
@@ -62,11 +65,6 @@ public final class Cpu {
 	private int disasmCount;
 	private boolean interruptsEnabled;
 	private boolean execException;
-	private int[] exreg;
-	private int exhi, exlo;
-	private boolean singleStep;
-	private long pitTime;
-	private boolean pitEnabled;
 	
 	public Cpu (int memsize, boolean littleEndian) {
 		this.memory = new Memory(memsize, littleEndian);
@@ -185,36 +183,38 @@ public final class Cpu {
 		return execException;
 	}
 	
-	public boolean isSingleStep () {
-		return singleStep;
-	}
-
-	public void setSingleStep (boolean singleStep) {
-		this.singleStep = singleStep;
-	}
-	
-	public void setDisasm (boolean disasm) {
-		this.disasm = disasm;
-	}
-	
-	public Fpu getFpu () {
+	public final Fpu getFpu () {
 		return fpu;
 	}
 
-	public boolean isPitEnabled () {
-		return pitEnabled;
-	}
-
-	public void setPitEnabled (boolean pitEnabled) {
-		this.pitEnabled = pitEnabled;
-	}
-
-	public ScheduledExecutorService getExecutor () {
+	public final ScheduledExecutorService getExecutor () {
 		return executor;
 	}
 
-	public PropertyChangeSupport getSupport () {
+	public final PropertyChangeSupport getSupport () {
 		return support;
+	}
+	
+	public final void addLog(Log log) {
+		synchronized (logs) {
+			logs.add(log);
+			if (!logScheduled) {
+				executor.schedule(() -> fireLogs(), 1000, TimeUnit.MILLISECONDS);
+				logScheduled = true;
+			}
+		}
+	}
+
+	private void fireLogs () {
+		Log[] a;
+		synchronized (logs) {
+			a = logs.toArray(new Log[logs.size()]);
+			logs.clear();
+			logScheduled = false;
+		}
+		if (a.length > 0) {
+			support.firePropertyChange("logs", null, a);
+		}
 	}
 
 	/** never returns, throws runtime exception... */
@@ -225,7 +225,6 @@ public final class Cpu {
 			instance.set(this);
 			calls.call(pc2);
 			log.println("run");
-			pitTime = startTime;
 			String[] regstr = new String[32];
 			// this should only be checked during call
 			int f = memory.getSymbols().getAddr("size_fifo");
@@ -333,6 +332,7 @@ public final class Cpu {
 			log.println("ns per isn (or cc per isn at 1ghz): " + (duration / cycle));
 			instance.remove();
 			executor.shutdown();
+			fireLogs();
 		}
 	}
 	
@@ -455,10 +455,6 @@ public final class Cpu {
 			// uh....
 			memory.getMalta().getGt().setIrq(ep.irq);
 		}
-		
-		exreg = register.clone();
-		exhi = hi;
-		exlo = lo;
 		
 		if (ep.isTlbRefill) {
 			//log.println("jump to tlb refill vector");
@@ -1108,29 +1104,6 @@ public final class Cpu {
 				setPc(epc);
 				CPR_STATUS_EXL.set(cpRegister, false);
 				loadLinkedBit = false;
-				if (execException) {
-					boolean eq = true;
-					for (int n = 0; n < 32; n++) {
-						if (n != REG_K0 && n != REG_K1) {
-							if (exreg[n] != register[n]) {
-								eq = false;
-								log.println("register " + n + ": " + gpRegName(n) + " changed from " + Integer.toHexString(exreg[n]) + " to " + Integer.toHexString(register[n]));
-							}
-						}
-					}
-					if (exhi != hi) {
-						log.println("exhi=" + Integer.toHexString(exhi) + " hi=" + Integer.toHexString(hi));
-						eq = false;
-					}
-					if (exlo != lo) {
-						log.println("exlo=" + Integer.toHexString(exlo) + " lo=" + Integer.toHexString(lo));
-						eq = false;
-					}
-					if (!eq) {
-						throw new RuntimeException("eret register change");
-					}
-				}
-				//disasmCount = 50;
 				execException = false;
 				statusUpdated();
 				calls.pop();

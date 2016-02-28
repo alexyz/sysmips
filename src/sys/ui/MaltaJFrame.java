@@ -16,6 +16,7 @@ import javax.swing.text.*;
 
 import sys.mips.Cpu;
 import sys.mips.CpuUtil;
+import sys.util.Log;
 
 public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	
@@ -284,23 +285,26 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		SwingUtilities.invokeLater(() -> update(evt.getPropertyName(), evt.getNewValue()));
 	}
 	
-	private void update (String propertyName, Object newValue) {
+	private void update (String propertyName, Object value) {
 		// System.out.println("jframe update " + propertyName);
 		switch (propertyName) {
 			case "display":
-				displayField.setText((String) newValue);
+				displayField.setText((String) value);
 				displayField.repaint();
 				break;
 			case "console": {
 				Document doc = consoleArea.getDocument();
 				try {
-					doc.insertString(doc.getLength(), (String) newValue, null);
+					doc.insertString(doc.getLength(), (String) value, null);
 				} catch (BadLocationException e) {
-					throw new RuntimeException(e);
+					e.printStackTrace();
 				}
 				consoleArea.setCaretPosition(doc.getLength());
 				break;
 			}
+			case "logs":
+				loggerPanel.addLogs((Log[])value);
+				break;
 			default:
 				throw new RuntimeException("unknown property " + propertyName);
 		}

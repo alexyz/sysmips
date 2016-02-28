@@ -24,21 +24,14 @@ public class Logger {
 	public void println (int level, String msg) {
 		if (level >= rootLevel) {
 			Cpu cpu = Cpu.getInstance();
-			//String t = Thread.currentThread().getName();
 			Log log;
 			if (cpu != null) {
-//				final String ie = cpu.isInterruptsEnabled() ? "i" : "";
-//				final String km = cpu.isKernelMode() ? "k" : "";
-//				final String ex = cpu.isExecException() ? "x" : "";
-				//msg = "[" + t + ":" + cpu.getCycle() + ":" + km + ie + ex + ":" + c.getSimpleName() + "] " + msg;
 				log = new Log(cpu.getCycle(), cpu.isKernelMode(), cpu.isInterruptsEnabled(), cpu.isExecException(), name, msg);
+				cpu.addLog(log);
 			} else {
-				//msg = "[" + t + ":" + c.getSimpleName() + "] " + msg;
 				log = new Log(name, msg);
 			}
 			System.out.println(log.toString());
-			
-			LoggerJPanel.instance.addLog(log);
 		}
 	}
 }

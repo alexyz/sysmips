@@ -96,6 +96,7 @@ public final class Symbols {
 	}
 	
 	public void init(Class<?> c, String prefix, String rep, int offset, int size) {
+		boolean hasPut = false;
 		for (Field f : c.getFields()) {
 			String name = f.getName();
 			if (name.startsWith(prefix)) {
@@ -106,11 +107,15 @@ public final class Symbols {
 							name = rep + name.substring(prefix.length());
 						}
 						put(offset + f.getInt(null), name, size);
+						hasPut = true;
 					} catch (Exception e) {
 						throw new RuntimeException(e);
 					}
 				}
 			}
+		}
+		if (!hasPut) {
+			throw new RuntimeException("no symbols found");
 		}
 	}
 	

@@ -17,9 +17,10 @@ public class Uart implements Device {
 	private final String name;
 	private final StringBuilder consoleSb = new StringBuilder();
 	private final byte[] rxFifo = new byte[16];
-	private final boolean console;
 	private final int offsetMul;
 	
+	private boolean console;
+	private boolean debug;
 	private int ier;
 	private int mcr;
 	private int lcr;
@@ -28,13 +29,28 @@ public class Uart implements Device {
 	private int rxRead;
 	private int rxWrite;
 	
-	public Uart(final int baseAddr, final int offsetMul, final String name, final boolean console) {
+	public Uart(final int baseAddr, final int offsetMul, final String name) {
 		this.offsetMul = offsetMul;
 		this.log = new Logger(name);
 		this.baseAddr = baseAddr;
 		this.name = name;
-		this.console = console;
 		this.lsr |= LSR_THRE;
+	}
+
+	public boolean isConsole () {
+		return console;
+	}
+
+	public void setConsole (boolean console) {
+		this.console = console;
+	}
+
+	public boolean isDebug () {
+		return debug;
+	}
+
+	public void setDebug (boolean debug) {
+		this.debug = debug;
 	}
 	
 	@Override
@@ -80,16 +96,16 @@ public class Uart implements Device {
 				return x;
 			}
 			case M_IER:
-				log.println("uart read ier %x", ier);
+				if (debug) log.println("uart read ier %x", ier);
 				return ier;
 			case M_MCR:
-				log.println("uart read mcr %x", mcr);
+				if (debug) log.println("uart read mcr %x", mcr);
 				return mcr;
 			case M_LCR:
-				log.println("uart read lcr %x", lcr);
+				if (debug) log.println("uart read lcr %x", lcr);
 				return lcr;
 			case M_FCR_IIR_EFR:
-				log.println("uart read iir %x", iir);
+				if (debug) log.println("uart read iir %x", iir);
 				return iir;
 			default:
 				throw new RuntimeException("unknown uart read " + offset);
@@ -132,7 +148,7 @@ public class Uart implements Device {
 				final boolean rda = (value & IER_RDAI) != 0;
 				final boolean rls = (value & IER_RLSI) != 0;
 				final boolean thre = (value & IER_THREI) != 0;
-				log.println("set %s ier %x =%s%s%s%s",
+				if (debug) log.println("set %s ier %x =%s%s%s%s",
 						name, value, ms?" modem-status":"", rda?" received-data-available":"",
 								rls?" received-line-status":"", thre?" transmitter-holding-register-empty":"");
 				// we only want bottom 4 bits, linux might set more to autodetect other chips
@@ -146,7 +162,7 @@ public class Uart implements Device {
 				final boolean out1 = (value & MCR_OUTPUT1) != 0;
 				final boolean out2 = (value & MCR_OUTPUT2) != 0;
 				final boolean loop = (value & MCR_LOOPBACK) != 0;
-				log.println("set %s mcr %x =%s%s%s%s%s",
+				if (debug) log.println("set %s mcr %x =%s%s%s%s%s",
 						name, value, dtr ? " dtr" : "", rts ? " rts" : "", out1 ? " out1" : "", out2 ? " out2" : "", loop ? " loopback" : "");
 				return;
 			}
@@ -157,7 +173,7 @@ public class Uart implements Device {
 				final char p = lcrParity(value);
 				final boolean br = (value & LCR_BREAK) != 0;
 				final boolean dl = (value & LCR_DLAB) != 0;
-				log.println("set %s lcr %x = %d-%s-%.1f%s%s",
+				if (debug) log.println("set %s lcr %x = %d-%s-%.1f%s%s",
 						name, value, w, p, s, br ? " break" : "", dl ? " dlab" : "");
 				return;
 			}
@@ -174,7 +190,7 @@ public class Uart implements Device {
 					rxRead = 0;
 					rxWrite = 0;
 				}
-				log.println("set %s fcr %x =%s%s%s",
+				if (debug) log.println("set %s fcr %x =%s%s%s",
 						name, value, en ? " enable-fifo" : "", cr ? " clear-rcvr" : "", cx ? " clear-xmit" : "");
 				return;
 			}
@@ -199,5 +215,5 @@ public class Uart implements Device {
 			consoleSb.delete(0, consoleSb.length());
 		}
 	}
-	
+
 }

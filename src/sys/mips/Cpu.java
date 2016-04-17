@@ -243,10 +243,10 @@ public final class Cpu {
 			log.println("run");
 			String[] regstr = new String[32];
 			// this should only be checked during call
-			int f = memory.getSymbols().getAddr("size_fifo");
-			if (f == 0) {
-				throw new RuntimeException();
-			}
+//			int f = memory.getSymbols().getAddr("size_fifo");
+//			if (f == 0) {
+//				throw new RuntimeException();
+//			}
 //			boolean x = false;
 			
 			while (true) {
@@ -261,12 +261,12 @@ public final class Cpu {
 				pc2 = pc3;
 				pc3 += 4;
 				
-				if (pc == f) {
-					log.println("----- size_fifo -----");
+//				if (pc == f) {
+//					log.println("----- size_fifo -----");
 //					disasm = true;
 //					calls.setPrintCalls(true);
 //					x = true;
-				}
+//				}
 				
 //				if (x) {
 //					log.println(memory.getSymbols().getNameOffset(pc));
@@ -274,7 +274,7 @@ public final class Cpu {
 				
 				// every 1024 cycles
 				if ((cycle & 0xfff) == 0) {
-					// should probably also do this after eret...
+					// TODO should probably also do this after eret...
 					if (checkException()) {
 						// restart loop, start executing exception handler...
 						continue;
@@ -334,12 +334,12 @@ public final class Cpu {
 			}
 			
 		} catch (Exception e) {
-			throw new RuntimeException("exception in cycle " + cycle 
-					+ " km=" + kernelMode 
-					+ " ie=" + interruptsEnabled 
-					+ " ex=" + execException
-					+ " pc=" + memory.getSymbols().getNameAddrOffset(pc)
-					+ "\n" + calls.callString(), e);
+			throw new RuntimeException("exception in cycle " + cycle + ", "
+					+ "kernel mode: " + kernelMode + ", "
+					+ "interrupts enabled: " + interruptsEnabled + ", " 
+					+ "executing exeception: " + execException + ", "
+					+ "program counter: " + memory.getSymbols().getNameAddrOffset(pc) + ", "
+					+ calls.callString(), e);
 			
 		} finally {
 			final long endTime = System.nanoTime();
@@ -429,7 +429,7 @@ public final class Cpu {
 				isTlbException = true;
 				break;
 			default:
-				throw new RuntimeException("unexpected exception " + ep.excode);
+				throw new RuntimeException("unexpected exception " + ep.excode + ": " + CpuConstants.lookup("EX_", ep.excode));
 		}
 		
 		// actually handle exception

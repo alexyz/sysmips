@@ -25,6 +25,12 @@ public class PIIX4 implements Device {
 	public static final int M_PIT_COUNTER_2 = 0x42;
 	public static final int M_PIT_TCW = 0x43;
 	
+	// I8042
+	/** keyboard data read/write */
+	public static final int M_KEYDATA = 0x60;
+	/** keyboard command (write), status (read) */
+	public static final int M_KEYCMDSTATUS = 0x64;
+	
 	public static final int M_RTCADR = 0x70;
 	public static final int M_RTCDAT = 0x71;
 	
@@ -72,11 +78,14 @@ public class PIIX4 implements Device {
 	private int rtcadr;
 	private int rtcdat;
 	private int picimr;
+	private int keydata;
+	private int keycmdstatus;
 	
 	public PIIX4(final int baseAddr) {
 		this.baseAddr = baseAddr;
-		this.com1 = new Uart(baseAddr + M_COM1, 1, "COM1", true);
-		this.com2 = new Uart(baseAddr + M_COM2, 1, "COM2", false);
+		this.com1 = new Uart(baseAddr + M_COM1, 1, "Uart:COM1");
+		this.com1.setConsole(true);
+		this.com2 = new Uart(baseAddr + M_COM2, 1, "Uart:COM2");
 		this.devices.add(com1);
 		this.devices.add(com2);
 	}
@@ -104,9 +113,20 @@ public class PIIX4 implements Device {
 		switch (offset) {
 			case M_PIC_MASTER_IMR:
 				return picimr;
+				
 			case M_RTCDAT:
 				// should compute this from rtcadr each time?
 				return rtcdat;
+				
+			case M_KEYDATA: // 60
+				log.println("read keydata " + Integer.toHexString(keydata & 0xff));
+				keycmdstatus = 0;
+				return keydata;
+				
+			case M_KEYCMDSTATUS: // 64
+				log.println("read keycmdstatus " + Integer.toHexString(keycmdstatus & 0xff));
+				return keycmdstatus;
+				
 			default:
 				throw new RuntimeException("unknown system read " + Cpu.getInstance().getMemory().getSymbols().getNameAddrOffset(addr) + " size " + size);
 		}
@@ -160,6 +180,25 @@ public class PIIX4 implements Device {
 			case M_PIC_SLAVE_IMR:
 				log.println("pic slave write interrupt mask register %x ignored", value & 0xff);
 				return;
+				
+			case M_KEYCMDSTATUS:
+				log.println("keycmd " + Integer.toHexString(value & 0xff));
+				switch (value & 0xff) {
+					case 0x20:
+						log.println("keycmd read config");
+						keycmdstatus = 1;
+						// system flag, nothing else?
+						keydata = 0x4;
+						return;
+					case 0xaa:
+						log.println("keycmd test");
+						keycmdstatus = 1;
+						// success
+						keydata = 0x55;
+						return;
+					default:
+						throw new RuntimeException("unknown keycmd " + Integer.toHexString(value));
+				}
 				
 			default:
 				throw new RuntimeException("unknown system write " + Symbols.getInstance().getNameAddrOffset(addr) + " <= " + Integer.toHexString(value));

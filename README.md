@@ -24,6 +24,8 @@ other company
 * Intel 82371AB PCI-TO-ISA / IDE XCELERATOR (PIIX4) (1997)
 * System V Application Binary Interface MIPS RISC Processor Supplement 3rd Edition (1996)
 * SMSC FDC37M81x PC98/99 Compliant Enhanced Super I/O Controller (2000)
+* Intel Embedded Controller Handbook Volume I: 8-Bit (1989) - If you can find it!
+* [OSDev 8042 PS/2 Controller](http://wiki.osdev.org/%228042%22_PS/2_Controller)
 
 ## Suggested Software
 

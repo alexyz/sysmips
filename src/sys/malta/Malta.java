@@ -56,7 +56,8 @@ public class Malta implements Device {
 		this.gt = new GT(baseAddr + M_GTBASE);
 		this.display = new MaltaDisplay(baseAddr + M_DISPLAYS);
 		// XXX strictly, this should be a TI 16C550C, not a SMSC NS 16C550A compatible
-		this.cbusUart = new Uart(baseAddr + M_CBUS_UART, 8, "COM3", false);
+		this.cbusUart = new Uart(baseAddr + M_CBUS_UART, 8, "Uart:CBUS");
+		this.cbusUart.setDebug(true);
 		this.devices.addAll(Arrays.asList(p4, gt, display, cbusUart));
 	}
 	

@@ -1,5 +1,8 @@
 package sys.mips;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+
 /**
  * mips constants
  */
@@ -537,6 +540,29 @@ public final class CpuConstants {
 	public static final int EX_TRAP = 13;
 	public static final int EX_WATCH = 23;
 	public static final int EX_MCHECK = 24;
+	
+	//
+	// functions
+	//
+	
+	public static String lookup (String prefix, int value) {
+		for (final Field f : CpuConstants.class.getFields()) {
+			String name = f.getName();
+			if (name.startsWith(prefix)) {
+				final int m = f.getModifiers();
+				if (Modifier.isPublic(m) && Modifier.isStatic(m) && Modifier.isFinal(m) && f.getType().isAssignableFrom(int.class)) {
+					try {
+						if (((Integer)f.getInt(null)).intValue() == value) {
+							return name;
+						}
+					} catch (final Exception e) {
+						throw new RuntimeException(e);
+					}
+				}
+			}
+		}
+		return null;
+	}
 	
 	/** return the cpr index for the register and selection */
 	public static int cprIndex (int rd, int sel) {

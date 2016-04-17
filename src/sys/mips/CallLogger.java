@@ -188,15 +188,7 @@ public class CallLogger {
 	}
 	
 	public String callString () {
-		final StringBuilder sb = new StringBuilder();
-		sb.append("thread: " + threadNames.get(0));
-
-		final List<String> calls = threads.get(0);
-		for (String call : calls) {
-			sb.append("\n  at: " + call);
-		}
-		
-		return sb.toString();
+		return "thread: " + threadNames.get(0) + ", calls: " + threads.get(0);
 	}
 	
 }

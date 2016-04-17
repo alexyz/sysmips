@@ -20,6 +20,10 @@ public final class CpRegConstant {
 			throw new RuntimeException();
 		}
 	}
+
+	public final int get (int[] regs) {
+		return (regs[register] & mask) >>> leftShift;
+	}
 	
 	public final void set (int[] regs, int x) {
 		if (size == 32 || (x >= 0 && x <= max)) {
@@ -29,18 +33,6 @@ public final class CpRegConstant {
 		}
 	}
 	
-	public final void set (int[] regs, boolean x) {
-		set(regs, x ? 1 : 0);
-	}
-	
-	public final int get (int[] regs) {
-		return (regs[register] & mask) >>> leftShift;
-	}
-	
-	public final boolean isSet (int[] regs) {
-		return (regs[register] & mask) != 0;
-	}
-
 	@Override
 	public String toString () {
 		return "Constant [reg=" + register + " lsh=" + leftShift + " size=" + size + " max=" + Integer.toHexString(max) + " mask=" + Integer.toHexString(mask) + "]";

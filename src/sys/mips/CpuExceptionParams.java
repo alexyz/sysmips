@@ -8,40 +8,51 @@ import sys.malta.MaltaUtil;
 public class CpuExceptionParams {
 	
 	public final int excode;
-	public final int interrupt;
-	public final int irq;
-	public final int vaddr;
-	public final boolean isTlbRefill;
+	public final Integer interrupt;
+	public final Integer irq;
+	public final Integer vaddr;
+	public final Boolean tlbRefill;
 	
 	public CpuExceptionParams (int excode) {
-		this(excode, -1, -1, -1, false);
+		this(excode, null, null, null, null);
 	}
 	
 	/** hardware interrupt */
 	public CpuExceptionParams (int excode, int interrupt, int irq) {
-		this(excode, interrupt, irq, -1, false);
+		this(excode, interrupt, irq, null, null);
 	}
 	
 	/** virtual address error */
 	public CpuExceptionParams (int excode, int vaddr) {
-		this(excode, -1, -1, vaddr, false);
+		this(excode, null, null, vaddr, null);
 	}
 	
 	/** tlb error */
 	public CpuExceptionParams (int excode, int vaddr, boolean isTlbRefill) {
-		this(excode, -1, -1, vaddr, isTlbRefill);
+		this(excode, null, null, vaddr, isTlbRefill);
 	}
 	
-	private CpuExceptionParams (int excode, int interrupt, int irq, int vaddr, boolean isTlbRefill) {
+	private CpuExceptionParams (int excode, Integer interrupt, Integer irq, Integer vaddr, Boolean isTlbRefill) {
+		if (interrupt != null && (interrupt < 0 || interrupt >= 16)) {
+			throw new RuntimeException("invalid interrupt " + interrupt);
+		}
+		if (irq != null && (irq < 0 || irq >= 16)) {
+			throw new RuntimeException("invalid irq " + irq);
+		}
 		this.excode = excode;
 		this.interrupt = interrupt;
 		this.irq = irq;
 		this.vaddr = vaddr;
-		this.isTlbRefill = isTlbRefill;
+		this.tlbRefill = isTlbRefill;
 	}
 	
 	@Override
 	public String toString () {
-		return getClass().getSimpleName() + "[ex=" + IsnUtil.exceptionName(excode) + " int=" + MaltaUtil.interruptName(interrupt) + " irq=" + MaltaUtil.irqName(irq) + " va=" + Integer.toHexString(vaddr) + " tlb=" + isTlbRefill + "]";
+		String exs = IsnUtil.exceptionName(excode);
+		String ints = interrupt != null ? " int=" + MaltaUtil.interruptName(interrupt) : "";
+		String irqs = irq != null ? " irq=" + MaltaUtil.irqName(irq) : "";
+		String vas = vaddr != null ? " vaddr=" + Integer.toHexString(vaddr) : "";
+		String tlbs = tlbRefill != null ? " refill=" + tlbRefill : "";
+		return getClass().getSimpleName() + "[ex=" + exs + ints + irqs + vas + tlbs + "]";
 	}
 }

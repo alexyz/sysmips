@@ -227,7 +227,7 @@ public class PIIX4 implements Device {
 			
 			Cpu cpu = Cpu.getInstance();
 			ScheduledExecutorService e = cpu.getExecutor();
-			CpuExceptionParams ep = new CpuExceptionParams(Constants.EX_INTERRUPT, MaltaUtil.INT_SB_INTR, MaltaUtil.IRQ_TIMER);
+			CpuExceptionParams ep = new CpuExceptionParams(Constants.EX_INTERRUPT, MaltaUtil.INT_SOUTHBRIDGE_INTR, MaltaUtil.IRQ_TIMER);
 			Runnable r = () -> cpu.addException(ep);
 			
 			if (timerControlWord == 0x34) {

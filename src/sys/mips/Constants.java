@@ -474,30 +474,30 @@ public final class Constants {
 	public static final CpRegConstant CPR_ENTRYHI_ASID = new CpRegConstant(CPR_ENTRYHI, 0, 8);
 	public static final CpRegConstant CPR_ENTRYHI_VPN2 = new CpRegConstant(CPR_ENTRYHI, 13, 19);
 	
-	/** status register interrupt enable */
+	/** status register interrupt enable (1 bit) */
 	public static final CpRegConstant CPR_STATUS_IE = new CpRegConstant(CPR_STATUS, 0, 1);
-	/** status register exception level */
+	/** status register exception level (1 bit) */
 	public static final CpRegConstant CPR_STATUS_EXL = new CpRegConstant(CPR_STATUS, 1, 1);
-	/** status register reset error level */
+	/** status register reset error level (1 bit) */
 	public static final CpRegConstant CPR_STATUS_ERL = new CpRegConstant(CPR_STATUS, 2, 1);
-	/** status register user mode */
+	/** status register user mode (1 bit) */
 	public static final CpRegConstant CPR_STATUS_UM = new CpRegConstant(CPR_STATUS, 4, 1);
 	/** status register interrupt mask (8 bits) */
 	public static final CpRegConstant CPR_STATUS_IM = new CpRegConstant(CPR_STATUS, 8, 8);
-	/** status register bootstrap exception vectors */
+	/** status register bootstrap exception vectors (1 bit) */
 	public static final CpRegConstant CPR_STATUS_BEV = new CpRegConstant(CPR_STATUS, 22, 1);
-	/** status register access to system coprocessor */
+	/** status register access to system coprocessor (1 bit) */
 	public static final CpRegConstant CPR_STATUS_CU0 = new CpRegConstant(CPR_STATUS, 28, 1);
-	/** status register access to floating point coprocessor */
+	/** status register access to floating point coprocessor (1 bit) */
 	public static final CpRegConstant CPR_STATUS_CU1 = new CpRegConstant(CPR_STATUS, 29, 1);
 	
 	/** cause register exception code */
 	public static final CpRegConstant CPR_CAUSE_EXCODE = new CpRegConstant(CPR_CAUSE, 2, 5);
 	/** cause register interrupt pending mask */
 	public static final CpRegConstant CPR_CAUSE_IP = new CpRegConstant(CPR_CAUSE, 8, 8);
-	/** cause general or special exception vector */
+	/** cause register use general or special exception vector (1 bit) */
 	public static final CpRegConstant CPR_CAUSE_IV = new CpRegConstant(CPR_CAUSE, 23, 1);
-	/** cause branch delay slot */
+	/** cause branch delay slot (1 bit) */
 	public static final CpRegConstant CPR_CAUSE_BD = new CpRegConstant(CPR_CAUSE, 31, 1);
 	
 	public static final CpRegConstant CPR_EPC_VALUE = new CpRegConstant(CPR_EPC, 0, 32);

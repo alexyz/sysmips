@@ -36,6 +36,7 @@ public final class Memory {
 	private final int halfWordAddrXor;
 	private final boolean littleEndian;
 	private final Entry[] entries = new Entry[16];
+	//private final int[] pe = new int[16*3];
 	private final Malta malta;
 	
 	private boolean kernelMode;
@@ -197,6 +198,13 @@ public final class Memory {
 	 * translate virtual address to physical
 	 */
 	private final int lookup (final int vaddr, final boolean store) {
+		int i = lookup1(vaddr, store);
+		// need to populate the packed entries...
+		//int j = lookup2(vaddr, store);
+		return i;
+	}
+	
+	private final int lookup1 (final int vaddr, final boolean store) {	
 		final int vpn2 = Functions.vpn2(vaddr);
 		final int eo = Functions.evenodd(vaddr);
 		boolean refill = true;
@@ -239,6 +247,33 @@ public final class Memory {
 		// TODO also need to throw modified exception if page is read only...
 		throw new CpuException(new CpuExceptionParams(store ? Constants.EX_TLB_STORE : Constants.EX_TLB_LOAD, vaddr, refill));
 	}
+	
+	/*
+	private static int EVPN2S = 13, EVPN2 = 0x8ffff << EVPN2S, EG = 0x100, EASID=0xff, DPFNS = 12, DPFN=0xfffff<<DPFNS, DD=0x2, DV=0x1;
+	
+	private final int lookup2 (final int va, final boolean store) {
+		final int vpn2s = Functions.vpn2(va) << EVPN2S;
+		final int eo = Functions.evenodd(va);
+		
+		for (int n = 0; n < pe.length; n += 3) {
+			final int e = pe[n];
+			if ((e & EVPN2) == vpn2s && ((e & EASID) == asid || (e & EG) != 0)) {
+				final int di = n + eo + 1;
+				final int d = pe[di];
+				if ((d & DV) != 0) {
+					throw new CpuException(new CpuExceptionParams(store ? Constants.EX_TLB_STORE : Constants.EX_TLB_LOAD, va, false));
+				}
+				if (store && (d & DD) == 0) {
+					pe[di] &= DD;
+				}
+				final int pa = (d & DPFN) | (va & 0xfff);
+				return pa;
+			}
+		}
+		
+		throw new CpuException(new CpuExceptionParams(store ? Constants.EX_TLB_STORE : Constants.EX_TLB_LOAD, va, true));
+	}
+	*/
 	
 	private final byte loadByteImpl (final int paddr) {
 		try {

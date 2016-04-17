@@ -11,9 +11,9 @@ import sys.util.Log;
 import sys.util.Logger;
 import sys.util.Symbols;
 
-import static sys.mips.Constants.*;
-import static sys.mips.Functions.*;
-import static sys.mips.IsnUtil.*;
+import static sys.mips.CpuConstants.*;
+import static sys.mips.CpuFunctions.*;
+import static sys.mips.InstructionUtil.*;
 
 public final class Cpu {
 	
@@ -73,7 +73,7 @@ public final class Cpu {
 		
 		memory.setKernelMode(true);
 		memory.init();
-		for (String name : IsnSet.getInstance().getNameMap().keySet()) {
+		for (String name : InstructionSet.getInstance().getNameMap().keySet()) {
 			isnCount.put(name, new int[1]);
 		}
 		
@@ -287,7 +287,7 @@ public final class Cpu {
 					
 					if (disasm || disasmCount > 0) {
 						log.println(CpuUtil.gpRegString(this, regstr));
-						log.println(IsnUtil.isnString(this, isn));
+						log.println(InstructionUtil.isnString(this, isn));
 						if (disasmCount > 0) {
 							disasmCount--;
 						}
@@ -948,7 +948,7 @@ public final class Cpu {
 		final int rt = rt(isn);
 		final int rd = rd(isn);
 		final int sel = sel(isn);
-		final int cpr = cpr(rd, sel);
+		final int cpr = cprIndex(rd, sel);
 		
 		switch (cpr) {
 			case CPR_STATUS:
@@ -978,7 +978,7 @@ public final class Cpu {
 	private final void execCpMoveTo (final int isn) {
 		final int rd = rd(isn);
 		final int sel = sel(isn);
-		final int cpr = cpr(rd, sel);
+		final int cpr = cprIndex(rd, sel);
 		final int oldValue = cpRegister[cpr];
 		final int newValue = register[rt(isn)];
 		if (oldValue != newValue) {

@@ -48,7 +48,7 @@ public class CpuExceptionParams {
 	
 	@Override
 	public String toString () {
-		String exs = IsnUtil.exceptionName(excode);
+		String exs = InstructionUtil.exceptionName(excode);
 		String ints = interrupt != null ? " int=" + MaltaUtil.interruptName(interrupt) : "";
 		String irqs = irq != null ? " irq=" + MaltaUtil.irqName(irq) : "";
 		String vas = vaddr != null ? " vaddr=" + Integer.toHexString(vaddr) : "";

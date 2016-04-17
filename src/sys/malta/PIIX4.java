@@ -5,9 +5,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import sys.mips.Constants;
-import sys.mips.Cpu;
-import sys.mips.CpuExceptionParams;
+import sys.mips.*;
 import sys.util.Logger;
 import sys.util.Symbols;
 
@@ -227,7 +225,7 @@ public class PIIX4 implements Device {
 			
 			Cpu cpu = Cpu.getInstance();
 			ScheduledExecutorService e = cpu.getExecutor();
-			CpuExceptionParams ep = new CpuExceptionParams(Constants.EX_INTERRUPT, MaltaUtil.INT_SOUTHBRIDGE_INTR, MaltaUtil.IRQ_TIMER);
+			CpuExceptionParams ep = new CpuExceptionParams(CpuConstants.EX_INTERRUPT, MaltaUtil.INT_SOUTHBRIDGE_INTR, MaltaUtil.IRQ_TIMER);
 			Runnable r = () -> cpu.addException(ep);
 			
 			if (timerControlWord == 0x34) {

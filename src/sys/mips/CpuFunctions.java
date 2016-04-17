@@ -5,7 +5,7 @@ import java.util.Random;
 /**
  * mips instruction/register decoding and encoding
  */
-public final class Functions {
+public final class CpuFunctions {
 	
 	public static final long ZX_INT_MASK = 0xffff_ffffL;
 	public static final int ZX_SHORT_MASK = 0xffff;
@@ -163,7 +163,7 @@ public final class Functions {
 	/** floating point condition code register condition */
 	public static final boolean fccrFcc (final int[] fpControlReg, final int cc) {
 		if (cc >= 0 && cc < 8) {
-			return (fpControlReg[Constants.FPCR_FCCR] & (1 << cc)) != 0;
+			return (fpControlReg[CpuConstants.FPCR_FCCR] & (1 << cc)) != 0;
 			
 		} else {
 			throw new IllegalArgumentException("invalid fpu cc " + cc);
@@ -187,7 +187,7 @@ public final class Functions {
 		return RANDOM.nextInt() & 0xf;
 	}
 	
-	private Functions () {
+	private CpuFunctions () {
 		//
 	}
 }

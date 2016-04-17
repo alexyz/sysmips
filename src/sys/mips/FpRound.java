@@ -1,6 +1,6 @@
 package sys.mips;
 
-import static sys.mips.Constants.*;
+import static sys.mips.CpuConstants.*;
 
 /**
  * Floating point rounder

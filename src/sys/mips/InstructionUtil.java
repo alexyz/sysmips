@@ -1,16 +1,16 @@
 package sys.mips;
 
-import static sys.mips.Constants.*;
-import static sys.mips.Functions.*;
+import static sys.mips.CpuConstants.*;
+import static sys.mips.CpuFunctions.*;
 
 import sys.util.Symbols;
 
 /**
  * disassembly and Isn utils
  */
-public class IsnUtil {
+public class InstructionUtil {
 
-	private static final Isn NOP = new Isn("nop");
+	private static final Instruction NOP = new Instruction("nop");
 
 	/** names of general registers */
 	public static final String[] REG_NAMES = new String[] { 
@@ -99,16 +99,16 @@ public class IsnUtil {
 		final int fn = fn(isn);
 		final int rd = rd(isn);
 		
-		Isn isnObj;
+		Instruction isnObj;
 		if (op == OP_SPECIAL && fn == FN_SLL && rd == 0) {
 			isnObj = NOP;
 		} else {
-			isnObj = IsnSet.getInstance().getIsn(isn);
+			isnObj = InstructionSet.getInstance().getIsn(isn);
 		}
 		
 		final String isnValue;
 		if (isnObj != null) {
-			isnValue = IsnUtil.formatIsn(cpu, isn, isnObj);
+			isnValue = InstructionUtil.formatIsn(cpu, isn, isnObj);
 		} else {
 			isnValue = "op=" + op + " rt=" + rt + " rs=" + rs + " fn=" + fn;
 		}
@@ -117,7 +117,7 @@ public class IsnUtil {
 		return String.format("%-40s %08x %s", addr, isn, isnValue);
 	}
 	
-	private static String formatIsn (final Cpu cpu, final int isn, final Isn isnObj) {
+	private static String formatIsn (final Cpu cpu, final int isn, final Instruction isnObj) {
 		final StringBuilder sb = new StringBuilder(isnObj.name);
 		while (sb.length() < 8) {
 			sb.append(" ");
@@ -197,7 +197,7 @@ public class IsnUtil {
 			case "cprd":
 				return cpRegName(rd(isn), sel(isn));
 			case "cpregrd":
-				return Integer.toHexString(cpreg[cpr(rd(isn), sel(isn))]);
+				return Integer.toHexString(cpreg[cprIndex(rd(isn), sel(isn))]);
 			case "imm":
 				return String.valueOf(simm(isn));
 			case "branch":

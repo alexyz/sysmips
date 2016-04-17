@@ -3,7 +3,7 @@ package sys.mips;
 /**
  * mips constants
  */
-public final class Constants {
+public final class CpuConstants {
 	
 	//
 	// instructions
@@ -539,11 +539,11 @@ public final class Constants {
 	public static final int EX_MCHECK = 24;
 	
 	/** return the cpr index for the register and selection */
-	public static int cpr (int rd, int sel) {
+	public static int cprIndex (int rd, int sel) {
 		return rd + sel * 32;
 	}
 
-	private Constants () {
+	private CpuConstants () {
 		//
 	}
 	

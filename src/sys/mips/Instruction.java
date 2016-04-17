@@ -1,6 +1,9 @@
 package sys.mips;
 
-public class Isn {
+/**
+ * instruction details for disassembly purposes
+ */
+public class Instruction {
 	
 	/** the code at bit position 26 */
 	public final int op;
@@ -14,11 +17,11 @@ public class Isn {
 	public final String name;
 	public final String format;
 	
-	public Isn (String name) {
+	public Instruction (String name) {
 		this(0, 0, 0, 0, name, "");
 	}
 	
-	public Isn (int op, int rs, int rt, int fn, String name, String format) {
+	public Instruction (int op, int rs, int rt, int fn, String name, String format) {
 		this.op = op;
 		this.rs = rs;
 		this.rt = rt;

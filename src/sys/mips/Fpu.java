@@ -1,8 +1,8 @@
 package sys.mips;
 
-import static sys.mips.Constants.*;
-import static sys.mips.Functions.*;
-import static sys.mips.IsnUtil.*;
+import static sys.mips.CpuConstants.*;
+import static sys.mips.CpuFunctions.*;
+import static sys.mips.InstructionUtil.*;
 
 public class Fpu {
 	

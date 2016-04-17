@@ -7,8 +7,8 @@ import sys.elf.*;
 import sys.util.Symbols;
 
 import static sys.mips.MemoryUtil.*;
-import static sys.mips.Constants.*;
-import static sys.mips.IsnUtil.*;
+import static sys.mips.CpuConstants.*;
+import static sys.mips.InstructionUtil.*;
 
 /**
  * Cpu helper functions

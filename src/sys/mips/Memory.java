@@ -97,7 +97,7 @@ public final class Memory {
 	
 	public final int loadWord (final int vaddr) {
 		if ((vaddr & 3) != 0) {
-			throw new CpuException(new CpuExceptionParams(Constants.EX_ADDR_ERROR_LOAD, vaddr));
+			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_LOAD, vaddr));
 		}
 		if (isSystem(vaddr)) {
 			return malta.systemRead(vaddr, 4);
@@ -108,7 +108,7 @@ public final class Memory {
 	
 	public final void storeWord (final int vaddr, final int value) {
 		if ((vaddr & 3) != 0) {
-			throw new CpuException(new CpuExceptionParams(Constants.EX_ADDR_ERROR_STORE, vaddr));
+			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_STORE, vaddr));
 		}
 		if (isSystem(vaddr)) {
 			malta.systemWrite(vaddr, value, 4);
@@ -119,7 +119,7 @@ public final class Memory {
 	
 	public final short loadHalfWord (final int vaddr) {
 		if ((vaddr & 1) != 0) {
-			throw new CpuException(new CpuExceptionParams(Constants.EX_ADDR_ERROR_LOAD, vaddr));
+			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_LOAD, vaddr));
 		}
 		if (isSystem(vaddr)) {
 			return (short) malta.systemRead(vaddr, 2);
@@ -130,7 +130,7 @@ public final class Memory {
 	
 	public final void storeHalfWord (final int vaddr, final short value) {
 		if ((vaddr & 1) != 0) {
-			throw new CpuException(new CpuExceptionParams(Constants.EX_ADDR_ERROR_STORE, vaddr));
+			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_STORE, vaddr));
 		}
 		if (isSystem(vaddr)) {
 			malta.systemWrite(vaddr, value, 2);
@@ -205,8 +205,8 @@ public final class Memory {
 	}
 	
 	private final int lookup1 (final int vaddr, final boolean store) {	
-		final int vpn2 = Functions.vpn2(vaddr);
-		final int eo = Functions.evenodd(vaddr);
+		final int vpn2 = CpuFunctions.vpn2(vaddr);
+		final int eo = CpuFunctions.evenodd(vaddr);
 		boolean refill = true;
 		
 		// log.debug("lookup vaddr=" + Integer.toHexString(vaddr) + " asid=" +
@@ -245,7 +245,7 @@ public final class Memory {
 //		}
 		
 		// TODO also need to throw modified exception if page is read only...
-		throw new CpuException(new CpuExceptionParams(store ? Constants.EX_TLB_STORE : Constants.EX_TLB_LOAD, vaddr, refill));
+		throw new CpuException(new CpuExceptionParams(store ? CpuConstants.EX_TLB_STORE : CpuConstants.EX_TLB_LOAD, vaddr, refill));
 	}
 	
 	/*

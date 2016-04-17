@@ -84,10 +84,10 @@ public class CallLogger {
 	
 	public void printCall() {
 		final String name = cpu.getMemory().getSymbols().getName(cpu.getPc());
-		int a0 = cpu.getRegister(Constants.REG_A0);
-		int a1 = cpu.getRegister(Constants.REG_A1);
-		int a2 = cpu.getRegister(Constants.REG_A2);
-		int a3 = cpu.getRegister(Constants.REG_A3);
+		int a0 = cpu.getRegister(CpuConstants.REG_A0);
+		int a1 = cpu.getRegister(CpuConstants.REG_A1);
+		int a2 = cpu.getRegister(CpuConstants.REG_A2);
+		int a3 = cpu.getRegister(CpuConstants.REG_A3);
 		List<String> args = new ArrayList<>();
 		
 		switch (name) {

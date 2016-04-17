@@ -2,16 +2,16 @@ package sys.mips;
 
 import java.util.*;
 
-import static sys.mips.Constants.*;
-import static sys.mips.Functions.*;
-import static sys.mips.IsnUtil.*;
+import static sys.mips.CpuConstants.*;
+import static sys.mips.CpuFunctions.*;
+import static sys.mips.InstructionUtil.*;
 
 /**
- * all instructions (not including the actual implementation)
+ * instruction set for disassembly purposes (not including the actual implementation)
  */
-public class IsnSet {
+public class InstructionSet {
 	
-	private static final IsnSet instance = new IsnSet();
+	private static final InstructionSet instance = new InstructionSet();
 	
 	// interactive disassembly types
 	// official format: actual values
@@ -33,11 +33,11 @@ public class IsnSet {
 	private static final String SF_FP_REG = "{fd} <- {fs} * {ft}: {regfs} * {regft}";
 	private static final String SF_FP_REG2 = "{fd} <- {fs}: {regfs}";
 	
-	public static IsnSet getInstance() {
+	public static InstructionSet getInstance() {
 		return instance;
 	}
 	
-	private static void set (Isn[] isns, int i, Isn isn) {
+	private static void set (Instruction[] isns, int i, Instruction isn) {
 		if (isns[i] != null) {
 			throw new RuntimeException("duplicate " + isn.toString());
 		}
@@ -49,23 +49,23 @@ public class IsnSet {
 	//
 	
 	/** all instructions by name */
-	private final SortedMap<String, Isn> nameMap = new TreeMap<>();
-	private final SortedMap<String, Isn> nameMapUnmod = Collections.unmodifiableSortedMap(nameMap);
+	private final SortedMap<String, Instruction> nameMap = new TreeMap<>();
+	private final SortedMap<String, Instruction> nameMapUnmod = Collections.unmodifiableSortedMap(nameMap);
 	
-	private final Isn[] operation = new Isn[64];
-	private final Isn[] function = new Isn[64];
-	private final Isn[] function2 = new Isn[64];
-	private final Isn[] regimm = new Isn[32];
-	private final Isn[] systemRs = new Isn[32];
-	private final Isn[] systemFn = new Isn[64];
-	private final Isn[] fpuRs = new Isn[32];
-	private final Isn[] fpuFnSingle = new Isn[64];
-	private final Isn[] fpuFnDouble = new Isn[64];
-	private final Isn[] fpuFnWord = new Isn[64];
-	private final Isn[] fpuFnLong = new Isn[64];
-	private final Isn[] fpuFnX = new Isn[64];
+	private final Instruction[] operation = new Instruction[64];
+	private final Instruction[] function = new Instruction[64];
+	private final Instruction[] function2 = new Instruction[64];
+	private final Instruction[] regimm = new Instruction[32];
+	private final Instruction[] systemRs = new Instruction[32];
+	private final Instruction[] systemFn = new Instruction[64];
+	private final Instruction[] fpuRs = new Instruction[32];
+	private final Instruction[] fpuFnSingle = new Instruction[64];
+	private final Instruction[] fpuFnDouble = new Instruction[64];
+	private final Instruction[] fpuFnWord = new Instruction[64];
+	private final Instruction[] fpuFnLong = new Instruction[64];
+	private final Instruction[] fpuFnX = new Instruction[64];
 	
-	private IsnSet () {
+	private InstructionSet () {
 		addOp(OP_J, "j", SF_JUMP);
 		addOp(OP_JAL, "jal", SF_JUMP);
 		addOp(OP_BEQ, "beq", SF_CONDBRA);
@@ -215,42 +215,42 @@ public class IsnSet {
 	}
 
 	private void addOp (int op, String name, String format) {
-		addIsn(new Isn(op, 0, 0, 0, name, format));
+		addIsn(new Instruction(op, 0, 0, 0, name, format));
 	}
 	
 	private void addRegImm (int rt, String name, String format) {
-		addIsn(new Isn(OP_REGIMM, 0, rt, 0, name, format));
+		addIsn(new Instruction(OP_REGIMM, 0, rt, 0, name, format));
 	}
 	
 	private void addFn (int fn, String name, String format) {
-		addIsn(new Isn(OP_SPECIAL, 0, 0, fn, name, format));
+		addIsn(new Instruction(OP_SPECIAL, 0, 0, fn, name, format));
 	}
 	
 	private void addFn2 (int fn, String name, String format) {
-		addIsn(new Isn(OP_SPECIAL2, 0, 0, fn, name, format));
+		addIsn(new Instruction(OP_SPECIAL2, 0, 0, fn, name, format));
 	}
 	
 	private void addCop0 (int rs, String name, String format) {
-		addIsn(new Isn(OP_COP0, rs, 0, 0, name, format));
+		addIsn(new Instruction(OP_COP0, rs, 0, 0, name, format));
 	}
 	
 	private void addCop0Fn (int fn, String name, String format) {
-		addIsn(new Isn(OP_COP0, CP_RS_CO, 0, fn, name, format));
+		addIsn(new Instruction(OP_COP0, CP_RS_CO, 0, fn, name, format));
 	}
 	
 	private void addCop1 (int rs, String name, String format) {
-		addIsn(new Isn(OP_COP1, rs, 0, 0, name, format));
+		addIsn(new Instruction(OP_COP1, rs, 0, 0, name, format));
 	}
 	
 	private void addCop1Fn (int rs, int fn, String name, String format) {
-		addIsn(new Isn(OP_COP1, rs, 0, fn, name, format));
+		addIsn(new Instruction(OP_COP1, rs, 0, fn, name, format));
 	}
 	
 	private void addCop1FnX (int fn, String name, String format) {
-		addIsn(new Isn(OP_COP1X, 0, 0, fn, name, format));
+		addIsn(new Instruction(OP_COP1X, 0, 0, fn, name, format));
 	}
 	
-	private void addIsn (Isn isn) {
+	private void addIsn (Instruction isn) {
 		if (nameMap.put(isn.name, isn) != null) {
 			throw new RuntimeException("duplicate name " + isn);
 		}
@@ -300,11 +300,11 @@ public class IsnSet {
 		}
 	}
 	
-	public SortedMap<String, Isn> getNameMap () {
+	public SortedMap<String, Instruction> getNameMap () {
 		return nameMapUnmod;
 	}
 
-	public Isn getIsn (int isn) {
+	public Instruction getIsn (int isn) {
 		final int op = op(isn);
 		final int rs = rs(isn);
 		final int rt = rt(isn);

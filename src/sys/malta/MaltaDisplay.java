@@ -28,28 +28,29 @@ public class MaltaDisplay implements Device {
 	private int ledBar = 0;
 	private int asciiWord = 0;
 	
-	public MaltaDisplay(int baseAddr) {
+	public MaltaDisplay(final int baseAddr) {
 		this.baseAddr = baseAddr;
 	}
 	
 	@Override
-	public void init (Symbols sym) {
+	public void init (final Symbols sym) {
 		log.println("init display at " + Integer.toHexString(baseAddr));
 		sym.init(MaltaDisplay.class, "M_", null, baseAddr, 4);
 	}
 	
 	@Override
-	public boolean isMapped (int addr) {
-		return addr >= baseAddr && addr <= baseAddr + 80;
+	public boolean isMapped (final int addr) {
+		final int offset = addr - baseAddr;
+		return offset >= 0 && offset < 0x100;
 	}
 	
 	@Override
-	public int systemRead (int addr, int size) {
+	public int systemRead (final int addr, final int size) {
 		throw new RuntimeException("display read");
 	}
 	
 	@Override
-	public void systemWrite (final int addr, final int value, int size) {
+	public void systemWrite (final int addr, final int value, final int size) {
 		final int offset = addr - baseAddr;
 		
 		switch (offset) {
@@ -98,27 +99,27 @@ public class MaltaDisplay implements Device {
 		}
 	}
 	
-	private void asciiPosWrite (int n, int value) {
+	private void asciiPosWrite (final int n, final int value) {
 		asciiPos[n] = (byte) value;
 		Cpu.getInstance().getSupport().firePropertyChange("display", null, displayText());
 	}
 	
-	private void ledBarWrite (int value) {
+	private void ledBarWrite (final int value) {
 		ledBar = value;
 		Cpu.getInstance().getSupport().firePropertyChange("display", null, displayText());
 	}
 	
-	private void asciiWordWrite (int value) {
+	private void asciiWordWrite (final int value) {
 		asciiWord = value;
 		Cpu.getInstance().getSupport().firePropertyChange("display", null, displayText());
 	}
-
+	
 	public String displayText() {
 		final StringBuilder sb = new StringBuilder();
 		sb.append(Integer.toBinaryString(ledBar)).append(" ");
 		sb.append(Integer.toHexString(asciiWord)).append(" ");
 		for (int n = 0; n < 8; n++) {
-			int w = asciiPos[n] & 0xff;
+			final int w = asciiPos[n] & 0xff;
 			sb.append(w != 0 ? (char) w : ' ');
 		}
 		return sb.toString();

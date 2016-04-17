@@ -11,41 +11,50 @@ import static sys.malta.UartUtil.*;
  * COM port detection - 8250.c - autoconfig()
  */
 public class Uart implements Device {
-
-	private static final Logger log = new Logger("Uart");
 	
+	private final Logger log;
 	private final int baseAddr;
 	private final String name;
 	private final StringBuilder consoleSb = new StringBuilder();
 	private final byte[] rxFifo = new byte[16];
+	private final boolean console;
 	
 	private int ier;
 	private int mcr;
 	private int lcr;
 	private int iir;
 	private int lsr;
-	private int rxRead, rxWrite;
+	private int rxRead;
+	private int rxWrite;
 	
-	public Uart(int baseAddr, String name) {
+	public Uart(final int baseAddr, final String name, final boolean console) {
+		this.log = new Logger(name);
 		this.baseAddr = baseAddr;
 		this.name = name;
+		this.console = console;
 		this.lsr |= LSR_THRE;
 	}
 	
 	@Override
-	public void init (Symbols sym) {
+	public void init (final Symbols sym) {
 		log.println("init uart " + name + " at " + Integer.toHexString(baseAddr));
 		sym.init(UartUtil.class, "M_", "M_" + name + "_", baseAddr, 1);
 	}
 	
 	@Override
-	public boolean isMapped (int addr) {
-		return addr >= baseAddr && addr <= baseAddr + 7;
+	public boolean isMapped (final int addr) {
+		// can't compare addr and baseAddr directly due to signed values
+		final int offset = addr - baseAddr;
+		return offset >= 0 && offset < 8;
 	}
-
+	
 	@Override
-	public int systemRead (int addr, int size) {
-		int offset = addr - baseAddr;
+	public int systemRead (final int addr, final int size) {
+		if (size != 1) {
+			throw new RuntimeException();
+		}
+		
+		final int offset = addr - baseAddr;
 		
 		switch (offset) {
 			case M_RX_TX:
@@ -54,9 +63,9 @@ public class Uart implements Device {
 					log.println("uart rx underrun");
 					return 0;
 				} else {
-					byte x = rxFifo[rxRead];
+					final byte x = rxFifo[rxRead];
 					rxRead = (rxRead + 1) & 0xf;
-					int rem = ((rxWrite + 16) - rxRead) & 0xf;
+					final int rem = ((rxWrite + 16) - rxRead) & 0xf;
 					if (rem == 0) {
 						// reset ready bit
 						lsr &= ~LSR_DR;
@@ -65,7 +74,7 @@ public class Uart implements Device {
 					return x;
 				}
 			case M_LSR: {
-				int x = lsr;
+				final int x = lsr;
 				//log.println("uart read lsr %x", x);
 				// reset overrun bit on read
 				lsr &= ~LSR_OE;
@@ -87,23 +96,24 @@ public class Uart implements Device {
 				throw new RuntimeException("unknown uart read " + offset);
 		}
 	}
-
+	
 	@Override
-	public void systemWrite (int addr, int value, int size) {
-		int offset = addr - baseAddr;
+	public void systemWrite (final int addr, final int valueInt, final int size) {
 		if (size != 1) {
 			throw new RuntimeException();
 		}
-		value = value & 0xff;
+		
+		final int offset = addr - baseAddr;
+		final byte value = (byte) valueInt;
 		
 		switch (offset) {
 			case M_RX_TX:
 				if ((mcr & MCR_LOOPBACK) != 0) {
 					// this is a guess...
 					// should trigger interrupt at some point?
-					int i = (rxWrite + 1) & 0xf;
+					final int i = (rxWrite + 1) & 0xf;
 					if (i != rxRead) {
-						rxFifo[rxWrite] = (byte) value;
+						rxFifo[rxWrite] = value;
 						rxWrite = i;
 						// set ready bit
 						lsr |= LSR_DR;
@@ -113,48 +123,52 @@ public class Uart implements Device {
 						lsr |= LSR_OE;
 					}
 				} else {
-					consoleWrite(value);
+					if (console) {
+						consoleWrite(value);
+					} else {
+						log.println("write " + Integer.toHexString(value & 0xff));
+					}
 				}
 				return;
 				
 			case M_IER: {
-				boolean ms = (value & IER_MSI) != 0;
-				boolean rda = (value & IER_RDAI) != 0;
-				boolean rls = (value & IER_RLSI) != 0;
-				boolean thre = (value & IER_THREI) != 0;
-				log.println("set %s ier %x =%s%s%s%s", 
-						name, value, ms?" modem-status":"", rda?" received-data-available":"", 
+				final boolean ms = (value & IER_MSI) != 0;
+				final boolean rda = (value & IER_RDAI) != 0;
+				final boolean rls = (value & IER_RLSI) != 0;
+				final boolean thre = (value & IER_THREI) != 0;
+				log.println("set %s ier %x =%s%s%s%s",
+						name, value, ms?" modem-status":"", rda?" received-data-available":"",
 								rls?" received-line-status":"", thre?" transmitter-holding-register-empty":"");
 				// we only want bottom 4 bits, linux might set more to autodetect other chips
 				ier = (byte) (value & 0xf);
 				return;
 			}
 			case M_MCR: {
-				mcr = (byte) value;
-				boolean dtr = (value & MCR_DTR) != 0;
-				boolean rts = (value & MCR_RTS) != 0;
-				boolean out1 = (value & MCR_OUTPUT1) != 0;
-				boolean out2 = (value & MCR_OUTPUT2) != 0;
-				boolean loop = (value & MCR_LOOPBACK) != 0;
+				mcr = value;
+				final boolean dtr = (value & MCR_DTR) != 0;
+				final boolean rts = (value & MCR_RTS) != 0;
+				final boolean out1 = (value & MCR_OUTPUT1) != 0;
+				final boolean out2 = (value & MCR_OUTPUT2) != 0;
+				final boolean loop = (value & MCR_LOOPBACK) != 0;
 				log.println("set %s mcr %x =%s%s%s%s%s",
 						name, value, dtr ? " dtr" : "", rts ? " rts" : "", out1 ? " out1" : "", out2 ? " out2" : "", loop ? " loopback" : "");
 				return;
 			}
 			case M_LCR: {
-				lcr = (byte) value;
-				int w = lcrWordLength(value);
-				float s = lcrStopBits(value);
-				char p = lcrParity(value);
-				boolean br = (value & LCR_BREAK) != 0;
-				boolean dl = (value & LCR_DLAB) != 0;
-				log.println("set %s lcr %x = %d-%s-%.1f%s%s", 
+				lcr = value;
+				final int w = lcrWordLength(value);
+				final float s = lcrStopBits(value);
+				final char p = lcrParity(value);
+				final boolean br = (value & LCR_BREAK) != 0;
+				final boolean dl = (value & LCR_DLAB) != 0;
+				log.println("set %s lcr %x = %d-%s-%.1f%s%s",
 						name, value, w, p, s, br ? " break" : "", dl ? " dlab" : "");
 				return;
 			}
 			case M_FCR_IIR_EFR: {
-				boolean en = (value & FCR_ENABLE_FIFO) != 0;
-				boolean cr = (value & FCR_CLEAR_RCVR) != 0;
-				boolean cx = (value & FCR_CLEAR_XMIT) != 0;
+				final boolean en = (value & FCR_ENABLE_FIFO) != 0;
+				final boolean cr = (value & FCR_CLEAR_RCVR) != 0;
+				final boolean cx = (value & FCR_CLEAR_XMIT) != 0;
 				if (en) {
 					// this will call autoconfig_16550a
 					iir |= IIR_FIFO;
@@ -172,12 +186,12 @@ public class Uart implements Device {
 				throw new RuntimeException("unknown uart write " + Cpu.getInstance().getMemory().getSymbols().getNameAddrOffset(addr));
 		}
 	}
-
-	private void consoleWrite (int value) {
-		if ((value >= 32 && value < 127) || value == '\n') {
+	
+	private void consoleWrite (final byte value) {
+		if (value >= 32 || value == '\n') {
 			consoleSb.append((char) value);
 		} else if (value != '\r') {
-			consoleSb.append("{" + Integer.toHexString(value) + "}");
+			consoleSb.append("{" + Integer.toHexString(value & 0xff) + "}");
 		}
 		if (value == '\n' || consoleSb.length() > 160) {
 			final String line = consoleSb.toString();

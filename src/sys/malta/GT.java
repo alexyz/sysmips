@@ -21,34 +21,35 @@ public class GT implements Device {
 	private int configAddr;
 	private int irq;
 	
-	public GT (int baseAddr) {
+	public GT (final int baseAddr) {
 		this.baseAddr = baseAddr;
 	}
 	
-	public void setIrq (int irq) {
+	public void setIrq (final int irq) {
 		//log.println("set irq " + irq);
 		this.irq = irq;
 	}
 	
 	@Override
-	public void init (Symbols sym) {
+	public void init (final Symbols sym) {
 		log.println("init gt at " + Integer.toHexString(baseAddr));
 		sym.init(GTUtil.class, "GT_", null, baseAddr, 4);
 	}
 	
 	@Override
-	public boolean isMapped (int addr) {
-		return addr >= baseAddr && addr < baseAddr + 0x1000;
+	public boolean isMapped (final int addr) {
+		final int offset = addr - baseAddr;
+		return offset >= 0 && offset < 0x1000;
 	}
 	
 	@Override
-	public int systemRead (int addr, int size) {
+	public int systemRead (final int addr, final int size) {
 		// swap due to an expected bug in GT
 		return swapInt(systemRead2(addr, size));
 	}
 	
-	private int systemRead2 (int addr, int size) {
-		int offset = addr - baseAddr;
+	private int systemRead2 (final int addr, final int size) {
+		final int offset = addr - baseAddr;
 		switch (offset) {
 			case GT_PCI0IOLD:
 				return 0x80;
@@ -82,13 +83,13 @@ public class GT implements Device {
 	}
 	
 	@Override
-	public void systemWrite (int addr, int value, int size) {
-		int offset = addr - baseAddr;
-		Cpu cpu = Cpu.getInstance();
+	public void systemWrite (final int addr, int value, final int size) {
+		final int offset = addr - baseAddr;
+		final Cpu cpu = Cpu.getInstance();
 		
 		// XXX swap here?
 		value = swapInt(value);
-		String name = cpu.getMemory().getSymbols().getNameAddrOffset(addr);
+		final String name = cpu.getMemory().getSymbols().getNameAddrOffset(addr);
 		log.println(String.format("write addr=%x name=%s <= value %x size %d", offset, name, value, size));
 		
 		switch (offset) {
@@ -131,11 +132,11 @@ public class GT implements Device {
 		// pci configuration space
 		this.configAddr = configAddr;
 		
-		int en = en(configAddr);
-		int bus = bus(configAddr);
-		int dev = dev(configAddr);
-		int func = func(configAddr);
-		int reg = reg(configAddr);
+		final int en = en(configAddr);
+		final int bus = bus(configAddr);
+		final int dev = dev(configAddr);
+		final int func = func(configAddr);
+		final int reg = reg(configAddr);
 		log.println(String.format("set pci0 addr=%x en=%x bus=%x dev=%x func=%x reg=%x", configAddr, en, bus, dev, func, reg));
 		
 		if (bus == 0 && func == 0) {
@@ -147,11 +148,11 @@ public class GT implements Device {
 	}
 	
 	private void setData (final int value) {
-		int en = en(configAddr);
-		int bus = bus(configAddr);
-		int dev = dev(configAddr);
-		int func = func(configAddr);
-		int reg = reg(configAddr);
+		final int en = en(configAddr);
+		final int bus = bus(configAddr);
+		final int dev = dev(configAddr);
+		final int func = func(configAddr);
+		final int reg = reg(configAddr);
 		log.println(String.format("set PCI0 data %x en=%x bus=%x dev=%x func=%x reg=%x", value, en, bus, dev, func, reg));
 		
 		if (bus == 0 && dev == 0 && func == 0) {

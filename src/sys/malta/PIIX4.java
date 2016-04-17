@@ -1,10 +1,12 @@
 package sys.malta;
 
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
 import sys.mips.*;
 import sys.util.Logger;
 import sys.util.Symbols;
@@ -36,28 +38,29 @@ public class PIIX4 implements Device {
 	
 	private static final Logger log = new Logger("PIIX4");
 	
-	private static int indexToCalendar (int index) {
+	private static int indexToCalendar (final int index) {
 		switch (index) {
-			case 0: 
+			case 0:
 				return Calendar.SECOND;
-			case 2: 
+			case 2:
 				return Calendar.MINUTE;
 			case 4:
 				// depends on control register b hour format
 				return Calendar.HOUR;
-			case 6: 
+			case 6:
 				return Calendar.DAY_OF_WEEK;
-			case 7: 
+			case 7:
 				return Calendar.DAY_OF_MONTH;
-			case 8: 
+			case 8:
 				return Calendar.MONTH;
-			case 9: 
+			case 9:
 				return Calendar.YEAR;
-			default: 
+			default:
 				throw new RuntimeException("invalid index " + index);
 		}
 	}
 	
+	private final List<Device> devices = new ArrayList<>();
 	private final int baseAddr;
 	private final Uart com1;
 	private final Uart com2;
@@ -70,94 +73,96 @@ public class PIIX4 implements Device {
 	private int rtcdat;
 	private int picimr;
 	
-	public PIIX4(int baseAddr) {
+	public PIIX4(final int baseAddr) {
 		this.baseAddr = baseAddr;
-		this.com1 = new Uart(baseAddr + M_COM1, "COM1");
-		// XXX need to disable the console output on this
-		this.com2 = new Uart(baseAddr + M_COM2, "COM2");
+		this.com1 = new Uart(baseAddr + M_COM1, "COM1", true);
+		this.com2 = new Uart(baseAddr + M_COM2, "COM2", false);
+		this.devices.add(com1);
+		this.devices.add(com2);
 	}
 	
 	@Override
-	public void init (Symbols sym) {
+	public void init (final Symbols sym) {
 		sym.init(PIIX4.class, "M_", null, baseAddr, 1);
-		com1.init(sym);
-		com2.init(sym);
+		devices.forEach(d -> d.init(sym));
 	}
 	
 	@Override
-	public boolean isMapped (int addr) {
-		return addr >= baseAddr && addr < baseAddr + 0xd00;
+	public boolean isMapped (final int addr) {
+		final int offset = addr - baseAddr;
+		return offset >= 0 && offset < 0xd00;
 	}
 	
 	@Override
-	public int systemRead (int addr, int size) {
-		if (com1.isMapped(addr)) {
-			return com1.systemRead(addr, size);
-			
-		} else {
-			int offset = addr - baseAddr;
-			switch (offset) {
-				case M_PIC_MASTER_IMR:
-					return picimr;
-				case M_RTCDAT:
-					// should compute this from rtcadr each time?
-					return rtcdat;
-				default:
-					throw new RuntimeException("unknown system read " + Cpu.getInstance().getMemory().getSymbols().getNameAddrOffset(addr) + " size " + size);
-			}
+	public int systemRead (final int addr, final int size) {
+		final Optional<Device> o = devices.stream().filter(d -> d.isMapped(addr)).findFirst();
+		if (o.isPresent()) {
+			return o.get().systemRead(addr, size);
+		}
+		
+		final int offset = addr - baseAddr;
+		switch (offset) {
+			case M_PIC_MASTER_IMR:
+				return picimr;
+			case M_RTCDAT:
+				// should compute this from rtcadr each time?
+				return rtcdat;
+			default:
+				throw new RuntimeException("unknown system read " + Cpu.getInstance().getMemory().getSymbols().getNameAddrOffset(addr) + " size " + size);
 		}
 	}
 	
 	@Override
-	public void systemWrite (int addr, int value, int size) {
-		if (com1.isMapped(addr)) {
-			com1.systemWrite(addr, value, size);
-			
-		} else {
-			int offset = addr - baseAddr;
-			switch (offset) {
-				case M_PIT_TCW:
-					timerControlWrite((byte) value);
-					return;
-					
-				case M_PIT_COUNTER_0:
-					timerCounter0Write((byte) value);
-					return;
-					
-				case M_RTCADR:
-					rtcAdrWrite(value);
-					return;
-					
-				case M_RTCDAT:
-					rtcDatWrite(value);
-					return;
-					
-				case M_DMA2_MASK_REG:
-					// information in asm/dma.h
-					log.println("enable dma channel 4+ ignored" + value);
-					return;
-					
-				case M_PIC_MASTER_CMD:
-					log.println("pic master write command %x ignored", value & 0xff);
-					return;
-					
-				case M_PIC_MASTER_IMR:
-					log.println("pic master write interrupt mask register %x", value & 0xff);
-					// XXX should probably do something here...
-					picimr = (byte) value;
-					return;
-					
-				case M_PIC_SLAVE_CMD:
-					log.println("pic slave write command %x ignored", value & 0xff);
-					return;
-					
-				case M_PIC_SLAVE_IMR:
-					log.println("pic slave write interrupt mask register %x ignored", value & 0xff);
-					return;
-					
-				default:
-					throw new RuntimeException("unknown system write " + Symbols.getInstance().getNameOffset(addr) + " <= " + Integer.toHexString(value));
-			}
+	public void systemWrite (final int addr, final int value, final int size) {
+		final Optional<Device> o = devices.stream().filter(d -> d.isMapped(addr)).findFirst();
+		if (o.isPresent()) {
+			o.get().systemWrite(addr, value, size);
+			return;
+		}
+		
+		final int offset = addr - baseAddr;
+		switch (offset) {
+			case M_PIT_TCW:
+				timerControlWrite((byte) value);
+				return;
+				
+			case M_PIT_COUNTER_0:
+				timerCounter0Write((byte) value);
+				return;
+				
+			case M_RTCADR:
+				rtcAdrWrite(value);
+				return;
+				
+			case M_RTCDAT:
+				rtcDatWrite(value);
+				return;
+				
+			case M_DMA2_MASK_REG:
+				// information in asm/dma.h
+				log.println("enable dma channel 4+ ignored" + value);
+				return;
+				
+			case M_PIC_MASTER_CMD:
+				log.println("pic master write command %x ignored", value & 0xff);
+				return;
+				
+			case M_PIC_MASTER_IMR:
+				log.println("pic master write interrupt mask register %x", value & 0xff);
+				// XXX should probably do something here...
+				picimr = (byte) value;
+				return;
+				
+			case M_PIC_SLAVE_CMD:
+				log.println("pic slave write command %x ignored", value & 0xff);
+				return;
+				
+			case M_PIC_SLAVE_IMR:
+				log.println("pic slave write interrupt mask register %x ignored", value & 0xff);
+				return;
+				
+			default:
+				throw new RuntimeException("unknown system write " + Symbols.getInstance().getNameAddrOffset(addr) + " <= " + Integer.toHexString(value));
 		}
 	}
 	
@@ -168,7 +173,7 @@ public class PIIX4 implements Device {
 		rtcadr = (byte) value;
 		if (value == 0xa) {
 			// update in progress
-			boolean uip = (System.currentTimeMillis() % 1000) >= 990;
+			final boolean uip = (System.currentTimeMillis() % 1000) >= 990;
 			rtcdat = (byte) (uip ? 0x80 : 0);
 		} else if (value == 0xb) {
 			rtcdat = (byte) 4;
@@ -223,21 +228,21 @@ public class PIIX4 implements Device {
 				timerFuture.cancel(false);
 			}
 			
-			Cpu cpu = Cpu.getInstance();
-			ScheduledExecutorService e = cpu.getExecutor();
-			CpuExceptionParams ep = new CpuExceptionParams(CpuConstants.EX_INTERRUPT, MaltaUtil.INT_SOUTHBRIDGE_INTR, MaltaUtil.IRQ_TIMER);
-			Runnable r = () -> cpu.addException(ep);
+			final Cpu cpu = Cpu.getInstance();
+			final ScheduledExecutorService e = cpu.getExecutor();
+			final CpuExceptionParams ep = new CpuExceptionParams(CpuConstants.EX_INTERRUPT, MaltaUtil.INT_SOUTHBRIDGE_INTR, MaltaUtil.IRQ_TIMER);
+			final Runnable r = () -> cpu.addException(ep);
 			
 			if (timerControlWord == 0x34) {
 				// counter never reaches 0...
-				double hz = 1193182.0 / (timerCounter0 - 1.5);
-				long dur = Math.round(1000000.0 / hz);
+				final double hz = 1193182.0 / (timerCounter0 - 1.5);
+				final long dur = Math.round(1000000.0 / hz);
 				log.println("schedule pit at fixed rate " + hz + " hz " + dur + " us");
 				timerFuture = e.scheduleAtFixedRate(r, dur, dur, TimeUnit.MICROSECONDS);
 				
 			} else if (timerControlWord == 0x38) {
-				double hz = 1193182.0 / (timerCounter0 - 0.5);
-				long dur = Math.round(1000000.0 / hz);
+				final double hz = 1193182.0 / (timerCounter0 - 0.5);
+				final long dur = Math.round(1000000.0 / hz);
 				log.println("schedule pit once " + hz + " hz " + dur + " us");
 				timerFuture = e.schedule(r, dur, TimeUnit.MICROSECONDS);
 			}

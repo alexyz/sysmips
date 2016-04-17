@@ -52,7 +52,7 @@ public class Malta implements Device {
 	@Override
 	public void init (Symbols sym) {
 		log.println("init malta at " + Integer.toHexString(baseAddr));
-
+		
 		display.init(sym);
 		p4.init(sym);
 		gt.init(sym);
@@ -112,5 +112,5 @@ public class Malta implements Device {
 		}
 		
 	}
-
+	
 }

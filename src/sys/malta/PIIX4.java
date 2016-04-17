@@ -75,8 +75,8 @@ public class PIIX4 implements Device {
 	
 	public PIIX4(final int baseAddr) {
 		this.baseAddr = baseAddr;
-		this.com1 = new Uart(baseAddr + M_COM1, "COM1", true);
-		this.com2 = new Uart(baseAddr + M_COM2, "COM2", false);
+		this.com1 = new Uart(baseAddr + M_COM1, 1, "COM1", true);
+		this.com2 = new Uart(baseAddr + M_COM2, 1, "COM2", false);
 		this.devices.add(com1);
 		this.devices.add(com2);
 	}

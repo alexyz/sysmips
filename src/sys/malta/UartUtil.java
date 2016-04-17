@@ -22,6 +22,7 @@ public class UartUtil {
 	public static final int M_LSR = 5;
 	/** modem status register */
 	public static final int M_MSR = 6;
+	// scratch register?
 	
 	public static int lcrWordLength(int x) {
 		return (x & 0x3) + 5;

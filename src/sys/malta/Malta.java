@@ -1,5 +1,7 @@
 package sys.malta;
 
+import java.util.*;
+
 import sys.mips.Cpu;
 import sys.util.Logger;
 import sys.util.Symbols;
@@ -39,84 +41,74 @@ public class Malta implements Device {
 	
 	private static final Logger log = new Logger("Malta");
 	
+	private final List<Device> devices = new ArrayList<>();
 	private final int baseAddr;
 	/** the northbridge */
 	private final GT gt;
 	private final MaltaDisplay display;
 	/** the southbridge */
 	private final PIIX4 p4;
+	private final Uart cbusUart;
 	
-	public Malta (int baseAddr) {
+	public Malta (final int baseAddr) {
 		this.baseAddr = baseAddr;
 		this.p4 = new PIIX4(baseAddr + M_PIIX4);
 		this.gt = new GT(baseAddr + M_GTBASE);
 		this.display = new MaltaDisplay(baseAddr + M_DISPLAYS);
+		// XXX strictly, this should be a TI 16C550C, not a SMSC NS 16C550A compatible
+		this.cbusUart = new Uart(baseAddr + M_CBUS_UART, 8, "COM3", false);
+		this.devices.addAll(Arrays.asList(p4, gt, display, cbusUart));
 	}
 	
-	public void setIrq (int irq) {
+	public void setIrq (final int irq) {
 		gt.setIrq(irq);
 	}
 	
 	@Override
-	public void init (Symbols sym) {
+	public void init (final Symbols sym) {
 		log.println("init malta at " + Integer.toHexString(baseAddr));
 		sym.init(Malta.class, "M_", null, baseAddr, Integer.MAX_VALUE);
-		display.init(sym);
-		p4.init(sym);
-		gt.init(sym);
+		devices.forEach(d -> d.init(sym));
 	}
 	
 	@Override
-	public boolean isMapped (int addr) {
+	public boolean isMapped (final int addr) {
 		// root device, everything is mapped
 		throw new RuntimeException();
 	}
 	
 	@Override
-	public int systemRead (int addr, int size) {
-		if (gt.isMapped(addr)) {
-			return gt.systemRead(addr, size);
-			
-		} else if (p4.isMapped(addr)) {
-			return p4.systemRead(addr, size);
-			
-		} else if (display.isMapped(addr)) {
-			return display.systemRead(addr, size);
-			
-		} else {
-			int offset = addr - baseAddr;
-			switch (offset) {
-				case M_REVISION:
-					return 1;
-				default:
-					throw new RuntimeException("unknown system read " + Cpu.getInstance().getMemory().getSymbols().getNameAddrOffset(addr) + " size " + size);
-			}
+	public int systemRead (final int addr, final int size) {
+		final Optional<Device> o = devices.stream().filter(d -> d.isMapped(addr)).findFirst();
+		if (o.isPresent()) {
+			return o.get().systemRead(addr, size);
+		}
+		
+		final int offset = addr - baseAddr;
+		switch (offset) {
+			case M_REVISION:
+				return 1;
+			default:
+				throw new RuntimeException("unknown system read " + Cpu.getInstance().getMemory().getSymbols().getNameAddrOffset(addr) + " size " + size);
 		}
 	}
 	
 	@Override
-	public void systemWrite (final int addr, final int value, int size) {
-		if (gt.isMapped(addr)) {
-			gt.systemWrite(addr, value, size);
-			
-		} else if (p4.isMapped(addr)) {
-			p4.systemWrite(addr, value, size);
-			
-		} else if (addr >= baseAddr + M_UNCACHED_EX_H && addr < baseAddr + M_UNCACHED_EX_H + 0x100) {
+	public void systemWrite (final int addr, final int value, final int size) {
+		final Optional<Device> o = devices.stream().filter(d -> d.isMapped(addr)).findFirst();
+		if (o.isPresent()) {
+			o.get().systemWrite(addr, value, size);
+			return;
+		}
+		
+		final int offset = addr - baseAddr;
+		if (offset >= M_UNCACHED_EX_H && offset < M_UNCACHED_EX_H + 0x100) {
 			// TODO this should map straight through to memory
 			//log.println("set uncached exception handler " + Symbols.getInstance().getNameOffset(baseAddr + addr) + " <= " + Integer.toHexString(value));
 			
-		} else if (display.isMapped(addr)) {
-			display.systemWrite(addr, value, size);
-			
 		} else {
-			int offset = addr - baseAddr;
-			switch (offset) {
-				default:
-					throw new RuntimeException("unknown system write " + Symbols.getInstance().getNameAddrOffset(addr) + " <= " + Integer.toHexString(value));
-			}
+			throw new RuntimeException("unknown system write " + Symbols.getInstance().getNameAddrOffset(addr) + " <= " + Integer.toHexString(value));
 		}
-		
 	}
 	
 }

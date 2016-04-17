@@ -73,15 +73,15 @@ public final class Symbols {
 		return addrStr;
 	}
 	
-	public int getAddr (String name) {
+	public int getAddr (final String name) {
 		return reverseMap.get(name).intValue();
 	}
 	
-	public void put (final int addr, String name) {
+	public void put (final int addr, final String name) {
 		put(addr, name, Integer.MAX_VALUE);
 	}
 	
-	public void put (final int addr, String name, int size) {
+	public void put (final int addr, final String name, final int size) {
 		if (addr != 0 && name != null && name.length() > 0 && size > 0) {
 			// zero extend address
 			final Long key = new Long(addr & 0xffff_ffffL);
@@ -95,20 +95,24 @@ public final class Symbols {
 		}
 	}
 	
-	public void init(Class<?> c, String prefix, String rep, int offset, int size) {
+	public void init(final Class<?> c, final String prefix, final String prefixReplacement, final int addr, final int size) {
+		init(c, prefix, prefixReplacement, addr, size, 1);
+	}
+	
+	public void init(final Class<?> c, final String prefix, final String prefixReplacement, final int addr, final int size, final int offsetMul) {
 		boolean hasPut = false;
-		for (Field f : c.getFields()) {
+		for (final Field f : c.getFields()) {
 			String name = f.getName();
 			if (name.startsWith(prefix)) {
 				final int m = f.getModifiers();
 				if (Modifier.isPublic(m) && Modifier.isStatic(m) && Modifier.isFinal(m) && f.getType().isAssignableFrom(int.class)) {
 					try {
-						if (rep != null) {
-							name = rep + name.substring(prefix.length());
+						if (prefixReplacement != null) {
+							name = prefixReplacement + name.substring(prefix.length());
 						}
-						put(offset + f.getInt(null), name, size);
+						put(addr + (f.getInt(null) * offsetMul), name, size);
 						hasPut = true;
-					} catch (Exception e) {
+					} catch (final Exception e) {
 						throw new RuntimeException(e);
 					}
 				}
@@ -121,8 +125,8 @@ public final class Symbols {
 	
 	@Override
 	public String toString () {
-		Map.Entry<Long, Symbol> e1 = map.firstEntry();
-		Map.Entry<Long, Symbol> e2 = map.lastEntry();
+		final Map.Entry<Long, Symbol> e1 = map.firstEntry();
+		final Map.Entry<Long, Symbol> e2 = map.lastEntry();
 		return String.format("Symbols[%d: %s - %s]", map.size(), e1, e2);
 	}
 }

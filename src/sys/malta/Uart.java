@@ -18,6 +18,7 @@ public class Uart implements Device {
 	private final StringBuilder consoleSb = new StringBuilder();
 	private final byte[] rxFifo = new byte[16];
 	private final boolean console;
+	private final int offsetMul;
 	
 	private int ier;
 	private int mcr;
@@ -27,7 +28,8 @@ public class Uart implements Device {
 	private int rxRead;
 	private int rxWrite;
 	
-	public Uart(final int baseAddr, final String name, final boolean console) {
+	public Uart(final int baseAddr, final int offsetMul, final String name, final boolean console) {
+		this.offsetMul = offsetMul;
 		this.log = new Logger(name);
 		this.baseAddr = baseAddr;
 		this.name = name;
@@ -38,23 +40,20 @@ public class Uart implements Device {
 	@Override
 	public void init (final Symbols sym) {
 		log.println("init uart " + name + " at " + Integer.toHexString(baseAddr));
-		sym.init(UartUtil.class, "M_", "M_" + name + "_", baseAddr, 1);
+		sym.init(UartUtil.class, "M_", "M_" + name + "_", baseAddr, 1, offsetMul);
 	}
 	
 	@Override
 	public boolean isMapped (final int addr) {
 		// can't compare addr and baseAddr directly due to signed values
-		final int offset = addr - baseAddr;
+		final int offset = (addr - baseAddr) / offsetMul;
 		return offset >= 0 && offset < 8;
 	}
 	
 	@Override
 	public int systemRead (final int addr, final int size) {
-		if (size != 1) {
-			throw new RuntimeException();
-		}
-		
-		final int offset = addr - baseAddr;
+		// don't validate size, just assume byte
+		final int offset = (addr - baseAddr) / offsetMul;
 		
 		switch (offset) {
 			case M_RX_TX:
@@ -99,11 +98,8 @@ public class Uart implements Device {
 	
 	@Override
 	public void systemWrite (final int addr, final int valueInt, final int size) {
-		if (size != 1) {
-			throw new RuntimeException();
-		}
-		
-		final int offset = addr - baseAddr;
+		// don't validate size, just assume byte
+		final int offset = (addr - baseAddr) / offsetMul;
 		final byte value = (byte) valueInt;
 		
 		switch (offset) {

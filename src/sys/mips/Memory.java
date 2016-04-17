@@ -195,7 +195,7 @@ public final class Memory {
 	}
 	
 	/**
-	 * translate virtual address to physical
+	 * lookup virtual address using tlb
 	 */
 	private final int lookup (final int vaddr, final boolean store) {
 		int i = lookup1(vaddr, store);

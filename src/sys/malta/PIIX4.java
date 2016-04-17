@@ -12,7 +12,8 @@ import sys.util.Logger;
 import sys.util.Symbols;
 
 /**
- * the intel 82371AB (PIIX4) southbridge
+ * the intel 82371AB (PIIX4) southbridge (and bits of the SMSC FDC37M81 super io
+ * controller)
  */
 public class PIIX4 implements Device {
 	
@@ -78,8 +79,12 @@ public class PIIX4 implements Device {
 	private int rtcadr;
 	private int rtcdat;
 	private int picimr;
+	
+	// there are really bytes represented as ints for convenience
 	private int keydata;
-	private int keycmdstatus;
+	private int keystatus;
+	private int keycfg;
+	private int keycmd;
 	
 	public PIIX4(final int baseAddr) {
 		this.baseAddr = baseAddr;
@@ -88,6 +93,9 @@ public class PIIX4 implements Device {
 		this.com2 = new Uart(baseAddr + M_COM2, 1, "Uart:COM2");
 		this.devices.add(com1);
 		this.devices.add(com2);
+		
+		// system flag, nothing else?
+		keycfg = 0x4;
 	}
 	
 	@Override
@@ -119,13 +127,14 @@ public class PIIX4 implements Device {
 				return rtcdat;
 				
 			case M_KEYDATA: // 60
-				log.println("read keydata " + Integer.toHexString(keydata & 0xff));
-				keycmdstatus = 0;
+				log.println("read keydata %x", keydata);
+				// no more data...
+				keystatus = 0;
 				return keydata;
 				
 			case M_KEYCMDSTATUS: // 64
-				log.println("read keycmdstatus " + Integer.toHexString(keycmdstatus & 0xff));
-				return keycmdstatus;
+				log.println("read keystatus %x", keystatus);
+				return keystatus;
 				
 			default:
 				throw new RuntimeException("unknown system read " + Cpu.getInstance().getMemory().getSymbols().getNameAddrOffset(addr) + " size " + size);
@@ -170,6 +179,7 @@ public class PIIX4 implements Device {
 			case M_PIC_MASTER_IMR:
 				log.println("pic master write interrupt mask register %x", value & 0xff);
 				// XXX should probably do something here...
+				// XXX this will do a sign extension...
 				picimr = (byte) value;
 				return;
 				
@@ -182,27 +192,102 @@ public class PIIX4 implements Device {
 				return;
 				
 			case M_KEYCMDSTATUS:
-				log.println("keycmd " + Integer.toHexString(value & 0xff));
-				switch (value & 0xff) {
-					case 0x20:
-						log.println("keycmd read config");
-						keycmdstatus = 1;
-						// system flag, nothing else?
-						keydata = 0x4;
-						return;
-					case 0xaa:
-						log.println("keycmd test");
-						keycmdstatus = 1;
-						// success
-						keydata = 0x55;
-						return;
-					default:
-						throw new RuntimeException("unknown keycmd " + Integer.toHexString(value));
-				}
+				keyCmdWrite(value & 0xff);
+				return;
+				
+			case M_KEYDATA:
+				keyDataWrite(value & 0xff);
+				return;
 				
 			default:
 				throw new RuntimeException("unknown system write " + Symbols.getInstance().getNameAddrOffset(addr) + " <= " + Integer.toHexString(value));
 		}
+	}
+	
+	private void keyCmdWrite (final int value) {
+		log.println("keycmd %x", value);
+		
+		switch (value) {
+			case 0x20:
+				log.println("keycmd %x: read config", value);
+				keystatus = 1;
+				keydata = keycfg;
+				return;
+			case 0x60:
+				log.println("keycmd %x: write config", value);
+				// wait for the next byte...
+				keystatus = 0;
+				keycmd = value;
+				return;
+			case 0xa7:
+				log.println("keycmd %x: disable aux", value);
+				// disable aux int?
+				//keycfg &= ~0x2;
+				// disable aux clock?
+				keycfg |= 0x20;
+				keystatus = 0;
+				log.println(keyCfgString());
+				return;
+			case 0xa8:
+				log.println("keycmd %x: enable aux", value);
+				keycfg &= ~0x20;
+				keystatus = 0;
+				log.println(keyCfgString());
+				return;
+			case 0xa9:
+				log.println("keycmd %x: test aux", value);
+				keystatus = 1;
+				// success
+				keydata = 0;
+				return;
+			case 0xaa:
+				log.println("keycmd %x: test", value);
+				keystatus = 1;
+				// success
+				keydata = 0x55;
+				return;
+			case 0xd3:
+				log.println("keycmd %x: write to aux out", value);
+				keycmd = value;
+				return;
+			default:
+				throw new RuntimeException(String.format("unknown keycmd %x", value));
+		}
+	}
+	
+	private void keyDataWrite (int value) {
+		log.println("keydata %x", value);
+		switch (keycmd) {
+			case 0x60:
+				// write to cfg
+				log.println("keydata cfg: %x", value);
+				keycfg = value;
+				log.println(keyCfgString());
+				return;
+				
+			case 0xd3:
+				log.println("keydata aux out %x", value);
+				// output buffer full?
+				keystatus = 1;
+				return;
+				
+			default:
+				throw new RuntimeException(String.format("unknown keydata %x for cmd %x", value, keycmd));
+		}
+	}
+
+	private String keyCfgString () {
+		// port1 = keyboard
+		// port2 = mouse
+		boolean p1int = (keycfg & 0x1) != 0;
+		boolean p2int = (keycfg & 0x2) != 0;
+		boolean sf = (keycfg & 0x4) != 0;
+		boolean p1cldis = (keycfg & 0x10) != 0;
+		boolean p2cldis = (keycfg & 0x20) != 0;
+		boolean p1tr = (keycfg & 0x40) != 0;
+		return String.format("keycfg[%x =%s%s%s%s%s%s]", 
+				keycfg, p1int ? " keyint" : "", p2int ? " auxint" : "", sf ? " system" : "", 
+						p1cldis ? " keyclockdisabled" : "", p2cldis ? " auxclockdisabled" : "", p1tr ? " keytranslate" : "");
 	}
 	
 	private void rtcAdrWrite (final int value) {

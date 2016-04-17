@@ -58,6 +58,10 @@ public class LogsTableModel extends AbstractTableModel {
 		}
 	}
 	
+	public Log getRow (int row) {
+		return logs.get(row);
+	}
+	
 	@Override
 	public Object getValueAt (int row, int col) {
 		Log l = logs.get(row);

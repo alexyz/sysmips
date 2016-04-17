@@ -1,12 +1,11 @@
 package sys.ui;
 
 import java.awt.BorderLayout;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
-import java.util.*;
+import java.awt.Color;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.TableCellRenderer;
 
 import sys.util.Log;
 
@@ -17,11 +16,21 @@ public class LoggerJPanel extends JPanel {
 
 	private final JTextField textField = new JTextField();
 	private final LogsTableModel tableModel = new LogsTableModel();
-	private final JTable table = new JTable(tableModel);
+	private final JTable table;
 	
 	public LoggerJPanel() {
 		super(new BorderLayout());
 		textField.setColumns(20);
+		table = new JTable(tableModel) {
+			@Override
+			public javax.swing.table.TableCellRenderer getCellRenderer(int row, int column) {
+				TableCellRenderer tcr = super.getCellRenderer(row, column);
+				JComponent c = (JComponent) tcr;
+				boolean l = tableModel.getRow(row).ex;
+				c.setBackground(l ? Color.lightGray : Color.white);
+				return tcr;
+			}
+		};
 		table.setAutoCreateRowSorter(true);
 		
 		table.getColumnModel().getColumn(0).setMaxWidth(100);

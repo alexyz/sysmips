@@ -345,7 +345,7 @@ public final class Cpu {
 			final long endTime = System.nanoTime();
 			final long duration = endTime - startTime;
 			log.println("ended");
-			log.println("ns per isn (or cc per isn at 1ghz): " + (duration / cycle));
+			log.println("nanoseconds per isn (or clock cycles per isn at 1ghz): " + (duration / cycle));
 			instance.remove();
 			executor.shutdown();
 			fireLogs();

@@ -26,6 +26,7 @@ other company
 * SMSC FDC37M81x PC98/99 Compliant Enhanced Super I/O Controller (2000)
 * Intel Embedded Controller Handbook Volume I: 8-Bit (1989) - If you can find it!
 * [OSDev 8042 PS/2 Controller](http://wiki.osdev.org/%228042%22_PS/2_Controller)
+* [OSDev 8259 PIC](http://wiki.osdev.org/8259_PIC)
 
 ## Suggested Software
 

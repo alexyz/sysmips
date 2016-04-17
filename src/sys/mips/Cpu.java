@@ -44,6 +44,7 @@ public final class Cpu {
 	
 	private volatile long cycle = 1;
 	private volatile boolean logScheduled;
+	private volatile long waitTimeNs;
 	
 	/**
 	 * within execOp: address of current instruction. if pc2 != pc + 4 then the
@@ -212,7 +213,7 @@ public final class Cpu {
 	}
 	
 	public final void addLog(Log log) {
-		synchronized (logs) {
+		synchronized (this) {
 			logs.add(log);
 			if (!logScheduled) {
 				executor.schedule(() -> fireLogs(), 1000, TimeUnit.MILLISECONDS);
@@ -223,7 +224,7 @@ public final class Cpu {
 
 	private void fireLogs () {
 		Log[] a;
-		synchronized (logs) {
+		synchronized (this) {
 			a = logs.toArray(new Log[logs.size()]);
 			logs.clear();
 			logScheduled = false;
@@ -343,7 +344,7 @@ public final class Cpu {
 			
 		} finally {
 			final long endTime = System.nanoTime();
-			final long duration = endTime - startTime;
+			final long duration = endTime - startTime - waitTimeNs;
 			log.println("ended");
 			log.println("nanoseconds per isn (or clock cycles per isn at 1ghz): " + (duration / cycle));
 			instance.remove();
@@ -359,7 +360,7 @@ public final class Cpu {
 //				throw new RuntimeException();
 //			}
 			CpuExceptionParams ep;
-			synchronized (exceptions) {
+			synchronized (this) {
 				ep = exceptions.poll();
 			}
 			if (ep != null) {
@@ -372,8 +373,10 @@ public final class Cpu {
 
 	public final void addException (final CpuExceptionParams ep) {
 		//log.println("add exn " + ep);
-		synchronized (exceptions) {
+		synchronized (this) {
 			exceptions.add(ep);
+			// wake up...
+			notifyAll();
 		}
 	}
 	
@@ -1096,6 +1099,23 @@ public final class Cpu {
 				}
 				return;
 			}
+			case CP_FN_WAIT:
+				// no idea...
+				synchronized (this) {
+					while (exceptions.size() == 0) {
+						try {
+							log.println("waiting...");
+							long t = System.nanoTime();
+							wait();
+							t = System.nanoTime() - t;
+							waitTimeNs += t;
+							log.println("continuing after " + t + " nanoseconds");
+						} catch (InterruptedException e) {
+							log.println("interrupted in wait...");
+						}
+					}
+				}
+				return;
 			case CP_FN_ERET: {
 				final int epc = cpRegister[CPR_EPC];
 				//log.println("exception return " + memory.getSymbols().getNameAddrOffset(epc));

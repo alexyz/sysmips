@@ -17,6 +17,7 @@ import sys.util.Symbols;
  */
 public class PIIX4 implements Device {
 	
+	// I8259 programmable interrupt controller
 	public static final int M_PIC_MASTER_CMD = 0x20;
 	public static final int M_PIC_MASTER_IMR = 0x21;
 	
@@ -26,24 +27,34 @@ public class PIIX4 implements Device {
 	public static final int M_PIT_COUNTER_2 = 0x42;
 	public static final int M_PIT_TCW = 0x43;
 	
-	// I8042
+	// I8042 ps/2 keyboard/mouse microcontroller (provided by superio)
 	/** keyboard data read/write */
-	public static final int M_KEYDATA = 0x60;
+	public static final int M_PS2_DATA = 0x60;
 	/** keyboard command (write), status (read) */
-	public static final int M_KEYCMDSTATUS = 0x64;
+	public static final int M_PS2_CMDSTATUS = 0x64;
 	
-	public static final int M_RTCADR = 0x70;
-	public static final int M_RTCDAT = 0x71;
+	// real time clock
+	public static final int M_RTC_ADR = 0x70;
+	public static final int M_RTC_DAT = 0x71;
 	
 	public static final int M_PIC_SLAVE_CMD = 0xa0;
 	public static final int M_PIC_SLAVE_IMR = 0xa1;
 	
 	public static final int M_DMA2_MASK_REG = 0xd4;
 	
+	// 16650 uarts (provided by superio)
 	public static final int M_COM2 = 0x2f8;
 	public static final int M_COM1 = 0x3f8;
 	
 	private static final Logger log = new Logger("PIIX4");
+	/** fire irq 1 on data */
+	private static final int PS2_CFG_KEYINT = 0x1;
+	/** fire irq 12 on data */
+	private static final int PS2_CFG_AUXINT = 0x2;
+	private static final int PS2_CFG_SYSTEM = 0x4;
+	private static final int PS2_CFG_KEYDISABLE = 0x10;
+	private static final int PS2_CFG_AUXDISABLE = 0x20;
+	private static final int PS2_CFG_KEYTRANS = 0x40;
 	
 	private static int indexToCalendar (final int index) {
 		switch (index) {
@@ -122,17 +133,17 @@ public class PIIX4 implements Device {
 			case M_PIC_MASTER_IMR:
 				return picimr;
 				
-			case M_RTCDAT:
+			case M_RTC_DAT:
 				// should compute this from rtcadr each time?
 				return rtcdat;
 				
-			case M_KEYDATA: // 60
+			case M_PS2_DATA: // 60
 				log.println("read keydata %x", keydata);
 				// no more data...
 				keystatus = 0;
 				return keydata;
 				
-			case M_KEYCMDSTATUS: // 64
+			case M_PS2_CMDSTATUS: // 64
 				log.println("read keystatus %x", keystatus);
 				return keystatus;
 				
@@ -159,11 +170,11 @@ public class PIIX4 implements Device {
 				timerCounter0Write((byte) value);
 				return;
 				
-			case M_RTCADR:
+			case M_RTC_ADR:
 				rtcAdrWrite(value);
 				return;
 				
-			case M_RTCDAT:
+			case M_RTC_DAT:
 				rtcDatWrite(value);
 				return;
 				
@@ -191,11 +202,11 @@ public class PIIX4 implements Device {
 				log.println("pic slave write interrupt mask register %x ignored", value & 0xff);
 				return;
 				
-			case M_KEYCMDSTATUS:
+			case M_PS2_CMDSTATUS:
 				keyCmdWrite(value & 0xff);
 				return;
 				
-			case M_KEYDATA:
+			case M_PS2_DATA:
 				keyDataWrite(value & 0xff);
 				return;
 				
@@ -269,6 +280,12 @@ public class PIIX4 implements Device {
 				log.println("keydata aux out %x", value);
 				// output buffer full?
 				keystatus = 1;
+				if ((keycfg & PS2_CFG_AUXINT) != 0) {
+					// XXX is this right?
+					log.println("adding mouse interrupt...");
+					final CpuExceptionParams ep = new CpuExceptionParams(CpuConstants.EX_INTERRUPT, MaltaUtil.INT_SOUTHBRIDGE_INTR, MaltaUtil.IRQ_MOUSE);
+					Cpu.getInstance().addException(ep);
+				}
 				return;
 				
 			default:
@@ -279,12 +296,12 @@ public class PIIX4 implements Device {
 	private String keyCfgString () {
 		// port1 = keyboard
 		// port2 = mouse
-		boolean p1int = (keycfg & 0x1) != 0;
-		boolean p2int = (keycfg & 0x2) != 0;
-		boolean sf = (keycfg & 0x4) != 0;
-		boolean p1cldis = (keycfg & 0x10) != 0;
-		boolean p2cldis = (keycfg & 0x20) != 0;
-		boolean p1tr = (keycfg & 0x40) != 0;
+		boolean p1int = (keycfg & PS2_CFG_KEYINT) != 0;
+		boolean p2int = (keycfg & PS2_CFG_AUXINT) != 0;
+		boolean sf = (keycfg & PS2_CFG_SYSTEM) != 0;
+		boolean p1cldis = (keycfg & PS2_CFG_KEYDISABLE) != 0;
+		boolean p2cldis = (keycfg & PS2_CFG_AUXDISABLE) != 0;
+		boolean p1tr = (keycfg & PS2_CFG_KEYTRANS) != 0;
 		return String.format("keycfg[%x =%s%s%s%s%s%s]", 
 				keycfg, p1int ? " keyint" : "", p2int ? " auxint" : "", sf ? " system" : "", 
 						p1cldis ? " keyclockdisabled" : "", p2cldis ? " auxclockdisabled" : "", p1tr ? " keytranslate" : "");

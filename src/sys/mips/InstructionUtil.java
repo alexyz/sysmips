@@ -3,6 +3,9 @@ package sys.mips;
 import static sys.mips.CpuConstants.*;
 import static sys.mips.CpuFunctions.*;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+
 import sys.util.Symbols;
 
 /**
@@ -13,7 +16,7 @@ public class InstructionUtil {
 	private static final Instruction NOP = new Instruction("nop");
 
 	/** names of general registers */
-	public static final String[] REG_NAMES = new String[] { 
+	private static final String[] REG_NAMES = new String[] { 
 		"zero", "at", "v0", "v1", 
 		"a0", "a1", "a2", "a3",
 		// 8
@@ -27,7 +30,7 @@ public class InstructionUtil {
 		"gp", "sp", "s8", "ra"
 	};
 
-	public static final String[][] CP_REG_NAMES = new String[][] { 
+	private static final String[][] CP_REG_NAMES = new String[][] { 
 		new String[] { "Index", "MVPControl", "MVPConf0", "MVPConf1" },
 		new String[] { "Random", "VPEControl", "VPEConf0", "VPEConf1", "YQMask", "VPESchedule", "VPEScheFBack", "VPEOpt" },
 		new String[] { "EntryLo0", "TCStatus", "TCBind", "TCRestart", "TCHalt", "TCContext", "TCSchedule", "TCScheFBack" },
@@ -101,6 +104,7 @@ public class InstructionUtil {
 		
 		Instruction isnObj;
 		if (op == OP_SPECIAL && fn == FN_SLL && rd == 0) {
+			// pretend it's a no-op
 			isnObj = NOP;
 		} else {
 			isnObj = InstructionSet.getInstance().getIsn(isn);
@@ -249,26 +253,30 @@ public class InstructionUtil {
 		return String.format("%.6f", d);
 	}
 	
-	public static String exceptionName (int ex) {
-		switch (ex) {
-			case EX_INTERRUPT: return "Interrupt";
-			case EX_TLB_MODIFICATION: return "TLBModification";
-			case EX_TLB_LOAD: return "TLBLoad";
-			case EX_TLB_STORE: return "TLBStore";
-			case EX_ADDR_ERROR_LOAD: return "AddressErrorLoad";
-			case EX_ADDR_ERROR_STORE: return "AddressErrorStore";
-			case EX_ISN_BUS_ERROR: return "BusErrorInstruction";
-			case EX_DATA_BUS_ERROR: return "BusErrorData";
-			case EX_SYSCALL: return "Syscall";
-			case EX_BREAKPOINT: return "Breakpoint";
-			case EX_RESERVED_ISN: return "ReservedInstruction";
-			case EX_COPROC_UNUSABLE: return "CoprocessorUnusable";
-			case EX_OVERFLOW: return "IntegerOverflow";
-			case EX_TRAP: return "Trap";
-			case EX_WATCH: return "Watch";
-			case EX_MCHECK: return "MachineCheck";
-			default: return "Exception" + ex;
-		}
+	public static String exceptionString (int ex) {
+		return InstructionUtil.lookup(CpuConstants.class, "EX_", ex);
 	}
 	
+	/**
+	 * lookup constant name
+	 */
+	public static String lookup (Class<?> c, String prefix, int value) {
+		for (final Field f : c.getFields()) {
+			String name = f.getName();
+			if (name.startsWith(prefix)) {
+				final int m = f.getModifiers();
+				if (Modifier.isPublic(m) && Modifier.isStatic(m) && Modifier.isFinal(m) && f.getType().isAssignableFrom(int.class)) {
+					try {
+						if (f.getInt(null) == value) {
+							return name;
+						}
+					} catch (final Exception e) {
+						throw new RuntimeException(e);
+					}
+				}
+			}
+		}
+		return null;
+	}
+		
 }

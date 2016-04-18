@@ -1,5 +1,7 @@
 package sys.malta;
 
+import sys.mips.InstructionUtil;
+
 public class MaltaUtil {
 	
 	/** southbridge timer */
@@ -47,64 +49,13 @@ public class MaltaUtil {
 	public static final int INT_CORELO = 6;
 	/** cpu internal timer (INT5) */
 	public static final int INT_R4KTIMER = 7;
-	
-	public static String interruptName (int interrupt) {
-		switch (interrupt) {
-			case INT_SOFTWARE_0:
-				return "SOFTWARE_0";
-			case INT_SOFTWARE_1:
-				return "SOFTWARE_1";
-			// the Malta user guide calls these INT0 to INT5
-			case INT_SOUTHBRIDGE_INTR:
-				return "SOUTHBRIDGE_INTR";
-			case INT_SOUTHBRIDGE_SMI:
-				return "SOUTHBRIDGE_SMI";
-			case INT_CBUS_UART:
-				return "CBUS_UART";
-			case INT_COREHI:
-				return "COREHI";
-			case INT_CORELO:
-				return "CORELO";
-			case INT_R4KTIMER:
-				return "R4KTIMER";
-			default:
-				return null;
-		}
+
+	public static String interruptString (int interrupt) {
+		return InstructionUtil.lookup(MaltaUtil.class, "INT_", interrupt);
 	}
 	
-	public static String irqName (int irq) {
-		switch (irq) {
-			case IRQ_TIMER:
-				return "TIMER";
-			case IRQ_KEYBOARD:
-				return "KEYBOARD";
-			case IRQ_CASCADE:
-				return "CASCADE";
-			case IRQ_UART0:
-				return "UART0";
-			case IRQ_UART1:
-				return "UART1";
-			case IRQ_FLOPPY:
-				return "FLOPPY";
-			case IRQ_PARALLEL:
-				return "PARALLEL";
-			case IRQ_RTC:
-				return "RTC";
-			case IRQ_I2C:
-				return "I2C";
-			case IRQ_PCI_AB:
-				return "PCI_AB";
-			case IRQ_PCI_CD:
-				return "PCI_CD";
-			case IRQ_MOUSE:
-				return "MOUSE";
-			case IRQ_IDE0:
-				return "IDE0";
-			case IRQ_IDE1:
-				return "IDE1";
-			default:
-				return null;
-		}
+	public static String irqString (int irq) {
+		return InstructionUtil.lookup(MaltaUtil.class, "IRQ_", irq);
 	}
 	
 }

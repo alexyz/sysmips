@@ -95,10 +95,10 @@ public class Malta implements Device {
 	}
 	
 	@Override
-	public void systemWrite (final int addr, final int value, final int size) {
+	public void systemWrite (final int addr, final int size, final int value) {
 		final Optional<Device> o = devices.stream().filter(d -> d.isMapped(addr)).findFirst();
 		if (o.isPresent()) {
-			o.get().systemWrite(addr, value, size);
+			o.get().systemWrite(addr, size, value);
 			return;
 		}
 		

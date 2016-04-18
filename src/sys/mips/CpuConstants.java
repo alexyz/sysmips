@@ -545,25 +545,6 @@ public final class CpuConstants {
 	// functions
 	//
 	
-	public static String lookup (String prefix, int value) {
-		for (final Field f : CpuConstants.class.getFields()) {
-			String name = f.getName();
-			if (name.startsWith(prefix)) {
-				final int m = f.getModifiers();
-				if (Modifier.isPublic(m) && Modifier.isStatic(m) && Modifier.isFinal(m) && f.getType().isAssignableFrom(int.class)) {
-					try {
-						if (((Integer)f.getInt(null)).intValue() == value) {
-							return name;
-						}
-					} catch (final Exception e) {
-						throw new RuntimeException(e);
-					}
-				}
-			}
-		}
-		return null;
-	}
-	
 	/** return the cpr index for the register and selection */
 	public static int cprIndex (int rd, int sel) {
 		return rd + sel * 32;

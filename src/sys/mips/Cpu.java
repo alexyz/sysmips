@@ -346,7 +346,7 @@ public final class Cpu {
 			final long endTime = System.nanoTime();
 			final long duration = endTime - startTime - waitTimeNs;
 			log.println("ended");
-			log.println("nanoseconds per isn (or clock cycles per isn at 1ghz): " + (duration / cycle));
+			log.println("nanoseconds per isn: " + (duration / cycle));
 			instance.remove();
 			executor.shutdown();
 			fireLogs();
@@ -432,7 +432,7 @@ public final class Cpu {
 				isTlbException = true;
 				break;
 			default:
-				throw new RuntimeException("unexpected exception " + ep.excode + ": " + CpuConstants.lookup("EX_", ep.excode));
+				throw new RuntimeException("unexpected exception " + ep.excode + ": " + InstructionUtil.exceptionString(ep.excode));
 		}
 		
 		// actually handle exception

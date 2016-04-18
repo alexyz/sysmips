@@ -83,7 +83,7 @@ public class GT implements Device {
 	}
 	
 	@Override
-	public void systemWrite (final int addr, int value, final int size) {
+	public void systemWrite (final int addr, final int size, int value) {
 		final int offset = addr - baseAddr;
 		final Cpu cpu = Cpu.getInstance();
 		

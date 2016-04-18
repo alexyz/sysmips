@@ -1,9 +1,6 @@
 package sys.malta;
 
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -18,8 +15,7 @@ import sys.util.Symbols;
 public class PIIX4 implements Device {
 	
 	// I8259 programmable interrupt controller
-	public static final int M_PIC_MASTER_CMD = 0x20;
-	public static final int M_PIC_MASTER_IMR = 0x21;
+	public static final int M_PIC_MASTER = 0x20;
 	
 	// I8253 programmable interval timer
 	public static final int M_PIT_COUNTER_0 = 0x40;
@@ -37,8 +33,7 @@ public class PIIX4 implements Device {
 	public static final int M_RTC_ADR = 0x70;
 	public static final int M_RTC_DAT = 0x71;
 	
-	public static final int M_PIC_SLAVE_CMD = 0xa0;
-	public static final int M_PIC_SLAVE_IMR = 0xa1;
+	public static final int M_PIC_SLAVE = 0xa0;
 	
 	public static final int M_DMA2_MASK_REG = 0xd4;
 	
@@ -78,10 +73,12 @@ public class PIIX4 implements Device {
 		}
 	}
 	
-	private final List<Device> devices = new ArrayList<>();
+	private final Device[] devices;
 	private final int baseAddr;
 	private final Uart com1;
 	private final Uart com2;
+	private final PIC pic1;
+	private final PIC pic2;
 	
 	private int timerCounter0;
 	private int timerControlWord = -1;
@@ -89,7 +86,6 @@ public class PIIX4 implements Device {
 	private Future<?> timerFuture;
 	private int rtcadr;
 	private int rtcdat;
-	private int picimr;
 	
 	// there are really bytes represented as ints for convenience
 	private int keydata;
@@ -100,11 +96,12 @@ public class PIIX4 implements Device {
 	public PIIX4(final int baseAddr) {
 		this.baseAddr = baseAddr;
 		this.com1 = new Uart(baseAddr + M_COM1, 1, "Uart:COM1");
-		this.com1.setConsole(true);
 		this.com2 = new Uart(baseAddr + M_COM2, 1, "Uart:COM2");
-		this.devices.add(com1);
-		this.devices.add(com2);
+		this.pic1 = new PIC(baseAddr + M_PIC_MASTER, true);
+		this.pic2 = new PIC(baseAddr + M_PIC_SLAVE, false);
+		this.devices = new Device[] { com1, com2, pic1, pic2 };
 		
+		com1.setConsole(true);
 		// system flag, nothing else?
 		keycfg = 0x4;
 	}
@@ -112,7 +109,9 @@ public class PIIX4 implements Device {
 	@Override
 	public void init (final Symbols sym) {
 		sym.init(PIIX4.class, "M_", null, baseAddr, 1);
-		devices.forEach(d -> d.init(sym));
+		for (Device d : devices) {
+			d.init(sym);
+		}
 	}
 	
 	@Override
@@ -123,15 +122,17 @@ public class PIIX4 implements Device {
 	
 	@Override
 	public int systemRead (final int addr, final int size) {
-		final Optional<Device> o = devices.stream().filter(d -> d.isMapped(addr)).findFirst();
-		if (o.isPresent()) {
-			return o.get().systemRead(addr, size);
+		for (Device d : devices) {
+			if (d.isMapped(addr)) {
+				return d.systemRead(addr, size);
+			}
 		}
 		
 		final int offset = addr - baseAddr;
 		switch (offset) {
-			case M_PIC_MASTER_IMR:
-				return picimr;
+//			case M_PIC_MASTER_IMR:
+//				if (true) throw new RuntimeException("read pic master imr");
+//				return picimr;
 				
 			case M_RTC_DAT:
 				// should compute this from rtcadr each time?
@@ -153,11 +154,12 @@ public class PIIX4 implements Device {
 	}
 	
 	@Override
-	public void systemWrite (final int addr, final int value, final int size) {
-		final Optional<Device> o = devices.stream().filter(d -> d.isMapped(addr)).findFirst();
-		if (o.isPresent()) {
-			o.get().systemWrite(addr, value, size);
-			return;
+	public void systemWrite (final int addr, final int size, final int value) {
+		for (Device d : devices) {
+			if (d.isMapped(addr)) {
+				d.systemWrite(addr, size, value);
+				return;
+			}
 		}
 		
 		final int offset = addr - baseAddr;
@@ -183,24 +185,31 @@ public class PIIX4 implements Device {
 				log.println("enable dma channel 4+ ignored" + value);
 				return;
 				
-			case M_PIC_MASTER_CMD:
-				log.println("pic master write command %x ignored", value & 0xff);
-				return;
+//			case M_PIC_MASTER_CMD:
+//				log.println("pic master write command %x", value & 0xff);
+//				if ((value & 0x10) != 0) {
+//					log.println("pic master ICW1");
+//					pic1imr = 0;
+//				}
+//				return;
+//				
+//			case M_PIC_MASTER_IMR:
+//				if (true) throw new RuntimeException("pic master imr " + Integer.toHexString(value & 0xff));
+//				log.println("pic master write interrupt mask register %x", value & 0xff);
+//				// XXX should probably do something here...
+//				// XXX this will do a sign extension...
+//				picimr = (byte) value;
+//				return;
 				
-			case M_PIC_MASTER_IMR:
-				log.println("pic master write interrupt mask register %x", value & 0xff);
-				// XXX should probably do something here...
-				// XXX this will do a sign extension...
-				picimr = (byte) value;
-				return;
-				
-			case M_PIC_SLAVE_CMD:
-				log.println("pic slave write command %x ignored", value & 0xff);
-				return;
-				
-			case M_PIC_SLAVE_IMR:
-				log.println("pic slave write interrupt mask register %x ignored", value & 0xff);
-				return;
+//			case M_PIC_SLAVE_CMD:
+//				if (true) throw new RuntimeException("pic slave cmd " + Integer.toHexString(value & 0xff));
+//				log.println("pic slave write command %x ignored", value & 0xff);
+//				return;
+//				
+//			case M_PIC_SLAVE_IMR:
+//				if (true) throw new RuntimeException("pic slave imr " + Integer.toHexString(value & 0xff));
+//				log.println("pic slave write interrupt mask register %x ignored", value & 0xff);
+//				return;
 				
 			case M_PS2_CMDSTATUS:
 				keyCmdWrite(value & 0xff);

@@ -50,7 +50,7 @@ public class MaltaDisplay implements Device {
 	}
 	
 	@Override
-	public void systemWrite (final int addr, final int value, final int size) {
+	public void systemWrite (final int addr, final int size, final int value) {
 		final int offset = addr - baseAddr;
 		
 		switch (offset) {

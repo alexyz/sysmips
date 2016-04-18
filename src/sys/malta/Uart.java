@@ -113,7 +113,7 @@ public class Uart implements Device {
 	}
 	
 	@Override
-	public void systemWrite (final int addr, final int valueInt, final int size) {
+	public void systemWrite (final int addr, final int size, final int valueInt) {
 		// don't validate size, just assume byte
 		final int offset = (addr - baseAddr) / offsetMul;
 		final byte value = (byte) valueInt;

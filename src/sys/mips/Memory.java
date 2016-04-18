@@ -111,7 +111,7 @@ public final class Memory {
 			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_STORE, vaddr));
 		}
 		if (isSystem(vaddr)) {
-			malta.systemWrite(vaddr, value, 4);
+			malta.systemWrite(vaddr, 4, value);
 		} else {
 			storeWordImpl(translate(vaddr, true), value);
 		}
@@ -133,7 +133,7 @@ public final class Memory {
 			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_STORE, vaddr));
 		}
 		if (isSystem(vaddr)) {
-			malta.systemWrite(vaddr, value, 2);
+			malta.systemWrite(vaddr, 2, value);
 		} else {
 			storeHalfWordImpl(translate(vaddr, true), value);
 		}
@@ -149,7 +149,7 @@ public final class Memory {
 	
 	public final void storeByte (final int vaddr, final byte value) {
 		if (isSystem(vaddr)) {
-			malta.systemWrite(vaddr, value, 1);
+			malta.systemWrite(vaddr, 1, value);
 		} else {
 			storeByteImpl(translate(vaddr, true), value);
 		}

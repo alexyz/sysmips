@@ -29,7 +29,7 @@ public class LogsTableModel extends AbstractTableModel {
 
 	@Override
 	public int getColumnCount () {
-		return 6;
+		return 4;
 	}
 	
 	@Override
@@ -38,9 +38,7 @@ public class LogsTableModel extends AbstractTableModel {
 			case 0: return Long.class;
 			case 1:
 			case 2: 
-			case 3: 
-			case 4:
-			case 5: return String.class;
+			case 3: return String.class;
 			default: throw new RuntimeException();
 		}
 	}
@@ -49,11 +47,9 @@ public class LogsTableModel extends AbstractTableModel {
 	public String getColumnName (int col) {
 		switch (col) {
 			case 0: return "Cycle";
-			case 1: return "KM";
-			case 2: return "IE";
-			case 3: return "EX";
-			case 4: return "Name";
-			case 5: return "Message";
+			case 1: return "Mode";
+			case 2: return "Name";
+			case 3: return "Message";
 			default: throw new RuntimeException();
 		}
 	}
@@ -67,11 +63,9 @@ public class LogsTableModel extends AbstractTableModel {
 		Log l = logs.get(row);
 		switch (col) {
 			case 0: return l.cycle;
-			case 1: return l.km ? "km" : "";
-			case 2: return l.ie ? "ie" : "";
-			case 3: return l.ex ? "ex" : "";
-			case 4: return l.name;
-			case 5: return l.msg;
+			case 1: return (l.km ? "km" : "") + (l.ie ? "ie" : "") + (l.ex ? "ex" : "");
+			case 2: return l.name;
+			case 3: return l.msg;
 			default: throw new RuntimeException();
 		}
 	}

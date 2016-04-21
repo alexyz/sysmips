@@ -26,7 +26,7 @@ public class Logger {
 			Cpu cpu = Cpu.getInstance();
 			Log log;
 			if (cpu != null) {
-				log = new Log(cpu.getCycle(), cpu.isKernelMode(), cpu.isInterruptsEnabled(), cpu.isExecException(), name, msg);
+				log = new Log(cpu.getCycle(), cpu.isKernelMode(), cpu.isInterruptsEnabled(), cpu.isExecException(), name, msg, cpu.getCalls().calls());
 				cpu.addLog(log);
 			} else {
 				log = new Log(name, msg);

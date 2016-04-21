@@ -191,4 +191,10 @@ public class CallLogger {
 		return "thread: " + threadNames.get(0) + ", calls: " + threads.get(0);
 	}
 	
+	public String[] calls () {
+		List<String> l = threads.get(0);
+		String[] a = l.toArray(new String[l.size()]);
+		return a;
+	}
+	
 }

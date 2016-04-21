@@ -2,6 +2,7 @@ package sys.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.event.MouseEvent;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -30,19 +31,18 @@ public class LoggerJPanel extends JPanel {
 				c.setBackground(l ? Color.lightGray : Color.white);
 				return tcr;
 			}
+			@Override
+			public String getToolTipText (MouseEvent e) {
+				int r = rowAtPoint(e.getPoint());
+				return "<html>" + String.join("<br>", tableModel.getRow(r).calls) + "</html>";
+			}
 		};
 		table.setAutoCreateRowSorter(true);
 		
 		table.getColumnModel().getColumn(0).setMaxWidth(100);
-		table.getColumnModel().getColumn(0).setResizable(false);
-		table.getColumnModel().getColumn(1).setMaxWidth(33);
-		table.getColumnModel().getColumn(1).setResizable(false);
-		table.getColumnModel().getColumn(2).setMaxWidth(33);
-		table.getColumnModel().getColumn(2).setResizable(false);
-		table.getColumnModel().getColumn(3).setMaxWidth(33);
-		table.getColumnModel().getColumn(3).setResizable(false);
-		table.getColumnModel().getColumn(4).setMaxWidth(100);
-		table.getColumnModel().getColumn(4).setResizable(false);
+		table.getColumnModel().getColumn(1).setMaxWidth(50);
+		table.getColumnModel().getColumn(2).setMaxWidth(100);
+		table.getColumnModel().getColumn(3).setPreferredWidth(100);
 		
 		JPanel northPanel = new JPanel();
 		northPanel.add(textField);

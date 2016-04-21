@@ -45,6 +45,7 @@ public final class Cpu {
 	private volatile long cycle = 1;
 	private volatile boolean logScheduled;
 	private volatile long waitTimeNs;
+	private volatile int waitCount;
 	
 	/**
 	 * within execOp: address of current instruction. if pc2 != pc + 4 then the
@@ -1109,7 +1110,11 @@ public final class Cpu {
 							wait();
 							t = System.nanoTime() - t;
 							waitTimeNs += t;
-							log.println("continuing after " + t + " nanoseconds");
+							waitCount++;
+							if (waitCount > 10) {
+								throw new RuntimeException("wait count exceeded");
+							}
+							log.println("continuing after " + (t/1000000000.0) + " seconds");
 						} catch (InterruptedException e) {
 							log.println("interrupted in wait...");
 						}

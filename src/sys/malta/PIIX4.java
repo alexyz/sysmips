@@ -225,7 +225,7 @@ public class PIIX4 implements Device {
 	}
 	
 	private void keyCmdWrite (final int value) {
-		log.println("keycmd %x", value);
+		//log.println("keycmd %x", value);
 		
 		switch (value) {
 			case 0x20:
@@ -276,17 +276,18 @@ public class PIIX4 implements Device {
 	}
 	
 	private void keyDataWrite (int value) {
-		log.println("keydata %x", value);
+		//log.println("keydata %x", value);
+		
 		switch (keycmd) {
 			case 0x60:
 				// write to cfg
-				log.println("keydata cfg: %x", value);
+				log.println("keydata %x: write keycfg %x", keycmd, value);
 				keycfg = value;
 				log.println(keyCfgString());
 				return;
 				
 			case 0xd3:
-				log.println("keydata aux out %x", value);
+				log.println("keydata %x: write auxout %x", keycmd, value);
 				// output buffer full?
 				keystatus = 1;
 				if ((keycfg & PS2_CFG_AUXINT) != 0) {

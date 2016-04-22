@@ -27,13 +27,13 @@ other company
 * Intel Embedded Controller Handbook Volume I: 8-Bit (1989) - If you can find it!
 * [OSDev 8042 PS/2 Controller](http://wiki.osdev.org/%228042%22_PS/2_Controller)
 * Intel 8259A PROGRAMMABLE INTERRUPT CONTROLLER (1988)
+* IBM PC Technical Reference (1984) - Section on Keyboard Controller
 
 ## Suggested Software
 
 * [Linux 3.2 kernel image](https://packages.debian.org/stable/kernel/linux-image-3.2.0-4-4kc-malta), extract using ar -x *.deb; tar -xf data.tar.xz
 * [Linux 3.2.68 source code](https://cdn.kernel.org/pub/linux/kernel/v3.x/), particularly arch/mips/include/asm and arch/mips/mti-malta
 * MIPS YAMON source code
-* GRUB source code
 
 ## Screenshot
 

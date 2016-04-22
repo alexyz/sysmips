@@ -42,17 +42,13 @@ public class CallLogger {
 	}
 	
 	public void call (int addr) {
-		call(addr, false);
-	}
-	
-	public void callNoRet (int addr) {
 		call(addr, true);
 	}
 	
-	private void call (int addr, boolean noret) {
+	public void call (int addr, boolean linked) {
 		final List<String> calls = threads.get(0);
 		final String nameos = cpu.getMemory().getSymbols().getNameOffset(addr);
-		calls.add(noret ? INLINE + nameos : nameos);
+		calls.add(linked ? nameos : INLINE + nameos);
 		
 //		final String name = cpu.getMemory().getSymbols().getName(addr);
 //		if (printCall(name)) {
@@ -191,10 +187,18 @@ public class CallLogger {
 		return "thread: " + threadNames.get(0) + ", calls: " + threads.get(0);
 	}
 	
+	/** cached previous calls */
+	private String[] pa;
+	
 	public String[] calls () {
 		List<String> l = threads.get(0);
 		String[] a = l.toArray(new String[l.size()]);
-		return a;
+		if (pa != null && Arrays.equals(pa, a)) {
+			return pa;
+		} else {
+			pa = a;
+			return a;
+		}
 	}
 	
 }

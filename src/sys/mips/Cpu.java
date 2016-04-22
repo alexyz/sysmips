@@ -530,16 +530,7 @@ public final class Cpu {
 			}
 			case OP_J:
 				execJump(isn);
-				{
-					// [85960839:ki] 0x80269124<proc_mkdir+0x4>               0809a42d j       0x802690b4<proc_mkdir_mode>
-					Symbols sym = memory.getSymbols();
-					String pcname = sym.getName(pc);
-					String nextpcname = sym.getName(pc3);
-					if (!pcname.equals(nextpcname)) {
-						//log.debug("implicit call " + pcname + " -> " + nextpcname);
-						calls.callNoRet(pc3);
-					}
-				}
+				checkCall(false);
 				return;
 			case OP_JAL:
 				execLink();
@@ -549,16 +540,19 @@ public final class Cpu {
 			case OP_BLEZ:
 				if (register[rs] <= 0) {
 					execBranch(isn);
+					checkCall(false);
 				}
 				return;
 			case OP_BEQ:
 				if (register[rs] == register[rt]) {
 					execBranch(isn);
+					checkCall(false);
 				}
 				return;
 			case OP_BNE:
 				if (register[rs] != register[rt]) {
 					execBranch(isn);
+					checkCall(false);
 				}
 				return;
 			case OP_ADDIU:
@@ -573,6 +567,7 @@ public final class Cpu {
 			case OP_BGTZ:
 				if (register[rs] > 0) {
 					execBranch(isn);
+					checkCall(false);
 				}
 				return;
 			case OP_SLTI:
@@ -704,6 +699,16 @@ public final class Cpu {
 				throw new RuntimeException("invalid op " + opString(op));
 		}
 	}
+
+	private void checkCall (boolean linked) {
+		Symbols sym = memory.getSymbols();
+		String pcname = sym.getName(pc);
+		String nextpcname = sym.getName(pc3);
+		if (!pcname.equals(nextpcname)) {
+			calls.call(pc, linked);
+			//throw new RuntimeException("pcname=" + pcname + " nextpcname=" + nextpcname);
+		}
+	}
 	
 	/** update nextpc with jump */
 	private final void execJump (final int isn) {
@@ -722,22 +727,27 @@ public final class Cpu {
 	private final void execRegImm (final int isn) {
 		final int rs = rs(isn);
 		final int rt = rt(isn);
+		boolean link = false;
 		
 		switch (rt) {
 			case RT_BGEZAL:
+				link = true;
 				execLink();
 				//$FALL-THROUGH$
 			case RT_BGEZ:
 				if (register[rs] >= 0) {
 					execBranch(isn);
+					checkCall(link);
 				}
 				return;
 			case RT_BLTZAL:
+				link = true;
 				execLink();
 				//$FALL-THROUGH$
 			case RT_BLTZ:
 				if (register[rs] < 0) {
 					execBranch(isn);
+					checkCall(link);
 				}
 				return;
 			default:

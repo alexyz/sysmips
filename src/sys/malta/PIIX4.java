@@ -230,15 +230,15 @@ public class PIIX4 implements Device {
 			if (timerControlWord == 0x34) {
 				// counter never reaches 0...
 				final double hz = 1193182.0 / (timerCounter0 - 1.5);
-				final long dur = Math.round(1000000.0 / hz);
-				log.println("schedule pit at fixed rate " + hz + " hz " + dur + " us");
-				timerFuture = e.scheduleAtFixedRate(r, dur, dur, TimeUnit.MICROSECONDS);
+				final long durns = Math.round(1000000000.0 / hz);
+				log.println("schedule pit at fixed rate " + hz + " hz " + (1.0/hz) + " s " + durns + " ns");
+				timerFuture = e.scheduleAtFixedRate(r, durns, durns, TimeUnit.NANOSECONDS);
 				
 			} else if (timerControlWord == 0x38) {
-				final double hz = 1193182.0 / (timerCounter0 - 0.5);
-				final long dur = Math.round(1000000.0 / hz);
-				log.println("schedule pit once " + hz + " hz " + dur + " us");
-				timerFuture = e.schedule(r, dur, TimeUnit.MICROSECONDS);
+				final double s = (timerCounter0 - 0.5) / 1193182.0;
+				final long ns = (long) (s * 1_000_000_000.0);
+				log.println("schedule pit once " + s + " s " + ns + " ns");
+				timerFuture = e.schedule(r, ns, TimeUnit.NANOSECONDS);
 			}
 			
 		} else {

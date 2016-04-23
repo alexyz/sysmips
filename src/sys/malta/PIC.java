@@ -82,7 +82,8 @@ public class PIC implements Device {
 		log.println("write command %x", value);
 		
 		if ((value & 0x10) != 0) {
-			log.println("pic init command word 1 %x", value);
+			log.println("pic init command word 1 %x (was %x)", value, icw1);
+			icw1 = value;
 			boolean needed = (value & 0x1) != 0;
 			boolean single = (value & 0x2) != 0;
 			boolean adi = (value & 0x4) != 0;
@@ -93,11 +94,11 @@ public class PIC implements Device {
 			return;
 			
 		} else if ((value & 0x8) == 0) {
-			log.println("pic operation control word 2: %x", value);
+			log.println("pic operation control word 2 %x (was %x)", value, ocw2);
 			ocw2 = value;
 			
 		} else {
-			log.println("pic operation control word 3: %x", value);
+			log.println("pic operation control word 3 %x (was %x)", value, ocw3);
 			ocw3 = value;
 		}
 	}
@@ -107,19 +108,19 @@ public class PIC implements Device {
 		
 		switch (init) {
 			case 0:
-				log.println("write operation command word 1: %x", value);
+				log.println("write operation command word 1 %x (was %x)", value, ocw1);
 				// interrupt mask
 				ocw1 = value;
 				return;
 				
 			case 1:
-				log.println("write init command word 2: %x", value);
+				log.println("write init command word 2 %x (was %x)", value, icw2);
 				icw2 = value;
 				init++;
 				return;
 				
 			case 2:
-				log.println("write init command word 3: %x", value);
+				log.println("write init command word 3 %x (was %x)", value, icw3);
 				icw3 = value;
 				if (master) {
 					boolean cascade = (value & 0x4) != 0;
@@ -129,7 +130,7 @@ public class PIC implements Device {
 				return;
 				
 			case 3: {
-				log.println("write init command word 4: %x", value);
+				log.println("write init command word 4 %x (was %x)", value, icw4);
 				icw4 = value;
 				boolean nested = (value & 0x10) != 0;
 				boolean buf = (value & 0x8) != 0;

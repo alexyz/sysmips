@@ -30,19 +30,29 @@ public class KBC implements Device {
 	private int data;
 	
 	/** 
-	 * status byte
-	 * bit 0: output buffer full
-	 * bit 1: input buffer full
-	 * bit 2: system or muxerr
-	 * bit 3: command/data
-	 * bit 4: keyboard not inhibited/inhibited (keylock)
-	 * bit 5: transmit timeout or aux data available
-	 * bit 6: receive timeout or timeout
-	 * bit 7: parity error
+	 * status byte<br>
+	 * bit 0: output buffer full<br>
+	 * bit 1: input buffer full<br>
+	 * bit 2: system or muxerr<br>
+	 * bit 3: command/data<br>
+	 * bit 4: keyboard not inhibited/inhibited (keylock)<br>
+	 * bit 5: transmit timeout or aux data available<br>
+	 * bit 6: receive timeout or timeout<br>
+	 * bit 7: parity error<br>
 	 */
 	private int status;
 	
-	/** config byte (ibm reference calls this command byte) */
+	/** 
+	 * config byte (ibm reference calls this command byte)<br>
+	 * bit 0: key interrupt enable<br>
+	 * bit 1: aux interrupt enable<br>
+	 * bit 2: system flag<br>
+	 * bit 3: 0<br>
+	 * bit 4: keyboard port clock disable<br>
+	 * bit 5: aux port clock disable<br>
+	 * bit 6: key translation<br>
+	 * bit 7: 0<br>
+	 */
 	private int config;
 	
 	/** last command issued to command port (if required) */
@@ -122,13 +132,13 @@ public class KBC implements Device {
 				// disable aux clock?
 				config |= 0x20;
 				status = 0;
-				log.println("cmd now " + cfgString(config));
+				log.println("config now " + cfgString(config));
 				return;
 			case 0xa8:
 				log.println("command %x: enable aux", value);
-				config &= ~0x20;
+				config &= ~0x20 & 0xff;
 				status = 0;
-				log.println("cmd now " + cfgString(config));
+				log.println("config now " + cfgString(config));
 				return;
 			case 0xa9:
 				log.println("command %x: test aux", value);
@@ -159,23 +169,26 @@ public class KBC implements Device {
 		switch (cmd) {
 			case 0x60:
 				// write to cfg
-				log.println("keydata: write cmd byte %x", value);
+				log.println("keydata: write config %x (was %x)", value, config);
 				config = value;
 				status = 0;
 				cmd = 0;
 				// XXX should write system flag to status
-				log.println("cmd now " + cfgString(config));
+				log.println("config now " + cfgString(config));
 				return;
 				
 			case 0xd3:
 				log.println("keydata: write aux out %x", value);
+				log.println("config is " + cfgString(config));
 				data = value;
 				status = 0x21; // output buffer full, aux data available
 				cmd = 0;
-				if ((config & 0x1) == 0) {
-					log.println("should add mouse interrupt?");
-//					final CpuExceptionParams ep = new CpuExceptionParams(CpuConstants.EX_INTERRUPT, MaltaUtil.INT_SOUTHBRIDGE_INTR, MaltaUtil.IRQ_MOUSE);
-//					Cpu.getInstance().addException(ep);
+				if ((config & 0x2) != 0) {
+					log.println("fire aux irq!!");
+					final CpuExceptionParams ep = new CpuExceptionParams(CpuConstants.EX_INTERRUPT, MaltaUtil.INT_SOUTHBRIDGE_INTR, MaltaUtil.IRQ_MOUSE);
+					Cpu.getInstance().addException(ep);
+				} else {
+					log.println("not firing aux irq due to disabled");
 				}
 				return;
 				
@@ -186,13 +199,13 @@ public class KBC implements Device {
 
 	private static List<String> cfgString (int cfg) {
 		List<String> l = new ArrayList<>();
-		if ((cfg & 0x1) != 0) l.add("0:enableoutint");
-		if ((cfg & 0x2) !=  0) l.add("1:reserved");
-		if ((cfg & 0x4) !=  0) l.add("2:system");
-		if ((cfg & 0x8) !=  0) l.add("3:inhibitoverride");
-		if ((cfg & 0x10) != 0) l.add("4:disablekeyboard");
-		if ((cfg & 0x20) != 0) l.add("5:disableaux");
-		if ((cfg & 0x40) != 0) l.add("6:pccompat");
+		if ((cfg & 0x1) != 0) l.add("0:keyint");
+		if ((cfg & 0x2) != 0) l.add("1:auxint");
+		if ((cfg & 0x4) != 0) l.add("2:system");
+		if ((cfg & 0x8) != 0) l.add("3:ignorekeylock");
+		if ((cfg & 0x10) != 0) l.add("4:keydisable");
+		if ((cfg & 0x20) != 0) l.add("5:auxdisable");
+		if ((cfg & 0x40) != 0) l.add("6:translate");
 		if ((cfg & 0x80) != 0) l.add("7:reserved");
 		return l;
 	}

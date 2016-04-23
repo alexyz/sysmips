@@ -33,11 +33,11 @@ public class KBC implements Device {
 	 * status byte
 	 * bit 0: output buffer full
 	 * bit 1: input buffer full
-	 * bit 2: system
+	 * bit 2: system or muxerr
 	 * bit 3: command/data
-	 * bit 4: keyboard not inhibited/inhibited
-	 * bit 5: transmit timeout
-	 * bit 6: receive timeout
+	 * bit 4: keyboard not inhibited/inhibited (keylock)
+	 * bit 5: transmit timeout or aux data available
+	 * bit 6: receive timeout or timeout
 	 * bit 7: parity error
 	 */
 	private int status;
@@ -169,17 +169,13 @@ public class KBC implements Device {
 				
 			case 0xd3:
 				log.println("keydata: write aux out %x", value);
-				// output buffer full?
 				data = value;
-				status = 1;
+				status = 0x21; // output buffer full, aux data available
 				cmd = 0;
-				// XXX is this right?
-				if ((config & 0x1) != 0) {
-					log.println("not adding mouse interrupt...");
-				} else {
-					log.println("adding mouse interrupt...");
-					final CpuExceptionParams ep = new CpuExceptionParams(CpuConstants.EX_INTERRUPT, MaltaUtil.INT_SOUTHBRIDGE_INTR, MaltaUtil.IRQ_MOUSE);
-					Cpu.getInstance().addException(ep);
+				if ((config & 0x1) == 0) {
+					log.println("should add mouse interrupt?");
+//					final CpuExceptionParams ep = new CpuExceptionParams(CpuConstants.EX_INTERRUPT, MaltaUtil.INT_SOUTHBRIDGE_INTR, MaltaUtil.IRQ_MOUSE);
+//					Cpu.getInstance().addException(ep);
 				}
 				return;
 				

@@ -1,6 +1,7 @@
 package sys.malta;
 
 import java.util.Calendar;
+import java.util.GregorianCalendar;
 
 import sys.util.Logger;
 import sys.util.Symbols;
@@ -12,28 +13,6 @@ public class RTC implements Device {
 	
 	public static final int M_ADR = 0x0;
 	public static final int M_DAT = 0x1;
-	
-	private static int indexToCalendar (final int index) {
-		switch (index) {
-			case 0:
-				return Calendar.SECOND;
-			case 2:
-				return Calendar.MINUTE;
-			case 4:
-				// depends on control register b hour format
-				return Calendar.HOUR;
-			case 6:
-				return Calendar.DAY_OF_WEEK;
-			case 7:
-				return Calendar.DAY_OF_MONTH;
-			case 8:
-				return Calendar.MONTH;
-			case 9:
-				return Calendar.YEAR;
-			default:
-				throw new RuntimeException("invalid index " + index);
-		}
-	}
 	
 	private final Logger log = new Logger("RTC");
 	private final int baseAddr;
@@ -91,16 +70,55 @@ public class RTC implements Device {
 		// mc146818rtc.h
 		// 0 = seconds, 2 = minutes, 4 = hours, 6 = dow, 7 = dom, 8 = month, 9 = year
 		log.println(0, "rtc adr write " + value);
-		rtcadr = (byte) value;
-		if (value == 0xa) {
-			// update in progress
-			final boolean uip = (System.currentTimeMillis() % 1000) >= 990;
-			rtcdat = (byte) (uip ? 0x80 : 0);
-		} else if (value == 0xb) {
-			rtcdat = (byte) 4;
-		} else {
-			final int f = indexToCalendar(value);
-			rtcdat = (byte) Calendar.getInstance().get(f);
+		rtcadr = value & 0xff;
+		final Calendar c = new GregorianCalendar();
+		
+		switch (value) {
+			case 0x0:
+				rtcdat = c.get(Calendar.SECOND);
+				break;
+			case 0x2:
+				rtcdat = c.get(Calendar.MINUTE);
+				break;
+			case 0x4:
+				// depends on control register b hour format
+				rtcdat = c.get(Calendar.HOUR);
+				break;
+			case 0x6:
+				rtcdat = c.get(Calendar.DAY_OF_WEEK);
+				break;
+			case 0x7:
+				rtcdat = c.get(Calendar.DAY_OF_MONTH);
+				break;
+			case 0x8:
+				rtcdat = c.get(Calendar.MONTH);
+				break;
+			case 0x9:
+				rtcdat = c.get(Calendar.YEAR);
+				break;
+			case 0x1:
+			case 0x3:
+			case 0x5:
+				// alarm
+				rtcdat = 0;
+				break;
+			case 0xa: {
+				// register a
+				// update in progress
+//				final boolean uip = c.get(Calendar.MILLISECOND) >= 990;
+//				if (uip) {
+//					log.println("update in progress");
+//				}
+//				rtcdat = (uip ? 0x80 : 0);
+				rtcdat = 0;
+				break;
+			}
+			case 0xb:
+				// register b
+				rtcdat = (byte) 4;
+				break;
+			default:
+				throw new RuntimeException("invalid index " + value);
 		}
 	}
 	

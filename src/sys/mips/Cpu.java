@@ -619,7 +619,7 @@ public final class Cpu {
 					memory.storeWord(va, register[rt]);
 					register[rt] = 1;
 				} else {
-					log.println("sc fail: va=" + Integer.toHexString(va) + " pa=" + Integer.toHexString(pa) + " ll=" + loadLinkedBit);
+					log.println("store conditional word fail: va=" + Integer.toHexString(va) + " pa=" + Integer.toHexString(pa) + " ll=" + loadLinkedBit);
 					register[rt] = 0;
 				}
 				return;

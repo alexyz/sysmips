@@ -105,12 +105,8 @@ public class RTC implements Device {
 			case 0xa: {
 				// register a
 				// update in progress
-//				final boolean uip = c.get(Calendar.MILLISECOND) >= 990;
-//				if (uip) {
-//					log.println("update in progress");
-//				}
-//				rtcdat = (uip ? 0x80 : 0);
-				rtcdat = 0;
+				final boolean uip = c.get(Calendar.MILLISECOND) >= 990;
+				rtcdat = (uip ? 0x80 : 0);
 				break;
 			}
 			case 0xb:

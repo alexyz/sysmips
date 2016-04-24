@@ -74,6 +74,7 @@ public class GT implements Device {
 			case GT_PCI0_CFGDATA:
 				return configData;
 			case GT_PCI0_IACK:
+				// malta-int.c GT_PCI0_IACK_OFS
 				return irq;
 			case GT_INTERRUPT_CAUSE:
 				log.println("get ignored interrupt cause");

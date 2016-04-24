@@ -10,6 +10,7 @@ public class MaltaUtil {
 	public static final int IRQ_KEYBOARD = 1;
 	/** southbridge cascade */
 	public static final int IRQ_CASCADE = 2;
+	// XXX IRQ 3 and 4 may be wrong way round
 	/** superio uart (tty1) */
 	public static final int IRQ_UART0 = 3;
 	/** superio uart (tty0) */

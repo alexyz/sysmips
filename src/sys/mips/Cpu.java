@@ -63,9 +63,11 @@ public final class Cpu {
 	private int hi;
 	private int lo;
 	private boolean countIsns; 
-	private boolean disasm;
+	//private boolean disasm;
 	private int disasmCount;
+	// denormalised from CPR_STATUS_IE
 	private boolean interruptsEnabled;
+	// equivalent to CPR_STATUS_EXL?
 	private boolean execException;
 	
 	public Cpu (int memsize, boolean littleEndian) {
@@ -85,7 +87,7 @@ public final class Cpu {
 		setCpValue(CPR_STATUS_ERL, true);
 		setCpValue(CPR_STATUS_BEV, true);
 		setCpValue(CPR_STATUS_CU0, true);
-		setCpValue(CPR_STATUS_CU1, true);
+		setCpValue(CPR_STATUS_CU1, true); // should be false for 4kc...
 		statusUpdated();
 		
 		// 0x10000 = MIPS, 0x8000 = 4KC 
@@ -292,7 +294,7 @@ public final class Cpu {
 					// this might cause tlb miss...
 					final int isn = memory.loadWord(pc);
 					
-					if (disasm || disasmCount > 0) {
+					if (disasmCount > 0) {
 						log.println(CpuUtil.gpRegString(this, regstr));
 						log.println(InstructionUtil.isnString(this, isn));
 						if (disasmCount > 0) {
@@ -300,10 +302,12 @@ public final class Cpu {
 						}
 					}
 					
-					// to signal an exception, either
+					// to signal a synchronous exception, either
 					// 1. call execException and return (more efficient)
 					// 2. throw new CpuException (easier in deep call stack)
 					// this instruction will be re-executed after the exception handler returns.
+					// to interrupt asynchronously: 
+					// 1. create exception params and call addException 
 					execOp(isn);
 					
 				} catch (CpuException e) {
@@ -335,7 +339,7 @@ public final class Cpu {
 				
 				cycle++;
 				
-				if (cycle > 1000000000) {
+				if (cycle > 200_000_000) {
 					throw new RuntimeException("timeout");
 				}
 			}
@@ -387,11 +391,8 @@ public final class Cpu {
 	}
 	
 	/**
-	 * execute exception.
-	 * if excode is interrupt, interrupt code must be provided.
-	 * if excode is tlb load/store, vaddr is required.
-	 * if interrupt code is south bridge interrupt, irq must be provided.
-	 * updates pc2 and pc3 with exception handler.
+	 * execute exception (i.e. set up exception state).
+	 * exception completes when linux calls eret.
 	 */
 	// traps.c trap_init
 	// genex.S
@@ -416,6 +417,8 @@ public final class Cpu {
 		boolean isTlbException = false;
 		boolean isInterruptException = false;
 		boolean isSouthbridgeInterrupt = false;
+		// this passes the external INT code to the cpu in a strange way
+		// malta-int.c irq_ffs()
 		int pendingMask = 0;
 		
 		switch (ep.excode) {
@@ -699,6 +702,7 @@ public final class Cpu {
 				return;
 			}
 			case OP_PREF:
+				// no-op
 				return;
 			default:
 				throw new RuntimeException("invalid op " + opString(op));

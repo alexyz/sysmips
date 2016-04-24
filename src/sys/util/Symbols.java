@@ -4,13 +4,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.*;
 
-import sys.mips.Cpu;
-
 public final class Symbols {
-	
-	public static Symbols getInstance() {
-		return Cpu.getInstance().getMemory().getSymbols();
-	}
 	
 	// needs to be long so it can naturally sort
 	private final TreeMap<Long, Symbol> map = new TreeMap<>();
@@ -95,10 +89,16 @@ public final class Symbols {
 		}
 	}
 	
+	/**
+	 * use reflection to add constants from class to symbol table
+	 */
 	public void init(final Class<?> c, final String prefix, final String prefixReplacement, final int addr, final int size) {
 		init(c, prefix, prefixReplacement, addr, size, 1);
 	}
 	
+	/**
+	 * use reflection to add constants from class to symbol table
+	 */
 	public void init(final Class<?> c, final String prefix, final String prefixReplacement, final int addr, final int size, final int offsetMul) {
 		boolean hasPut = false;
 		for (final Field f : c.getFields()) {

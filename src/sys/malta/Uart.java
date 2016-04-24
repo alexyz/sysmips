@@ -195,7 +195,7 @@ public class Uart implements Device {
 				return;
 			}
 			default:
-				throw new RuntimeException("unknown uart write " + Cpu.getInstance().getMemory().getSymbols().getNameAddrOffset(addr));
+				throw new RuntimeException("unknown uart write " + Cpu.getInstance().getSymbols().getNameAddrOffset(addr));
 		}
 	}
 	

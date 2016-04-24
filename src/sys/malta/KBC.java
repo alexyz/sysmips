@@ -173,13 +173,12 @@ public class KBC implements Device {
 				config = value;
 				status = 0;
 				cmd = 0;
-				// XXX should write system flag to status
+				// XXX should copy system flag to status
 				log.println("config now " + cfgString(config));
 				return;
 				
 			case 0xd3:
 				log.println("keydata: write aux out %x", value);
-				log.println("config is " + cfgString(config));
 				data = value;
 				status = 0x21; // output buffer full, aux data available
 				cmd = 0;

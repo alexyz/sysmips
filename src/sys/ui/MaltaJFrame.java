@@ -193,7 +193,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		
 		this.cpu = cpu;
 		
-		symbolsPanel.setSymbols(cpu.getMemory().getSymbols());
+		symbolsPanel.setSymbols(cpu.getSymbols());
 		
 		updateCycle();
 	}

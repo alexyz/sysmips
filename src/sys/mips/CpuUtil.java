@@ -23,7 +23,7 @@ public class CpuUtil {
 		
 		Cpu cpu = new Cpu(memsize, elf.header.data == ELF32Header.ELFDATA2LSB);
 		Memory mem = cpu.getMemory();
-		Symbols sym = mem.getSymbols();
+		Symbols sym = cpu.getSymbols();
 		
 		top[0] = 0;
 		
@@ -97,7 +97,7 @@ public class CpuUtil {
 	public static String gpRegString (final Cpu cpu, String[] prev) {
 		final int[] reg = cpu.getRegisters();
 		final Memory mem = cpu.getMemory();
-		final Symbols syms = mem.getSymbols();
+		final Symbols syms = cpu.getSymbols();
 		
 		final StringBuilder sb = new StringBuilder(256);
 		for (int n = 0; n < reg.length; n++) {
@@ -123,7 +123,7 @@ public class CpuUtil {
 	private static String cpRegString (Cpu cpu) {
 		final int[] reg = cpu.getCpRegisters();
 		final Memory mem = cpu.getMemory();
-		final Symbols syms = mem.getSymbols();
+		final Symbols syms = cpu.getSymbols();
 		
 		final StringBuilder sb = new StringBuilder(256);
 		sb.append("cycle=").append(cpu.getCycle());

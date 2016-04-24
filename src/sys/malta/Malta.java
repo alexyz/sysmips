@@ -41,7 +41,7 @@ public class Malta implements Device {
 	
 	private static final Logger log = new Logger("Malta");
 	
-	private final List<Device> devices = new ArrayList<>();
+	private final Device[] devices;
 	private final int baseAddr;
 	/** the northbridge */
 	private final GT gt;
@@ -58,7 +58,7 @@ public class Malta implements Device {
 		// XXX strictly, this should be a TI 16C550C, not a SMSC NS 16C550A compatible
 		this.cbusUart = new Uart(baseAddr + M_CBUS_UART, 8, "Uart:CBUS");
 		this.cbusUart.setDebug(true);
-		this.devices.addAll(Arrays.asList(p4, gt, display, cbusUart));
+		this.devices = new Device[] { p4, gt, display, cbusUart };
 	}
 	
 	public void setIrq (final int irq) {
@@ -69,7 +69,9 @@ public class Malta implements Device {
 	public void init (final Symbols sym) {
 		log.println("init malta at " + Integer.toHexString(baseAddr));
 		sym.init(Malta.class, "M_", null, baseAddr, Integer.MAX_VALUE);
-		devices.forEach(d -> d.init(sym));
+		for (Device d : devices) {
+			d.init(sym);
+		}
 	}
 	
 	@Override
@@ -80,9 +82,10 @@ public class Malta implements Device {
 	
 	@Override
 	public int systemRead (final int addr, final int size) {
-		final Optional<Device> o = devices.stream().filter(d -> d.isMapped(addr)).findFirst();
-		if (o.isPresent()) {
-			return o.get().systemRead(addr, size);
+		for (Device d : devices) {
+			if (d.isMapped(addr)) {
+				return d.systemRead(addr, size);
+			}
 		}
 		
 		final int offset = addr - baseAddr;
@@ -90,25 +93,27 @@ public class Malta implements Device {
 			case M_REVISION:
 				return 1;
 			default:
-				throw new RuntimeException("unknown system read " + Cpu.getInstance().getMemory().getSymbols().getNameAddrOffset(addr) + " size " + size);
+				throw new RuntimeException("unknown system read " + Cpu.getInstance().getSymbols().getNameAddrOffset(addr) + " size " + size);
 		}
 	}
 	
 	@Override
 	public void systemWrite (final int addr, final int size, final int value) {
-		final Optional<Device> o = devices.stream().filter(d -> d.isMapped(addr)).findFirst();
-		if (o.isPresent()) {
-			o.get().systemWrite(addr, size, value);
-			return;
+		for (Device d : devices) {
+			if (d.isMapped(addr)) {
+				d.systemWrite(addr, size, value);
+				return;
+			}
 		}
 		
 		final int offset = addr - baseAddr;
 		if (offset >= M_UNCACHED_EX_H && offset < M_UNCACHED_EX_H + 0x100) {
-			// TODO this should map straight through to memory
-			//log.println("set uncached exception handler " + Symbols.getInstance().getNameOffset(baseAddr + addr) + " <= " + Integer.toHexString(value));
+			// should map straight through to memory?
+			// the values look like mips code...
+			log.println("ignore set uncached exception handler " + Cpu.getInstance().getSymbols().getNameOffset(baseAddr + addr) + " <= " + Integer.toHexString(value));
 			
 		} else {
-			throw new RuntimeException("unknown system write " + Symbols.getInstance().getNameAddrOffset(addr) + " <= " + Integer.toHexString(value));
+			throw new RuntimeException("unknown system write " + Cpu.getInstance().getSymbols().getNameAddrOffset(addr) + " <= " + Integer.toHexString(value));
 		}
 	}
 	

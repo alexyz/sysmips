@@ -18,7 +18,6 @@ import static sys.mips.InstructionUtil.*;
 public final class Cpu {
 	
 	private static final ThreadLocal<Cpu> instance = new ThreadLocal<>();
-	private static final int INTERVAL_NS = 4000000;
 	private static final Logger log = new Logger("Cpu");
 	
 	/** allow other classes to access cpu */
@@ -35,12 +34,13 @@ public final class Cpu {
 	private final boolean littleEndian;
 	private final Deque<CpuExceptionParams> exceptions = new ArrayDeque<>();
 	private final CallLogger calls = new CallLogger(this);
-	/** 0 for le, 3 for be */
+	/** 0 for little endian, 3 for big endian */
 	private final int wordAddrXor;
 	private final Fpu fpu = new Fpu(this);
 	private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 	private final PropertyChangeSupport support = new PropertyChangeSupport(this);
 	private final List<Log> logs = new ArrayList<>();
+	private final Symbols symbols = new Symbols();
 	
 	private volatile long cycle = 1;
 	private volatile boolean logScheduled;
@@ -74,7 +74,8 @@ public final class Cpu {
 		this.wordAddrXor = littleEndian ? 0 : 3;
 		
 		memory.setKernelMode(true);
-		memory.init();
+		memory.init(this);
+		
 		for (String name : InstructionSet.getInstance().getNameMap().keySet()) {
 			isnCount.put(name, new int[1]);
 		}
@@ -213,6 +214,10 @@ public final class Cpu {
 		return support;
 	}
 	
+	public Symbols getSymbols () {
+		return symbols;
+	}
+
 	public final void addLog(Log log) {
 		synchronized (this) {
 			logs.add(log);
@@ -340,7 +345,7 @@ public final class Cpu {
 					+ "kernel mode: " + kernelMode + ", "
 					+ "interrupts enabled: " + interruptsEnabled + ", " 
 					+ "executing exeception: " + execException + ", "
-					+ "program counter: " + memory.getSymbols().getNameAddrOffset(pc) + ", "
+					+ "program counter: " + symbols.getNameAddrOffset(pc) + ", "
 					+ calls.callString(), e);
 			
 		} finally {
@@ -701,9 +706,8 @@ public final class Cpu {
 	}
 
 	private void checkCall (boolean linked) {
-		Symbols sym = memory.getSymbols();
-		String pcname = sym.getName(pc);
-		String nextpcname = sym.getName(pc3);
+		String pcname = symbols.getName(pc);
+		String nextpcname = symbols.getName(pc3);
 		if (!pcname.equals(nextpcname)) {
 			calls.call(pc, linked);
 			//throw new RuntimeException("pcname=" + pcname + " nextpcname=" + nextpcname);
@@ -812,7 +816,7 @@ public final class Cpu {
 				execException(new CpuExceptionParams(EX_BREAKPOINT));
 				return;
 			case FN_SYNC:
-				log.println("sync");
+				// no-op
 				return;
 			case FN_MFHI:
 				register[rd] = hi;
@@ -1152,7 +1156,7 @@ public final class Cpu {
 	}
 
 	private void updateEntry (final int i) {
-		log.println("update entry " + i + " in " + memory.getSymbols().getNameAddrOffset(pc));
+		log.println("update entry " + i + " in " + symbols.getNameAddrOffset(pc));
 		
 		final Entry e = memory.getEntry(i);
 		e.pageMask = getCpValue(CPR_PAGEMASK_MASK);

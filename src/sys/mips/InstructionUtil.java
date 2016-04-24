@@ -117,7 +117,7 @@ public class InstructionUtil {
 			isnValue = "op=" + op + " rt=" + rt + " rs=" + rs + " fn=" + fn;
 		}
 		
-		final String addr = cpu.getMemory().getSymbols().getNameAddrOffset(cpu.getPc());
+		final String addr = cpu.getSymbols().getNameAddrOffset(cpu.getPc());
 		return String.format("%-40s %08x %s", addr, isn, isnValue);
 	}
 	
@@ -145,7 +145,7 @@ public class InstructionUtil {
 		final Memory mem = cpu.getMemory();
 		final int[] reg = cpu.getRegisters();
 		final int pc = cpu.getPc();
-		final Symbols syms = mem.getSymbols();
+		final Symbols syms = cpu.getSymbols();
 		final int[] cpreg = cpu.getCpRegisters();
 		
 		switch (name) {

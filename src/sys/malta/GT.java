@@ -76,6 +76,7 @@ public class GT implements Device {
 			case GT_PCI0_IACK:
 				return irq;
 			case GT_INTERRUPT_CAUSE:
+				log.println("get ignored interrupt cause");
 				return 0;
 			default:
 				throw new RuntimeException("could not read " + Integer.toHexString(offset));
@@ -89,12 +90,12 @@ public class GT implements Device {
 		
 		// XXX swap here?
 		value = swapInt(value);
-		final String name = cpu.getMemory().getSymbols().getNameAddrOffset(addr);
+		final String name = cpu.getSymbols().getNameAddrOffset(addr);
 		log.println(String.format("write addr=%x name=%s <= value %x size %d", offset, name, value, size));
 		
 		switch (offset) {
 			case GT_PCI0IOREMAP:
-				log.println("set PCI 0 IO remap " + value);
+				log.println("set PCI 0 IO remap %x", value);
 				if (value != 0) {
 					throw new RuntimeException("unknown remap");
 				}
@@ -102,12 +103,14 @@ public class GT implements Device {
 				
 			case GT_INTERRUPT_CAUSE:
 				// GT_INTRCAUSE_OFS
-				log.println("ignore set interrupt cause " + value);
+				// should this be doing something?
+				// or only if there is a pci device attached?
+				log.println("ignore set interrupt cause %x", value);
 				break;
 				
 			case GT_PCI0_CMD:
 				if (value == 0) {
-					log.println("ignore set command " + value);
+					log.println("ignore set command %x", value);
 				} else {
 					// enable byte swapping?
 					throw new RuntimeException(String.format("invalid gt command %x size %d", value, size));

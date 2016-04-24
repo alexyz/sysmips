@@ -8,7 +8,11 @@ import sys.util.Symbols;
 
 /**
  * int[] backed memory as described in the MIPS32 4K processor core family
- * software user's manual
+ * software user's manual.
+ * <p>
+ * although memory can be considered to be a device, it doesn't actually
+ * implement the Device interface as it is a special case (referred to directly
+ * by cpu).
  */
 public final class Memory {
 	
@@ -31,7 +35,6 @@ public final class Memory {
 	private static final int KSEG_MASK = 0x1fff_ffff;
 	
 	private final int[] data;
-	private final Symbols symbols = new Symbols();
 	private final int wordAddrXor;
 	private final int halfWordAddrXor;
 	private final boolean littleEndian;
@@ -65,8 +68,9 @@ public final class Memory {
 		this.asid = asid;
 	}
 	
-	public void init () {
+	public void init (Cpu cpu) {
 		log.println("init memory");
+		Symbols symbols = cpu.getSymbols();
 		symbols.put(KSEG0, "KSEG0");
 		symbols.put(KSEG1, "KSEG1");
 		symbols.put(KSEG2, "KSEG2");
@@ -89,10 +93,6 @@ public final class Memory {
 	
 	public Malta getMalta () {
 		return malta;
-	}
-	
-	public Symbols getSymbols () {
-		return symbols;
 	}
 	
 	public final int loadWord (final int vaddr) {
@@ -399,6 +399,6 @@ public final class Memory {
 	
 	@Override
 	public String toString () {
-		return String.format("Memory[size=%d le=%s sym=%s]", data.length, littleEndian, symbols);
+		return String.format("Memory[size=%d le=%s]", data.length, littleEndian);
 	}
 }

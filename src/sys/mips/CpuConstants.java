@@ -1,8 +1,5 @@
 package sys.mips;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-
 /**
  * mips constants
  */
@@ -130,6 +127,7 @@ public final class CpuConstants {
 	public static final int FN_MOVN = 0x0b;
 	public static final int FN_SYSCALL = 0x0c;
 	public static final int FN_BREAK = 0x0d;
+	/** sync shared memory */
 	public static final int FN_SYNC = 0x0f;
 	/** move from hi register */
 	public static final int FN_MFHI = 0x10;

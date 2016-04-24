@@ -47,7 +47,7 @@ public class CallLogger {
 	
 	public void call (int addr, boolean linked) {
 		final List<String> calls = threads.get(0);
-		final String nameos = cpu.getMemory().getSymbols().getNameOffset(addr);
+		final String nameos = cpu.getSymbols().getNameOffset(addr);
 		calls.add(linked ? nameos : INLINE + nameos);
 		
 //		final String name = cpu.getMemory().getSymbols().getName(addr);
@@ -79,7 +79,7 @@ public class CallLogger {
 	}
 	
 	public void printCall() {
-		final String name = cpu.getMemory().getSymbols().getName(cpu.getPc());
+		final String name = cpu.getSymbols().getName(cpu.getPc());
 		int a0 = cpu.getRegister(CpuConstants.REG_A0);
 		int a1 = cpu.getRegister(CpuConstants.REG_A1);
 		int a2 = cpu.getRegister(CpuConstants.REG_A2);

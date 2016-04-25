@@ -338,10 +338,6 @@ public final class Cpu {
 				//}
 				
 				cycle++;
-				
-				if (cycle > 200_000_000) {
-					throw new RuntimeException("timeout");
-				}
 			}
 			
 		} catch (Exception e) {

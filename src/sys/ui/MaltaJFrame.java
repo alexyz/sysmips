@@ -2,7 +2,6 @@ package sys.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Font;
-import java.awt.GridLayout;
 import java.beans.*;
 import java.io.*;
 import java.text.NumberFormat;
@@ -15,6 +14,8 @@ import javax.swing.border.*;
 import javax.swing.text.*;
 
 import sys.mips.Cpu;
+import sys.mips.CpuConstants;
+import sys.mips.CpuExceptionParams;
 import sys.mips.CpuUtil;
 import sys.util.Log;
 
@@ -29,15 +30,15 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	private static final Font MONO = new Font("Monospaced", Font.BOLD, 14);
 	private static int threadInstance = 1;
 	
-	private final JTextField fileField = new JTextField(10);
-	private final JTextField argsField = new JTextField(10);
-	private final JTextField displayField = new JTextField();
-	private final JLabel cycleLabel = new JLabel();
+	private final JTextField fileField = new JTextField(20);
+	private final JTextField argsField = new JTextField(20);
+	private final JTextField displayField = new JTextField(20);
+	private final JTextField cycleLabel = new JTextField(20);
 	private final JTextArea consoleArea = new JTextArea();
 	private final JButton fileButton = new JButton("File");
 	private final JButton loadButton = new JButton("Load");
 	private final JButton runButton = new JButton("Run");
-//	private final JButton stopButton = new JButton("Stop");
+	private final JButton stopButton = new JButton("Stop");
 	private final JSpinner memSpinner = new JSpinner(new SpinnerNumberModel(32,32,512,1));
 	private final JTabbedPane tabbedPane = new JTabbedPane();
 	private final SymbolJPanel symbolsPanel = new SymbolJPanel();
@@ -55,21 +56,21 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		loadButton.addActionListener(ae -> load());
 		runButton.addActionListener(ae -> run());
 		
-		fileField.setColumns(20);
 		// should load this from prefs
 		fileField.setText("images/vmlinux-3.2.0-4-4kc-malta");
 		fileButton.addActionListener(ae -> selectFile());
 		
-		argsField.setColumns(20);
 		// command line of console=ttyS0 initrd=? root=?
 		// environment keys: ethaddr, modetty0, memsize (defaults to 32MB)
 		argsField.setText("debug initcall_debug ignore_loglevel");
 		
-//		stopButton.addActionListener(ae -> stop());
+		stopButton.addActionListener(ae -> stop());
 		
 		displayField.setFont(MONO);
-		displayField.setColumns(20);
 		displayField.setEditable(false);
+		
+		cycleLabel.setFont(MONO);
+		cycleLabel.setEditable(false);
 		
 		consoleArea.setColumns(100);
 		consoleArea.setRows(24);
@@ -87,13 +88,15 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		topPanel1.add(argsField);
 		//topPanel1.add(new JLabel("Env"));
 		//topPanel1.add(envField);
-		topPanel1.add(loadButton);
-		topPanel1.add(runButton);
-		//topPanel1.add(stopButton);
 		
 		JPanel topPanel2 = new JPanel();
+		topPanel2.add(new JLabel("Display"));
 		topPanel2.add(displayField);
+		topPanel2.add(new JLabel("Cycle"));
 		topPanel2.add(cycleLabel);
+		topPanel2.add(loadButton);
+		topPanel2.add(runButton);
+		topPanel2.add(stopButton);
 		
 		JPanel topPanel = new JPanel();
 		topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.Y_AXIS));
@@ -127,11 +130,11 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		super.setVisible(b);
 	}
 
-//	private void stop () {
-//		if (cpu != null) {
-//			cpu.interrupt(new CpuException(-1, 0));
-//		}
-//	}
+	private void stop () {
+		if (cpu != null) {
+			cpu.addException(new CpuExceptionParams(CpuConstants.EX_TRAP));
+		}
+	}
 
 	private void selectFile () {
 		File dir = new File(System.getProperty("user.dir"));
@@ -313,7 +316,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	
 	private void updateCycle () {
 		if (cpu != null) {
-			cycleLabel.setText("Cycle " + NumberFormat.getInstance().format(cpu.getCycle()));
+			cycleLabel.setText(NumberFormat.getInstance().format(cpu.getCycle()));
 		}
 	}
 	

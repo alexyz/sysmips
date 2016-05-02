@@ -223,9 +223,13 @@ public final class Cpu {
 	public final void addLog(Log log) {
 		synchronized (this) {
 			logs.add(log);
-			if (!logScheduled) {
-				executor.schedule(() -> fireLogs(), 1000, TimeUnit.MILLISECONDS);
-				logScheduled = true;
+			if (executor.isShutdown()) {
+				fireLogs();
+			} else {
+				if (!logScheduled) {
+					executor.schedule(() -> fireLogs(), 1000, TimeUnit.MILLISECONDS);
+					logScheduled = true;
+				}
 			}
 		}
 	}
@@ -342,6 +346,7 @@ public final class Cpu {
 			
 		} catch (Exception e) {
 			throw new RuntimeException("exception in cycle " + cycle + ", "
+					+ "little endian: " + littleEndian + ", "
 					+ "kernel mode: " + kernelMode + ", "
 					+ "interrupts enabled: " + interruptsEnabled + ", " 
 					+ "executing exeception: " + execException + ", "

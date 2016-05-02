@@ -14,10 +14,10 @@ public interface Device {
 	/** return true if read/write at this physical address is allowed */
 	public boolean isMapped (final int addr);
 	
-	/** read at the physical address (size must be 1, 2 or 4) */
+	/** read at the physical address (size is 1, 2 or 4, addr is aligned with size) */
 	public int systemRead (final int addr, final int size);
 	
-	/** write at the physical address (size must be 1, 2 or 4) */
+	/** write at the physical address (size 1, 2 or 4, addr is aligned with size) */
 	public void systemWrite (final int addr, final int size, final int value);
 	
 }

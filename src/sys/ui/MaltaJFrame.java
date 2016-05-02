@@ -6,6 +6,8 @@ import java.beans.*;
 import java.io.*;
 import java.text.NumberFormat;
 import java.util.*;
+import java.util.prefs.BackingStoreException;
+import java.util.prefs.Preferences;
 import java.util.stream.Collectors;
 
 import javax.swing.*;
@@ -57,7 +59,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		runButton.addActionListener(ae -> run());
 		
 		// should load this from prefs
-		fileField.setText("images/vmlinux-3.2.0-4-4kc-malta");
+//		fileField.setText("images/vmlinux-3.2.0-4-4kc-malta");
 		fileButton.addActionListener(ae -> selectFile());
 		
 		// command line of console=ttyS0 initrd=? root=?
@@ -115,11 +117,27 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		contentPanel.add(tabbedPane, BorderLayout.CENTER);
 		contentPanel.setBorder(new EmptyBorder(5,5,5,5));
 		
+		loadPrefs();
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setContentPane(contentPanel);
 		pack();
 	}
 	
+	private void loadPrefs () {
+		Preferences prefs = Preferences.userNodeForPackage(getClass());
+		fileField.setText(prefs.get("file", "images/vmlinux-3.2.0-4-4kc-malta"));
+	}
+	
+	private void storePrefs () {
+		Preferences prefs = Preferences.userNodeForPackage(getClass());
+		prefs.put("file", fileField.getText());
+		try {
+			prefs.flush();
+		} catch (BackingStoreException e) {
+			e.printStackTrace();
+		}
+	}
+
 	@Override
 	public void setVisible (boolean b) {
 		if (b) {
@@ -137,7 +155,8 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	}
 
 	private void selectFile () {
-		File dir = new File(System.getProperty("user.dir"));
+		File f = new File(fileField.getText());
+		File dir = f.exists() ? f.getParentFile() : new File(System.getProperty("user.dir"));
 		JFileChooser fc = new JFileChooser(dir);
 		if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
 			fileField.setText(fc.getSelectedFile().toString());
@@ -215,6 +234,8 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 			}
 		}
 		
+		storePrefs();
+		
 		Thread t = new Thread(() -> {
 			try {
 				cpu.run();
@@ -246,7 +267,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 				this.thread = null;
 			}
 		});
-		t.setName("t" + threadInstance++);
+		t.setName("Cpu-" + t.getName());
 		t.setPriority(Thread.MIN_PRIORITY);
 		t.start();
 		

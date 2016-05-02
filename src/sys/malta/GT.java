@@ -20,6 +20,8 @@ public class GT implements Device {
 	private int configData;
 	private int configAddr;
 	private int irq;
+	/** byte swapping (set to true for big endian) */
+	private boolean masterByteSwap;
 	
 	public GT (final int baseAddr) {
 		this.baseAddr = baseAddr;
@@ -44,8 +46,8 @@ public class GT implements Device {
 	
 	@Override
 	public int systemRead (final int addr, final int size) {
-		// swap due to an expected bug in GT
-		return swapInt(systemRead2(addr, size));
+		int v = systemRead2(addr, size);
+		return masterByteSwap ? swapInt(v) : v;
 	}
 	
 	private int systemRead2 (final int addr, final int size) {
@@ -88,9 +90,10 @@ public class GT implements Device {
 	public void systemWrite (final int addr, final int size, int value) {
 		final int offset = addr - baseAddr;
 		final Cpu cpu = Cpu.getInstance();
+		if (masterByteSwap) {
+			value = swapInt(value);
+		}
 		
-		// XXX swap here?
-		value = swapInt(value);
 		final String name = cpu.getSymbols().getNameAddrOffset(addr);
 		log.println(String.format("write addr=%x name=%s <= value %x size %d", offset, name, value, size));
 		
@@ -110,11 +113,13 @@ public class GT implements Device {
 				break;
 				
 			case GT_PCI0_CMD:
-				if (value == 0) {
-					log.println("ignore set command %x", value);
-				} else {
-					// enable byte swapping?
-					throw new RuntimeException(String.format("invalid gt command %x size %d", value, size));
+				switch (value) {
+					case 0:
+					case 0x10001:
+						masterByteSwap = (value & 0x1) == 0;
+						break;
+					default:
+						throw new RuntimeException(String.format("invalid gt command %x size %d", value, size));
 				}
 				break;
 				

@@ -34,6 +34,7 @@ public final class Memory {
 	
 	private static final int KSEG_MASK = 0x1fff_ffff;
 	
+	/** backing data as int (shift addr left 2 for index) */
 	private final int[] data;
 	private final int wordAddrXor;
 	private final int halfWordAddrXor;
@@ -46,7 +47,7 @@ public final class Memory {
 	private int asid;
 	
 	public Memory(int size, boolean littleEndian) {
-		this.data = new int[size >> 2];
+		this.data = new int[size >>> 2];
 		this.littleEndian = littleEndian;
 		this.wordAddrXor = littleEndian ? 0 : 3;
 		this.halfWordAddrXor = littleEndian ? 0 : 2;
@@ -96,46 +97,62 @@ public final class Memory {
 	}
 	
 	public final int loadWord (final int vaddr) {
-		if ((vaddr & 3) != 0) {
-			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_LOAD, vaddr));
-		}
-		if (isSystem(vaddr)) {
-			return malta.systemRead(vaddr, 4);
+		if ((vaddr & 3) == 0) {
+			if (isSystem(vaddr)) {
+				return malta.systemRead(vaddr, 4);
+			} else {
+				int i = translate(vaddr, false) >>> 2;
+				return data[i];
+			}
 		} else {
-			return loadWordImpl(translate(vaddr, false));
+			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_LOAD, vaddr));
 		}
 	}
 	
 	public final void storeWord (final int vaddr, final int value) {
-		if ((vaddr & 3) != 0) {
-			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_STORE, vaddr));
-		}
-		if (isSystem(vaddr)) {
-			malta.systemWrite(vaddr, 4, value);
+		if ((vaddr & 3) == 0) {
+			if (isSystem(vaddr)) {
+				malta.systemWrite(vaddr, 4, value);
+			} else {
+				int i = translate(vaddr, true) >>> 2;
+				data[i] = value;
+			}
 		} else {
-			storeWordImpl(translate(vaddr, true), value);
+			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_STORE, vaddr));
 		}
 	}
 	
 	public final short loadHalfWord (final int vaddr) {
-		if ((vaddr & 1) != 0) {
-			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_LOAD, vaddr));
-		}
-		if (isSystem(vaddr)) {
-			return (short) malta.systemRead(vaddr, 2);
+		if ((vaddr & 1) == 0) {
+			if (isSystem(vaddr)) {
+				return (short) malta.systemRead(vaddr, 2);
+			} else {
+				final int i = translate(vaddr, false) >>> 2;
+				final int w = data[i];
+				// 0,2 -> 2,0 -> 16,0
+				final int s = ((vaddr & 2) ^ halfWordAddrXor) << 3;
+				return (short) (w >>> s);
+			}
 		} else {
-			return loadHalfWordImpl(translate(vaddr, false));
+			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_LOAD, vaddr));
 		}
 	}
 	
 	public final void storeHalfWord (final int vaddr, final short value) {
-		if ((vaddr & 1) != 0) {
-			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_STORE, vaddr));
-		}
-		if (isSystem(vaddr)) {
-			malta.systemWrite(vaddr, 2, value);
+		if ((vaddr & 1) == 0) {
+			if (isSystem(vaddr)) {
+				malta.systemWrite(vaddr, 2, value);
+			} else {
+				final int i = translate(vaddr, true) >>> 2;
+				final int w = data[i];
+				// 0,2 -> 2,0 -> 16,0
+				final int s = ((vaddr & 2) ^ halfWordAddrXor) << 3;
+				final int andm = ~(0xffff << s);
+				final int orm = (value & 0xffff) << s;
+				data[i] = (w & andm) | orm;
+			}
 		} else {
-			storeHalfWordImpl(translate(vaddr, true), value);
+			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_STORE, vaddr));
 		}
 	}
 	
@@ -143,7 +160,13 @@ public final class Memory {
 		if (isSystem(vaddr)) {
 			return (byte) malta.systemRead(vaddr, 1);
 		} else {
-			return loadByteImpl(translate(vaddr, false));
+			final int i = translate(vaddr, false) >>> 2;
+			final int w = data[i];
+			// 0,1,2,3 xor 0 -> 0,1,2,3
+			// 0,1,2,3 xor 3 -> 3,2,1,0
+			// 0,1,2,3 -> 3,2,1,0 -> 24,16,8,0
+			final int s = ((vaddr & 3) ^ wordAddrXor) << 3;
+			return (byte) (w >>> s);
 		}
 	}
 	
@@ -151,12 +174,20 @@ public final class Memory {
 		if (isSystem(vaddr)) {
 			malta.systemWrite(vaddr, 1, value);
 		} else {
-			storeByteImpl(translate(vaddr, true), value);
+			final int i = translate(vaddr, true) >>> 2;
+			final int w = data[i];
+			// if xor=0: 0,1,2,3 -> 0,8,16,24
+			// if xor=3: 0,1,2,3 -> 3,2,1,0 -> 24,16,8,0
+			final int s = ((vaddr & 3) ^ wordAddrXor) << 3;
+			final int andm = ~(0xff << s);
+			final int orm = (value & 0xff) << s;
+			data[i] = (w & andm) | orm;
 		}
 	}
 	
 	/**
-	 * translate virtual address to physical
+	 * translate virtual address to physical. store affects dirty bit if true
+	 * and type of exception thrown if addr is invalid.
 	 */
 	public final int translate (final int vaddr, final boolean store) {
 		if (vaddr >= 0) {
@@ -248,118 +279,11 @@ public final class Memory {
 		throw new CpuException(new CpuExceptionParams(store ? CpuConstants.EX_TLB_STORE : CpuConstants.EX_TLB_LOAD, vaddr, refill));
 	}
 	
-	/*
-	private static int EVPN2S = 13, EVPN2 = 0x8ffff << EVPN2S, EG = 0x100, EASID=0xff, DPFNS = 12, DPFN=0xfffff<<DPFNS, DD=0x2, DV=0x1;
-	
-	private final int lookup2 (final int va, final boolean store) {
-		final int vpn2s = Functions.vpn2(va) << EVPN2S;
-		final int eo = Functions.evenodd(va);
-		
-		for (int n = 0; n < pe.length; n += 3) {
-			final int e = pe[n];
-			if ((e & EVPN2) == vpn2s && ((e & EASID) == asid || (e & EG) != 0)) {
-				final int di = n + eo + 1;
-				final int d = pe[di];
-				if ((d & DV) != 0) {
-					throw new CpuException(new CpuExceptionParams(store ? Constants.EX_TLB_STORE : Constants.EX_TLB_LOAD, va, false));
-				}
-				if (store && (d & DD) == 0) {
-					pe[di] &= DD;
-				}
-				final int pa = (d & DPFN) | (va & 0xfff);
-				return pa;
-			}
-		}
-		
-		throw new CpuException(new CpuExceptionParams(store ? Constants.EX_TLB_STORE : Constants.EX_TLB_LOAD, va, true));
-	}
-	*/
-	
-	private final byte loadByteImpl (final int paddr) {
-		try {
-			final int i = paddr >> 2;
-			final int w = data[i];
-			// 0,1,2,3 xor 0 -> 0,1,2,3
-			// 0,1,2,3 xor 3 -> 3,2,1,0
-			// 0,1,2,3 -> 3,2,1,0 -> 24,16,8,0
-			final int s = ((paddr & 3) ^ wordAddrXor) << 3;
-			return (byte) (w >>> s);
-			
-		} catch (ArrayIndexOutOfBoundsException e) {
-			throw new RuntimeException("load unmapped " + Integer.toHexString(paddr), e);
-		}
-	}
-	
-	private final void storeByteImpl (final int paddr, final byte b) {
-		try {
-			final int i = paddr >> 2;
-			final int w = data[i];
-			// if xor=0: 0,1,2,3 -> 0,8,16,24
-			// if xor=3: 0,1,2,3 -> 3,2,1,0 -> 24,16,8,0
-			final int s = ((paddr & 3) ^ wordAddrXor) << 3;
-			final int andm = ~(0xff << s);
-			final int orm = (b & 0xff) << s;
-			data[i] = (w & andm) | orm;
-			
-		} catch (ArrayIndexOutOfBoundsException e) {
-			throw new RuntimeException("load unmapped " + Integer.toHexString(paddr), e);
-		}
-	}
-	
-	private final short loadHalfWordImpl (final int paddr) {
-		try {
-			final int i = paddr >> 2;
-			final int w = data[i];
-			// 0,2 -> 2,0 -> 16,0
-			final int s = ((paddr & 2) ^ halfWordAddrXor) << 3;
-			return (short) (w >>> s);
-			
-		} catch (ArrayIndexOutOfBoundsException e) {
-			throw new RuntimeException("load unmapped " + Integer.toHexString(paddr), e);
-		}
-	}
-	
-	private final void storeHalfWordImpl (final int paddr, final short hw) {
-		try {
-			final int i = paddr >> 2;
-			final int w = data[i];
-			// 0,2 -> 2,0 -> 16,0
-			final int s = ((paddr & 2) ^ halfWordAddrXor) << 3;
-			final int andm = ~(0xffff << s);
-			final int orm = (hw & 0xffff) << s;
-			data[i] = (w & andm) | orm;
-			
-		} catch (ArrayIndexOutOfBoundsException e) {
-			throw new RuntimeException("store unmapped " + Integer.toHexString(paddr), e);
-		}
-	}
-	
-	private final int loadWordImpl (final int paddr) {
-		try {
-			final int i = paddr >> 2;
-			final int w = data[i];
-			return w;
-			
-		} catch (ArrayIndexOutOfBoundsException e) {
-			throw new RuntimeException("load unmapped " + Integer.toHexString(paddr), e);
-		}
-	}
-	
-	private final void storeWordImpl (final int paddr, final int word) {
-		try {
-			final int i = paddr >> 2;
-			data[i] = word;
-			
-		} catch (ArrayIndexOutOfBoundsException e) {
-			throw new RuntimeException("store unmapped " + Integer.toHexString(paddr), e);
-		}
-	}
-	
 	/** load boxed word, null if unmapped */
 	public Integer loadWordSafe (final int paddr) {
 		// hack to translate addr
 		final int vaddr = paddr & KSEG_MASK;
-		final int i = vaddr >> 2;
+		final int i = vaddr >>> 2;
 		if (i >= 0 && i < data.length) {
 			final int w = data[i];
 			return Integer.valueOf(w);
@@ -371,7 +295,7 @@ public final class Memory {
 	
 	/** load boxed word, null if unmapped */
 	public Long loadDoubleWordSafe (final int paddr) {
-		final int i = paddr >> 2;
+		final int i = paddr >>> 2;
 		if (i >= 0 && i < data.length - 1) {
 			final long w1 = data[i] & 0xffff_ffffL;
 			final long w2 = data[i + 1] & 0xffff_ffffL;

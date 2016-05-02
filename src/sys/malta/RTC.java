@@ -1,7 +1,9 @@
 package sys.malta;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
+import java.util.List;
 
 import sys.util.Logger;
 import sys.util.Symbols;
@@ -88,6 +90,7 @@ public class RTC implements Device {
 		
 		if (value >= 0 && value <= 9 && (controlb & B_DATAMODE) == 0) {
 			throw new RuntimeException("bcd read");
+			// v -> (v / 10) << 4 + (v % 10)
 		}
 		
 		switch (value) {
@@ -184,15 +187,16 @@ public class RTC implements Device {
 	}
 	
 	private void setControlB (final int value) {
-		log.println("set control b %x", value);
+		log.println("set control b %x: %s", value, controlbString(value));
+		
 		switch (value) {
 			case 0:
 				log.println("set bcd 12-h");
 				break;
-			case 4:
+			case 2:
 				log.println("set bcd 24-h");
 				break;
-			case 2:
+			case 4:
 				log.println("set binary 12-h");
 				break;
 			case 6:
@@ -202,6 +206,19 @@ public class RTC implements Device {
 				throw new RuntimeException("unknown b value " + value);
 		}
 		controlb = value;
+	}
+	
+	public String controlbString(int value) {
+		List<String> l = new ArrayList<>();
+		if ((value & 0x1) != 0) l.add("0:daylightsavings");
+		if ((value & 0x2) != 0) l.add("1:24hour");
+		if ((value & 0x4) != 0) l.add("2:binary");
+		if ((value & 0x8) != 0) l.add("3:squarewave");
+		if ((value & 0x10) != 0) l.add("4:updateendedinterrupt");
+		if ((value & 0x20) != 0) l.add("5:alarminterrupt");
+		if ((value & 0x40) != 0) l.add("6:periodicinterrupt");
+		if ((value & 0x80) != 0) l.add("7:set");
+		return l.toString();
 	}
 	
 }

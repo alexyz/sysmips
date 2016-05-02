@@ -47,7 +47,8 @@ public final class Cpu {
 	private final List<Log> logs = new ArrayList<>();
 	private final Symbols symbols = new Symbols();
 	
-	private volatile long cycle = 1;
+	/** cycle count, used as value of CPR_COUNT */
+	private volatile long cycle;
 	private volatile boolean logScheduled;
 	private volatile long waitTimeNs;
 	private volatile int waitCount;
@@ -70,11 +71,13 @@ public final class Cpu {
 	private int lo;
 	private boolean countIsns; 
 	private int disasmCount;
-	// denormalised from CPR_STATUS_IE
+	/** derived from CPR_STATUS_IE */
 	private boolean interruptsEnabled;
-	// equivalent to CPR_STATUS_EXL?
+	/** derived from CPR_STATUS_EXL */
 	private boolean execException;
 	private long startTimeNs;
+	/** derived from CPR_COMPARE */
+	private long compare;
 	
 	public Cpu (int memsize, boolean littleEndian) {
 		this.memory = new Memory(memsize, littleEndian);
@@ -93,7 +96,7 @@ public final class Cpu {
 		setCpValue(CPR_STATUS_ERL, true);
 		setCpValue(CPR_STATUS_BEV, true);
 		setCpValue(CPR_STATUS_CU0, true);
-		setCpValue(CPR_STATUS_CU1, true); // should be false for 4kc...
+		setCpValue(CPR_STATUS_CU1, false); // should be false for 4kc...
 		statusUpdated();
 		
 		// 0x10000 = MIPS, 0x8000 = 4KC 
@@ -108,6 +111,7 @@ public final class Cpu {
 		cpRegister[CPR_CONFIG1] = (15 << 25);
 		
 		cpRegister[CPR_COMPARE] = -1;
+		compare = -1;
 		
 		// entry point should be set by elf loader
 		//setPc(EXV_RESET);
@@ -273,6 +277,7 @@ public final class Cpu {
 //			boolean x = false;
 			
 			while (true) {
+				// set up zero before anything
 				if (register[0] != 0) {
 					register[0] = 0;
 				}
@@ -295,8 +300,19 @@ public final class Cpu {
 //					log.println(memory.getSymbols().getNameOffset(pc));
 //				}
 				
-				// every 1024 cycles
-				if (exceptionPending) {
+				// set up cycle before exception
+				// don't set CPR_CAUSE twice...
+//				final int cmp = cpRegister[CPR_COMPARE];
+//				final int count = (int) (cycle >>> 1);
+				if (cycle++ == compare) {
+					// IP7, hardware interrupt 5 (timer)
+					log.println("compare hit");
+					setCpValue(CPR_CAUSE_IP, 1 << MaltaUtil.INT_R4KTIMER);
+					// XXX should add 2^32 to compare...
+					if (interruptsEnabled) {
+						throw new RuntimeException("compare interrupt");
+					}
+				} else if (exceptionPending) {
 					if (checkException()) {
 						// restart loop, start executing exception handler...
 						continue;
@@ -336,16 +352,7 @@ public final class Cpu {
 				//	isnCount.get(IsnSet.getInstance().getIsn(isn).name)[0]++;
 				//}
 				
-				final int cmp = cpRegister[CPR_COMPARE];
-				final int count = (int) (cycle >>> 1);
-				if (cmp == count) {
-					if (interruptsEnabled) {
-						throw new RuntimeException("compare interrupt");
-					}
-					// FIXME need to set up IC anyway
-					// cevt-r4k.c c0_compare_int_usable()
-					throw new RuntimeException("compare hit");
-				}
+
 				
 				//if (singleStep) {
 				//	while (System.in.read() != 10) {
@@ -353,7 +360,7 @@ public final class Cpu {
 				//	}
 				//}
 				
-				cycle++;
+				//cycle++;
 			}
 			
 		} catch (Exception e) {
@@ -1054,8 +1061,9 @@ public final class Cpu {
 				}
 				return;
 			case CPR_COMPARE:
-				log.println("set compare " + newValue);
 				cpRegister[cpr] = newValue;
+				compare = (newValue&ZX_INT_MASK) << 1;
+				log.println("set compare " + newValue + " (cycles to go: " + (compare - cycle) + ")");
 				return;
 			case CPR_EPC:
 				cpRegister[cpr] = newValue;

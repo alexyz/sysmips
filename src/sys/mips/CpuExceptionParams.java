@@ -53,6 +53,6 @@ public class CpuExceptionParams {
 		String irqs = irq != null ? " irq=" + MaltaUtil.irqString(irq) : "";
 		String vas = vaddr != null ? " vaddr=" + Integer.toHexString(vaddr) : "";
 		String tlbs = tlbRefill != null ? " refill=" + tlbRefill : "";
-		return getClass().getSimpleName() + "[ex=" + exs + ints + irqs + vas + tlbs + "]";
+		return "CEP[ex=" + exs + ints + irqs + vas + tlbs + "]";
 	}
 }

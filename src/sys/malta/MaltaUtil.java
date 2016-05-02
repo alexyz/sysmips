@@ -34,21 +34,21 @@ public class MaltaUtil {
 	/** secondary ide */
 	public static final int IRQ_IDE1 = 15;
 	
-	/** software interrupt */
+	/** software interrupt 0 */
 	public static final int INT_SOFTWARE_0 = 0;
-	/** software interrupt */
+	/** software interrupt 1 */
 	public static final int INT_SOFTWARE_1 = 1;
-	/** southbridge interrupt (INT0) */
+	/** southbridge interrupt (hardware interrupt 0) */
 	public static final int INT_SOUTHBRIDGE_INTR = 2;
-	/** southbridge system management interrupt (INT1) */
+	/** southbridge system management interrupt (hardware interrupt 1) */
 	public static final int INT_SOUTHBRIDGE_SMI = 3;
-	/** cbus uart (tty2) (INT2) */
+	/** cbus uart (tty2) (hardware interrupt 2) */
 	public static final int INT_CBUS_UART = 4;
-	/** core card hi (INT3) */
+	/** core card hi (hardware interrupt 3) */
 	public static final int INT_COREHI = 5;
-	/** core card lo (INT4) */
+	/** core card lo (hardware interrupt 4) */
 	public static final int INT_CORELO = 6;
-	/** cpu internal timer (INT5) */
+	/** cpu internal timer (hardware interrupt 5) */
 	public static final int INT_R4KTIMER = 7;
 
 	public static String interruptString (int interrupt) {

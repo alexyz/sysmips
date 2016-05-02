@@ -494,7 +494,7 @@ public final class CpuConstants {
 	
 	/** cause register exception code */
 	public static final CpRegConstant CPR_CAUSE_EXCODE = new CpRegConstant(CPR_CAUSE, 2, 5);
-	/** cause register interrupt pending mask */
+	/** cause register interrupt pending mask (8 bits) */
 	public static final CpRegConstant CPR_CAUSE_IP = new CpRegConstant(CPR_CAUSE, 8, 8);
 	/** cause register use general or special exception vector (1 bit) */
 	public static final CpRegConstant CPR_CAUSE_IV = new CpRegConstant(CPR_CAUSE, 23, 1);

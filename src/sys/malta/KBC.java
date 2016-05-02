@@ -57,6 +57,7 @@ public class KBC implements Device {
 	
 	/** last command issued to command port (if required) */
 	private int cmd;
+//	private int nextcmd;
 	
 	public KBC(int baseAddr) {
 		this.baseAddr = baseAddr;
@@ -76,12 +77,18 @@ public class KBC implements Device {
 	@Override
 	public int systemRead (int addr, int size) {
 		final int offset = addr - baseAddr;
+		final int data = this.data;
 		
 		switch (offset) {
 			case M_KBC_DATA: // 60
 				log.println("read keydata %x", data);
 				// no more data...
 				status = 0;
+//				if (nextcmd != 0) {
+//					log.println("next cmd %x", nextcmd);
+//					command(nextcmd);
+//					nextcmd = 0;
+//				}
 				return data;
 				
 			case M_KBC_CMD: // 64
@@ -111,7 +118,7 @@ public class KBC implements Device {
 				throw new RuntimeException();
 		}
 	}
-
+	
 	private void command (final int value) {
 		//log.println("keycmd %x", value);
 		
@@ -164,9 +171,23 @@ public class KBC implements Device {
 	}
 	
 	private void data (int value) {
-		//log.println("keydata %x", value);
+		log.println("keydata %x (cmd %x)", value, cmd);
 		
 		switch (cmd) {
+			case 0:
+				switch (value) {
+					case 0xff:
+						log.println("keydata: reset");
+						data = 0xfa;
+						status = 0x1;
+						// FIXME should this write two bytes back?
+//						nextcmd = 0xaa;
+						break;
+					default:
+						throw new RuntimeException(String.format("unknown system command %x", value));
+				}
+				break;
+				
 			case 0x60:
 				// write to cfg
 				log.println("keydata: write config %x (was %x)", value, config);
@@ -195,7 +216,7 @@ public class KBC implements Device {
 				throw new RuntimeException(String.format("unknown keydata %x for cmd %x", value, cmd));
 		}
 	}
-
+	
 	private static List<String> cfgString (int cfg) {
 		List<String> l = new ArrayList<>();
 		if ((cfg & 0x1) != 0) l.add("0:keyint");

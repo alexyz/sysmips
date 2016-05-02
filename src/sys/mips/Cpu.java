@@ -15,6 +15,9 @@ import static sys.mips.CpuConstants.*;
 import static sys.mips.CpuFunctions.*;
 import static sys.mips.InstructionUtil.*;
 
+/**
+ * a mips cpu
+ */
 public final class Cpu {
 	
 	private static final ThreadLocal<Cpu> instance = new ThreadLocal<>();
@@ -32,6 +35,7 @@ public final class Cpu {
 	private final Map<String, int[]> isnCount = new HashMap<>();
 	private final Memory memory;
 	private final boolean littleEndian;
+	/** pending exception queue, must be synchronised on this */
 	private final Deque<CpuExceptionParams> exceptions = new ArrayDeque<>();
 	private final CallLogger calls = new CallLogger(this);
 	/** 0 for little endian, 3 for big endian */
@@ -39,6 +43,7 @@ public final class Cpu {
 	private final Fpu fpu = new Fpu(this);
 	private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 	private final PropertyChangeSupport support = new PropertyChangeSupport(this);
+	/** pending logs queue, must be synchronised on this */
 	private final List<Log> logs = new ArrayList<>();
 	private final Symbols symbols = new Symbols();
 	
@@ -46,6 +51,7 @@ public final class Cpu {
 	private volatile boolean logScheduled;
 	private volatile long waitTimeNs;
 	private volatile int waitCount;
+	private volatile boolean exceptionPending;
 	
 	/**
 	 * within execOp: address of current instruction. if pc2 != pc + 4 then the
@@ -63,12 +69,12 @@ public final class Cpu {
 	private int hi;
 	private int lo;
 	private boolean countIsns; 
-	//private boolean disasm;
 	private int disasmCount;
 	// denormalised from CPR_STATUS_IE
 	private boolean interruptsEnabled;
 	// equivalent to CPR_STATUS_EXL?
 	private boolean execException;
+	private long startTimeNs;
 	
 	public Cpu (int memsize, boolean littleEndian) {
 		this.memory = new Memory(memsize, littleEndian);
@@ -220,6 +226,10 @@ public final class Cpu {
 		return symbols;
 	}
 
+	public long getStartTime () {
+		return startTimeNs;
+	}
+
 	public final void addLog(Log log) {
 		synchronized (this) {
 			logs.add(log);
@@ -248,7 +258,7 @@ public final class Cpu {
 
 	/** never returns, throws runtime exception... */
 	public final void run () {
-		final long startTime = System.nanoTime();
+		startTimeNs = System.nanoTime();
 		
 		try {
 			instance.set(this);
@@ -286,8 +296,7 @@ public final class Cpu {
 //				}
 				
 				// every 1024 cycles
-				if ((cycle & 0xfff) == 0) {
-					// TODO should probably also do this after eret...
+				if (exceptionPending) {
 					if (checkException()) {
 						// restart loop, start executing exception handler...
 						continue;
@@ -331,8 +340,11 @@ public final class Cpu {
 				final int count = (int) (cycle >>> 1);
 				if (cmp == count) {
 					if (interruptsEnabled) {
-						throw new RuntimeException("compare hit");
+						throw new RuntimeException("compare interrupt");
 					}
+					// FIXME need to set up IC anyway
+					// cevt-r4k.c c0_compare_int_usable()
+					throw new RuntimeException("compare hit");
 				}
 				
 				//if (singleStep) {
@@ -355,7 +367,7 @@ public final class Cpu {
 			
 		} finally {
 			final long endTime = System.nanoTime();
-			final long duration = endTime - startTime - waitTimeNs;
+			final long duration = endTime - startTimeNs - waitTimeNs;
 			log.println("ended");
 			log.println("nanoseconds per isn: " + (duration / cycle));
 			instance.remove();
@@ -373,6 +385,7 @@ public final class Cpu {
 			CpuExceptionParams ep;
 			synchronized (this) {
 				ep = exceptions.poll();
+				exceptionPending = false;
 			}
 			if (ep != null) {
 				execException(ep);
@@ -386,6 +399,7 @@ public final class Cpu {
 		//log.println("add exn " + ep);
 		synchronized (this) {
 			exceptions.add(ep);
+			exceptionPending = true;
 			// wake up...
 			notifyAll();
 		}
@@ -399,7 +413,7 @@ public final class Cpu {
 	// genex.S
 	// malta-int.c plat_irq_dispatch (deals with hardware interrupts)
 	private final void execException (CpuExceptionParams ep) {
-		//log.println("exec exception " + ep);
+		log.println("exec exception " + ep);
 //		log.println(CpuUtil.gpRegString(this, null));
 //		log.println(IsnUtil.isnString(this, memory.loadWord(pc)));
 		
@@ -906,7 +920,6 @@ public final class Cpu {
 			case FN_TNE:
 				if (register[rs] != register[rt]) {
 					execException(new CpuExceptionParams(EX_TRAP));
-					throw new RuntimeException("trap");
 				}
 				return;
 			default:
@@ -1041,7 +1054,7 @@ public final class Cpu {
 				}
 				return;
 			case CPR_COMPARE:
-				log.println("set compare " + Integer.toHexString(newValue));
+				log.println("set compare " + newValue);
 				cpRegister[cpr] = newValue;
 				return;
 			case CPR_EPC:
@@ -1153,6 +1166,9 @@ public final class Cpu {
 				execException = false;
 				statusUpdated();
 				calls.pop();
+				synchronized (this) {
+					exceptionPending = exceptions.size() > 0;
+				}
 				return;
 			}
 			default:

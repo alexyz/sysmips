@@ -207,11 +207,25 @@ public class Uart implements Device {
 		}
 		if (value == '\n' || consoleSb.length() > 160) {
 			final String line = consoleSb.toString();
-			log.println(line.trim());
-			if (line.contains("WARNING")) {
-				log.println("calls=" + Cpu.getInstance().getCalls().callString());
+			Cpu cpu = Cpu.getInstance();
+			double et = (System.nanoTime() - cpu.getStartTime()) / 1_000_000_000.0;
+			double kt = 0;
+			int i1 = line.indexOf("[");
+			if (i1 >= 0) {
+				int i2 = line.indexOf("]", i1);
+				if (i2 >= 0) {
+					try {
+						kt = Double.parseDouble(line.substring(i1 + 1, i2).trim());
+					} catch (Exception e) {
+						//
+					}
+				}
 			}
-			Cpu.getInstance().getSupport().firePropertyChange("console", null, line);
+			log.println("{%.3f} %s", kt - et, line.trim());
+			if (line.contains("WARNING")) {
+				log.println("calls=" + cpu.getCalls().callString());
+			}
+			cpu.getSupport().firePropertyChange("console", null, line);
 			consoleSb.delete(0, consoleSb.length());
 		}
 	}

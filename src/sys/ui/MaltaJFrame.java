@@ -88,6 +88,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		topPanel1.add(memSpinner);
 		topPanel1.add(new JLabel("Args"));
 		topPanel1.add(argsField);
+		topPanel1.add(loadButton);
 		//topPanel1.add(new JLabel("Env"));
 		//topPanel1.add(envField);
 		
@@ -96,7 +97,6 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		topPanel2.add(displayField);
 		topPanel2.add(new JLabel("Cycle"));
 		topPanel2.add(cycleLabel);
-		topPanel2.add(loadButton);
 		topPanel2.add(runButton);
 		topPanel2.add(stopButton);
 		

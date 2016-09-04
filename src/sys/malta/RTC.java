@@ -1,7 +1,10 @@
 package sys.malta;
 
+import java.math.BigDecimal;
 import java.util.*;
+import java.util.concurrent.*;
 
+import sys.mips.*;
 import sys.util.*;
 
 /**
@@ -11,6 +14,8 @@ public class RTC implements Device {
 	
 	public static final int M_ADR = 0x0;
 	public static final int M_DAT = 0x1;
+	
+	private static final long NS_IN_S = 1000_000_000;
 	
 	private static final int I_SEC = 0x0;
 	private static final int I_SECALM = 0x1;
@@ -31,13 +36,41 @@ public class RTC implements Device {
 	private static final int A_UIP = 0x80;
 	private static final int DVX_NORMAL = 2;
 
+	/** daylight savings enable */
+	private static final int B_DSE = 0x1;
 	/** control register b hour mode 0=12h 1=24h */
 	private static final int B_HF24 = 0x2;
 	/** control register b hour mode 0=bcd 1=binary */
 	private static final int B_DMBIN = 0x4;
+	/** square wave enable */
+	private static final int B_SQWE = 0x8;
+	/** update ended interrupt enable */
+	private static final int B_UIE = 0x10;
+	/** alarm interrupt enable */
+	private static final int B_AIE = 0x20;
+	/** periodic interrupt enable */
+	private static final int B_PIE = 0x40;
+	/** enable update cycles 0=auto update 1=no auto update */
+	private static final int B_SET = 0x80;
+	
+	// all these are cleared on read
+	/** update ended flag */
+	private static final int C_UF = 0x10;
+	/** alarm flag */
+	private static final int C_AF = 0x20;
+	/** periodic interrupt flag */
+	private static final int C_PF = 0x40;
+	/** interrupt request flag */
+	private static final int C_IRQF = 0x80;
 	
 	public static void main (String[] args) throws Exception {
-		final RTC dev = new RTC(0);
+		ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+		final RTC dev = new RTC(0) {
+			@Override
+			protected ScheduledExecutorService getExecutor () {
+				return executor;
+			}
+		};
 		dev.write(I_REGB, 0);
 		System.out.println("12h+bcd time=" + dev.readtime(true));
 		dev.write(I_REGB, B_HF24);
@@ -47,7 +80,36 @@ public class RTC implements Device {
 		dev.write(I_REGB, B_HF24 | B_DMBIN);
 		System.out.println("24h+bin time=" + dev.readtime(false));
 		
-		// XXX test interrupts...
+		for (int n = 0; n < 16; n++) {
+			System.out.println(String.format("rsx %4s = %-16s", Integer.toBinaryString(n), new BigDecimal(rateSelectPeriod(n))));
+		}
+		
+		// test interrupts...
+		dev.write(I_REGB, 0);
+		dev.write(I_REGA, 0x2f); // 2 = normal dvx, f = 500ms pi
+		long st = System.nanoTime(), t;
+		while ((t = System.nanoTime()) < st + NS_IN_S * 5) {
+			int c1 = dev.read(I_REGC);
+			if ((c1 & C_PF) != 0) {
+				System.out.println("pf set at " + (1.0*(t-st))/NS_IN_S);
+				int c2 = dev.read(I_REGC);
+				if (c2 != 0) {
+					throw new Exception("flag not cleared...");
+				}
+			}
+			Thread.sleep(1);
+		}
+		
+		// disable timer
+		dev.write(I_REGA, 0x20);
+		dev.read(I_REGC);
+		Thread.sleep(1000);
+		if (dev.read(I_REGC) != 0) {
+			throw new Exception("flag set...");
+		}
+		
+		executor.shutdown();
+		System.out.println("done");
 	}
 	
 	private String readtime (boolean bcd) throws Exception {
@@ -73,7 +135,7 @@ public class RTC implements Device {
 	}
 	
 	private String readstr (int i, boolean hex) {
-		return hex ? Integer.toHexString(read(i)) + "x" : Integer.toString(read(i)) + "d";
+		return hex ? "x" + Integer.toHexString(read(i)) : Integer.toString(read(i));
 	}
 	
 	private int read (int i) {
@@ -94,6 +156,8 @@ public class RTC implements Device {
 	private int controla;
 	private int controlb;
 	private int controlc;
+	private double period;
+	private Future<?> timerFuture;
 	
 	public RTC(int baseAddr) {
 		this.baseAddr = baseAddr;
@@ -156,6 +220,7 @@ public class RTC implements Device {
 		// 0 = seconds, 2 = minutes, 4 = hours, 6 = dow, 7 = dom, 8 = month, 9 = year
 		log.println(0, "rtc adr write " + value);
 		rtcadr = value & 0xff;
+		// should freeze this if reg c set is 1
 		final Calendar c = new GregorianCalendar();
 		
 		switch (value) {
@@ -205,7 +270,9 @@ public class RTC implements Device {
 				rtcdat = controlb;
 				break;
 			case I_REGC:
+				// cleared on read
 				rtcdat = controlc;
+				controlc = 0;
 				break;
 			default:
 				throw new RuntimeException(String.format("invalid rtc adr %x", value));
@@ -233,23 +300,39 @@ public class RTC implements Device {
 		if (dvx != DVX_NORMAL) {
 			throw new RuntimeException(String.format("unknown dvx %x", dvx));
 		}
+		
 		controla = value & 0x7f;
-		if ((controlb & 0x40) != 0) {
-			throw new RuntimeException("periodic interrupt");
-		} else {
-			// FIXME do this on the tap not now...
-			// set the pf flag
-			controlc |= 0x40;
-			throw new RuntimeException("periodic interrupt flag");
+		
+		if (period != rsp) {
+			log.println("period changed from " + period + " to " + rsp);
+			period = rsp;
+			if (timerFuture != null) {
+				timerFuture.cancel(false);
+				timerFuture = null;
+			}
+			
+			if (rsp > 0) {
+				long rspNs = (long) (rsp * NS_IN_S);
+				timerFuture = getExecutor().scheduleAtFixedRate(() -> {
+					if ((controlb & 0x40) != 0) {
+						// add the exception...
+						Cpu.getInstance().addException(new CpuExceptionParams(CpuConstants.EX_TRAP));
+						throw new RuntimeException("periodic interrupt");
+					} else {
+						// just set the pf flag
+						controlc |= C_PF;
+					}
+				}, rspNs, rspNs, TimeUnit.NANOSECONDS);
+			}
 		}
 	}
 
 	private static double rateSelectPeriod (int rsx) {
 		double p = 0;
 		if (rsx >= 3) {
-			p = 0.5 / Math.pow(2, rsx - 15);
+			p = 1 / Math.pow(2, 16 - rsx);
 		} else if (rsx >= 1) {
-			p = 0.5 / Math.pow(2, rsx + 6);
+			p = 1 / Math.pow(2, 9 - rsx);
 		}
 		return p;
 	}
@@ -273,6 +356,10 @@ public class RTC implements Device {
 		if ((value & 0x40) != 0) l.add("6:periodicinterrupt");
 		if ((value & 0x80) != 0) l.add("7:set");
 		return l.toString();
+	}
+	
+	protected ScheduledExecutorService getExecutor() {
+		return Cpu.getInstance().getExecutor();
 	}
 	
 }

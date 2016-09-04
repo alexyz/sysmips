@@ -15,6 +15,8 @@ import static sys.mips.InstructionUtil.*;
  */
 public class CpuUtil {
 	
+	public static final long NS_IN_S = 1000000000;
+	
 	/** load elf file into cpu, set entry point, return max address */
 	public static Cpu loadElf (final RandomAccessFile file, final int memsize, final int[] top) throws Exception {
 		ELF32 elf = new ELF32(file);

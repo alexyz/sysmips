@@ -407,7 +407,7 @@ public final class Cpu {
 		synchronized (this) {
 			exceptions.add(ep);
 			exceptionPending = true;
-			// wake up...
+			// wake up if cpu currently sleeping
 			notifyAll();
 		}
 	}
@@ -1154,7 +1154,7 @@ public final class Cpu {
 							if (waitCount > 10) {
 								throw new RuntimeException("wait count exceeded");
 							}
-							log.println("continuing after " + (t/1000000000.0) + " seconds");
+							log.println("continuing after " + ((t*1.0)/CpuUtil.NS_IN_S) + " seconds");
 						} catch (InterruptedException e) {
 							log.println("interrupted in wait...");
 						}

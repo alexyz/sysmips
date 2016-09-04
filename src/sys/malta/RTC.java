@@ -1,12 +1,8 @@
 package sys.malta;
 
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.GregorianCalendar;
-import java.util.List;
+import java.util.*;
 
-import sys.util.Logger;
-import sys.util.Symbols;
+import sys.util.*;
 
 /**
  * real time clock
@@ -15,14 +11,84 @@ public class RTC implements Device {
 	
 	public static final int M_ADR = 0x0;
 	public static final int M_DAT = 0x1;
+	
+	private static final int I_SEC = 0x0;
+	private static final int I_SECALM = 0x1;
+	private static final int I_MIN = 0x2;
+	private static final int I_MINALM = 0x3;
+	private static final int I_HOUR = 0x4;
+	private static final int I_HOURALM = 0x5;
+	private static final int I_DOW = 0x6;
+	private static final int I_DOM = 0x7;
+	private static final int I_MONTH = 0x8;
+	private static final int I_YEAR = 0x9;
+	private static final int I_REGA = 0xa;
+	private static final int I_REGB = 0xb;
+	private static final int I_REGC = 0xc;
+	private static final int I_REGD = 0xd;
+	
+	/** update in progress */
+	private static final int A_UIP = 0x80;
+	private static final int DVX_NORMAL = 2;
 
-	/** control register b hour mode 24h/12h */
-	private static int B_HOURMODE = 0x2;
-	/** control register b hour mode binary/bcd */
-	private static int B_DATAMODE = 0x4;
+	/** control register b hour mode 0=12h 1=24h */
+	private static final int B_HF24 = 0x2;
+	/** control register b hour mode 0=bcd 1=binary */
+	private static final int B_DMBIN = 0x4;
+	
+	public static void main (String[] args) throws Exception {
+		final RTC dev = new RTC(0);
+		dev.write(I_REGB, 0);
+		System.out.println("12h+bcd time=" + dev.readtime(true));
+		dev.write(I_REGB, B_HF24);
+		System.out.println("24h+bcd time=" + dev.readtime(true));
+		dev.write(I_REGB, B_DMBIN);
+		System.out.println("12h+bin time=" + dev.readtime(false));
+		dev.write(I_REGB, B_HF24 | B_DMBIN);
+		System.out.println("24h+bin time=" + dev.readtime(false));
+		
+		// XXX test interrupts...
+	}
+	
+	private String readtime (boolean bcd) throws Exception {
+		// wait for uip
+		int s;
+		for (s = 0; (read(I_REGA) & A_UIP) == 0; s++) {
+			Thread.sleep(1);
+		}
+		//System.out.println("uip set after " + s);
+		for (s = 0; (read(I_REGA) & A_UIP) != 0; s++) {
+			Thread.sleep(1);
+		}
+		//System.out.println("uip clear after " + s);
+		return Arrays.toString(new String[] {
+				readstr(I_YEAR, bcd),
+				readstr(I_MONTH, bcd),
+				readstr(I_DOM, bcd),
+				readstr(I_DOW, bcd),
+				readstr(I_HOUR, bcd),
+				readstr(I_MIN, bcd),
+				readstr(I_SEC, bcd)
+		});
+	}
+	
+	private String readstr (int i, boolean hex) {
+		return hex ? Integer.toHexString(read(i)) + "x" : Integer.toString(read(i)) + "d";
+	}
+	
+	private int read (int i) {
+		systemWrite(M_ADR, 1, i);
+		return (byte) systemRead(M_DAT, 1);
+	}
+	
+	private void write (int i, int v) {
+		systemWrite(M_ADR, 1, (byte) i);
+		systemWrite(M_DAT, 1, (byte) v);
+	}
 	
 	private final Logger log = new Logger("RTC");
 	private final int baseAddr;
+	// XXX these are bytes represented as ints for convenience
 	private int rtcadr;
 	private int rtcdat;
 	private int controla;
@@ -33,7 +99,7 @@ public class RTC implements Device {
 		this.baseAddr = baseAddr;
 		// binary not bcd
 		// if this is missing you get a weird error about persistent clock invalid
-		this.controlb = B_HOURMODE | B_DATAMODE;
+		this.controlb = B_HF24 | B_DMBIN;
 	}
 	
 	@Override
@@ -79,7 +145,11 @@ public class RTC implements Device {
 				throw new RuntimeException();
 		}
 	}
-	
+
+	/** convert to binary/bcd */
+	private int toDataMode(int v) {
+		return ((controlb & B_DMBIN) != 0) ? v : ((v / 10) << 4 | (v % 10));
+	}
 	
 	private void rtcAdrWrite (final int value) {
 		// mc146818rtc.h
@@ -88,57 +158,53 @@ public class RTC implements Device {
 		rtcadr = value & 0xff;
 		final Calendar c = new GregorianCalendar();
 		
-		if (value >= 0 && value <= 9 && (controlb & B_DATAMODE) == 0) {
-			throw new RuntimeException("bcd read");
-			// v -> (v / 10) << 4 + (v % 10)
-		}
-		
 		switch (value) {
-			case 0x0:
-				rtcdat = c.get(Calendar.SECOND);
+			case I_SEC:
+				rtcdat = toDataMode(c.get(Calendar.SECOND));
 				break;
-			case 0x2:
-				rtcdat = c.get(Calendar.MINUTE);
+			case I_MIN:
+				rtcdat = toDataMode(c.get(Calendar.MINUTE));
 				break;
-			case 0x4:
+			case I_HOUR:
 				// depends on control register b hour format
-				if ((controlb & B_HOURMODE) != 0) {
-					rtcdat = c.get(Calendar.HOUR_OF_DAY);
+				if ((controlb & B_HF24) != 0) {
+					rtcdat = toDataMode(c.get(Calendar.HOUR_OF_DAY));
 				} else {
 					boolean pm = c.get(Calendar.AM_PM) == Calendar.PM;
-					rtcdat = c.get(Calendar.HOUR) | (pm ? 0x80 : 0);
+					rtcdat = toDataMode(c.get(Calendar.HOUR) | (pm ? 0x80 : 0));
 				}
 				break;
-			case 0x6:
-				rtcdat = c.get(Calendar.DAY_OF_WEEK);
+			case I_DOW:
+				rtcdat = toDataMode(c.get(Calendar.DAY_OF_WEEK));
 				break;
-			case 0x7:
-				rtcdat = c.get(Calendar.DAY_OF_MONTH);
+			case I_DOM:
+				rtcdat = toDataMode(c.get(Calendar.DAY_OF_MONTH));
 				break;
-			case 0x8:
-				rtcdat = c.get(Calendar.MONTH);
+			case I_MONTH:
+				rtcdat = toDataMode(c.get(Calendar.MONTH) + 1);
 				break;
-			case 0x9:
-				rtcdat = c.get(Calendar.YEAR);
+			case I_YEAR:
+				// its only a byte...
+				rtcdat = toDataMode(c.get(Calendar.YEAR) % 100);
 				break;
-			case 0x1:
-			case 0x3:
-			case 0x5:
+			case I_SECALM:
+			case I_MINALM:
+			case I_HOURALM:
 				// alarm
 				rtcdat = 0;
 				break;
-			case 0xa: {
+			case I_REGA: {
 				// register a
 				// update in progress
 				final boolean uip = c.get(Calendar.MILLISECOND) >= 990;
-				rtcdat = controla | (uip ? 0x80 : 0);
+				rtcdat = controla | (uip ? A_UIP : 0);
 				break;
 			}
-			case 0xb:
+			case I_REGB:
 				// register b
 				rtcdat = controlb;
 				break;
-			case 0xc:
+			case I_REGC:
 				rtcdat = controlc;
 				break;
 			default:
@@ -148,10 +214,10 @@ public class RTC implements Device {
 	
 	private void rtcDatWrite (final int value) {
 		switch (rtcadr) {
-			case 0xa:
+			case I_REGA:
 				setControlA(value);
 				break;
-			case 0xb:
+			case I_REGB:
 				setControlB(value);
 				break;
 			default:
@@ -161,22 +227,24 @@ public class RTC implements Device {
 
 	private void setControlA (final int value) {
 		int rsx = value & 0xf;
-		double p = rsxPeriod(rsx);
+		double rsp = rateSelectPeriod(rsx);
 		int dvx = (value >> 4) & 0x7;
-		log.println("set control a %x rsx: %x p: %f dvx: %x", value, rsx, p, dvx);
-		if (dvx != 2) {
+		log.println("set control a %x rsx: %x rsp: %f dvx: %x", value, rsx, rsp, dvx);
+		if (dvx != DVX_NORMAL) {
 			throw new RuntimeException(String.format("unknown dvx %x", dvx));
 		}
 		controla = value & 0x7f;
 		if ((controlb & 0x40) != 0) {
 			throw new RuntimeException("periodic interrupt");
 		} else {
+			// FIXME do this on the tap not now...
 			// set the pf flag
 			controlc |= 0x40;
+			throw new RuntimeException("periodic interrupt flag");
 		}
 	}
 
-	private double rsxPeriod (int rsx) {
+	private static double rateSelectPeriod (int rsx) {
 		double p = 0;
 		if (rsx >= 3) {
 			p = 0.5 / Math.pow(2, rsx - 15);
@@ -188,27 +256,13 @@ public class RTC implements Device {
 	
 	private void setControlB (final int value) {
 		log.println("set control b %x: %s", value, controlbString(value));
-		
-		switch (value) {
-			case 0:
-				log.println("set bcd 12-h");
-				break;
-			case 2:
-				log.println("set bcd 24-h");
-				break;
-			case 4:
-				log.println("set binary 12-h");
-				break;
-			case 6:
-				log.println("set binary 24-h");
-				break;
-			default:
-				throw new RuntimeException("unknown b value " + value);
+		if ((value & ~(B_DMBIN | B_HF24)) != 0) {
+			throw new RuntimeException("unexpected b " + value);
 		}
 		controlb = value;
 	}
 	
-	public String controlbString(int value) {
+	public static String controlbString(int value) {
 		List<String> l = new ArrayList<>();
 		if ((value & 0x1) != 0) l.add("0:daylightsavings");
 		if ((value & 0x2) != 0) l.add("1:24hour");

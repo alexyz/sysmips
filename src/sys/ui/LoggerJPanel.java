@@ -18,6 +18,7 @@ public class LoggerJPanel extends JPanel {
 
 	private final JTextField filterTextField = new JTextField();
 	private final LogsTableModel tableModel = new LogsTableModel();
+	private final JCheckBox filterConjCheckBox = new JCheckBox("AND");
 	private final JTable table;
 	
 	public LoggerJPanel() {
@@ -25,6 +26,8 @@ public class LoggerJPanel extends JPanel {
 		
 		filterTextField.setColumns(20);
 		filterTextField.addActionListener(ae -> filter());
+		
+		filterConjCheckBox.addActionListener(ae -> filter());
 		
 		table = new JTable(tableModel) {
 			@Override
@@ -57,6 +60,7 @@ public class LoggerJPanel extends JPanel {
 		JPanel northPanel = new JPanel();
 		northPanel.add(new JLabel("Filter"));
 		northPanel.add(filterTextField);
+		northPanel.add(filterConjCheckBox);
 		
 		JScrollPane scrollPane = new JScrollPane(table);
 		
@@ -66,7 +70,7 @@ public class LoggerJPanel extends JPanel {
 	}
 	
 	private void filter () {
-		tableModel.setFilter(filterTextField.getText());
+		tableModel.setFilter(filterTextField.getText(), filterConjCheckBox.isSelected());
 	}
 
 	public void addLogs (Log[] logs) {

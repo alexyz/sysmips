@@ -27,9 +27,9 @@ Hardware:
 * Galileo GT-64120A System Controller Datasheet (2001)
 * Intel 82371AB PCI-TO-ISA / IDE XCELERATOR (PIIX4) (1997)
 * SMSC FDC37M81x PC98/99 Compliant Enhanced Super I/O Controller (2000)
-* Intel Embedded Controller Handbook Volume I: 8-Bit (1989) - if you can find it!
-* [OSDev 8042 PS/2 Controller](http://wiki.osdev.org/%228042%22_PS/2_Controller)
-* IBM PC Technical Reference (1984) - section on Keyboard Controller 
+* SMSC KBD43W13 Keyboard and PS/2 Mouse Controller (1998)
+* [OSDev Wiki](http://wiki.osdev.org/) - Information on PS/2 controller, RTC, etc
+* IBM PC Technical Reference (1984)
 * Intel 8259A PROGRAMMABLE INTERRUPT CONTROLLER (1988)
 
 Linux:

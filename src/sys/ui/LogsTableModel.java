@@ -13,6 +13,7 @@ public class LogsTableModel extends AbstractTableModel {
 	private final List<Log> logs = new ArrayList<>();
 	private final List<Log> viewlogs = new ArrayList<>();
 	private String filter;
+	private boolean conj;
 	
 	public void addLogs (Log[] a) {
 		if (logs.size() > 10000) {
@@ -20,15 +21,35 @@ public class LogsTableModel extends AbstractTableModel {
 		}
 		// int i = logs.size();
 		logs.addAll(Arrays.asList(a));
-		setFilter(filter);
+		setFilter(filter, conj);
 	}
 	
-	public void setFilter (String filter) {
+	public void setFilter (String filter, boolean conj) {
 		this.filter = filter;
+		this.conj = conj;
 		viewlogs.clear();
 		if (filter != null && filter.length() > 0) {
+			String[] a = filter.split(" +");
 			for (Log l : logs) {
-				if (l.msg.contains(filter) || l.name.contains(filter)) {
+				boolean x;
+				if (conj) {
+					x = true;
+					for (String t : a) {
+						if (t.length() > 0 && !(l.msg.contains(t) || l.name.contains(t))) {
+							x = false;
+							break;
+						}
+					}
+				} else {
+					x = false;
+					for (String t : a) {
+						if (t.length() > 0 && (l.msg.contains(t) || l.name.contains(t))) {
+							x = true;
+							break;
+						}
+					}
+				}
+				if (x) {
 					viewlogs.add(l);
 				}
 			}

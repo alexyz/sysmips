@@ -29,7 +29,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		frame.setVisible(true);
 	}
 	
-	private static final Font MONO = new Font("Monospaced", Font.BOLD, 14);
+	private static final Font MONO = new Font("Monospaced", Font.PLAIN, 12);
 	private static int threadInstance = 1;
 	
 	private final JTextField fileField = new JTextField(20);

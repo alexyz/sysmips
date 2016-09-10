@@ -1,7 +1,6 @@
 package sys.malta;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 import sys.mips.Cpu;
 import sys.mips.CpuConstants;
@@ -69,7 +68,14 @@ public class KBC implements Device {
 	private static final int CB_DISABLEAUX = 0x20;
 	
 	public static void main (String[] args) {
-		KBC dev = new KBC(0);
+		Deque<CpuExceptionParams> pa = new ArrayDeque<>();
+		CpuExceptionParams p;
+		KBC dev = new KBC(0) {
+			@Override
+			protected void addException (CpuExceptionParams p) {
+				pa.add(p);
+			}
+		};
 		int v;
 		
 		v = dev.writecmd(CMD_SELFTEST, -1, true);
@@ -125,7 +131,22 @@ public class KBC implements Device {
 		v = dev.readst();
 		System.out.println("st " + Integer.toHexString(v) + " should be 0");
 		
-		// TODO test reset/identify using interrupts
+		// test reset using interrupts
+		dev.writecmd(CMD_WRITECB, CB_ENABLEKEYINT, false);
+		dev.writedat(0xff);
+		p = pa.poll();
+		System.out.println("p " + p + " should be keyboard int");
+		v = dev.readdat();
+		System.out.println("dat " + Integer.toHexString(v) + " should be fa");
+		p = pa.poll();
+		System.out.println("p " + p + " should be keyboard int");
+		v = dev.readdat();
+		System.out.println("dat " + Integer.toHexString(v) + " should be aa");
+		p = pa.poll();
+		System.out.println("p " + p + " should be null");
+		v = dev.readst();
+		System.out.println("st " + Integer.toHexString(v) + " should be 0");
+		
 	}
 	
 	private int readst () {
@@ -224,7 +245,7 @@ public class KBC implements Device {
 				return v;
 				
 			case M_CMDSTATUS: // 64
-				log.println("read status %x", status);
+				//log.println("read status %x", status);
 				return status;
 				
 			default:
@@ -252,66 +273,51 @@ public class KBC implements Device {
 	}
 	
 	private void writeCommand (final int value) {
-		log.println("write command %x", value);
+		//log.println("write command %x", value);
 		datacmd = 0;
 		
 		switch (value) {
 			case CMD_READCB:
-				//log.println("command %x: read command", value);
 				data = config;
 				status |= ST_OUTPUTFULL;
 				return;
 			case CMD_WRITECB:
-				//log.println("command %x: write command", value);
 				// wait for the next byte...
 				datacmd = value;
 				status = 0;
 				return;
 			case CMD_DISABLEAUX:
-				//log.println("command %x: disable aux", value);
-				// disable aux clock?
 				config |= CB_DISABLEAUX;
 				status = 0;
-				//log.println("config now " + cfgString(commandbyte));
 				return;
 			case CMD_ENABLEAUX:
-				//log.println("command %x: enable aux", value);
 				config &= ~CB_DISABLEAUX;
 				status = 0;
-				//log.println("config now " + cfgString(commandbyte));
 				return;
 			case CMD_DISABLEKEY:
-				//log.println("command %x: disable key", value);
 				config |= CB_DISABLEKEY;
 				status = 0;
-				//log.println("config now " + cfgString(commandbyte));
 				return;
 			case CMD_ENABLEKEY:
-				//log.println("command %x: enable key", value);
 				config &= ~CB_DISABLEKEY;
 				status = 0;
-				//log.println("config now " + cfgString(commandbyte));
 				return;
 			case CMD_IFTESTAUX:
-				//log.println("command %x: test aux", value);
 				// success
 				data = 0;
 				status = ST_OUTPUTFULL;
 				return;
 			case CMD_SELFTEST:
-				//log.println("command %x: self test", value);
 				// success
 				data = 0x55;
 				status = 1;
 				return;
 			case CMD_WRITEKEY:
-				//log.println("command %x: write to key out", value);
 				// wait for the next byte...
 				datacmd = value;
 				status = 0;
 				return;
 			case CMD_WRITEAUX:
-				//log.println("command %x: write to aux out", value);
 				// wait for the next byte...
 				datacmd = value;
 				status = 0;
@@ -322,7 +328,7 @@ public class KBC implements Device {
 	}
 	
 	private void writeData (int value) {
-		log.println("write data %x (cmd %x)", value, datacmd);
+		//log.println("write data %x (cmd %x)", value, datacmd);
 		
 		switch (datacmd) {
 			case 0:
@@ -342,17 +348,7 @@ public class KBC implements Device {
 			case CMD_WRITEAUX:
 				//log.println("keydata: write aux out %x", value);
 				pushData(value, true);
-//				data = value;
-				// output buffer full, aux data available
-//				status = ST_AUXDATA | ST_OUTPUTFULL;
 				datacmd = 0;
-//				if ((config & CB_ENABLEAUXINT) != 0) {
-//					log.println("fire aux irq!!");
-//					final CpuExceptionParams ep = new CpuExceptionParams(CpuConstants.EX_INTERRUPT, MaltaUtil.INT_SOUTHBRIDGE_INTR, MaltaUtil.IRQ_MOUSE);
-//					Cpu.getInstance().addException(ep);
-//				} else {
-//					log.println("not firing aux irq due to disabled");
-//				}
 				break;
 				
 			default:
@@ -365,7 +361,7 @@ public class KBC implements Device {
 		// atkbd.c atkbd_probe()
 		boolean key = (config & CB_DISABLEKEY) == 0;
 		boolean aux = (config & CB_DISABLEAUX) == 0;
-		log.println("device command key=" + key + " aux=" + aux);
+		log.println("write device command key=" + key + " aux=" + aux);
 		switch (value) {
 			case 0xf2:
 				log.println("identify");
@@ -392,12 +388,16 @@ public class KBC implements Device {
 		status = ST_OUTPUTFULL | (aux ? ST_AUXDATA : 0);
 		if ((config & (aux ? CB_ENABLEAUXINT : CB_ENABLEKEYINT)) != 0) {
 			log.println("fire kbc irq aux=" + aux);
-			Cpu.getInstance().addException(new CpuExceptionParams(CpuConstants.EX_INTERRUPT, 
+			addException(new CpuExceptionParams(CpuConstants.EX_INTERRUPT, 
 					MaltaUtil.INT_SOUTHBRIDGE_INTR, 
 					aux ? MaltaUtil.IRQ_MOUSE : MaltaUtil.IRQ_KEYBOARD));
 		} else {
 			log.println("not firing kbc irq due to disabled");
 		}
+	}
+
+	protected void addException (CpuExceptionParams p) {
+		Cpu.getInstance().addException(p);
 	}
 	
 	private static List<String> cfgString (int cfg) {

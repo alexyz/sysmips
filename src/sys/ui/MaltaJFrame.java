@@ -243,7 +243,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 			} catch (Exception e) {
 				System.out.println();
 //				cpu.getLog().print(System.out);
-				cpu.getMemory().print(System.out);
+//				cpu.getMemory().print(System.out);
 				
 				System.out.println();
 				final List<String> l = cpu.getIsnCount().entrySet()
@@ -279,15 +279,24 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	}
 
 	private static String exceptionString (Throwable t) {
-		StringBuilder sb = new StringBuilder();
-		while (t != null) {
-			if (sb.length() > 0) {
-				sb.append(": ");
+		try (StringWriter sw = new StringWriter()) {
+			try (PrintWriter pw = new PrintWriter(sw)) {
+				t.printStackTrace(pw);
+				return sw.toString();
 			}
-			sb.append(t);
-			t = t.getCause();
+		} catch (Exception e) {
+			e.printStackTrace();
+			return null;
 		}
-		return sb.toString();
+//		StringBuilder sb = new StringBuilder();
+//		while (t != null) {
+//			if (sb.length() > 0) {
+//				sb.append(": ");
+//			}
+//			sb.append(t);
+//			t = t.getCause();
+//		}
+//		return sb.toString();
 	}
 	
 	private void showErrorDialog(String title, String msg) {
@@ -296,7 +305,11 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		for (int n = 0; n < msg.length(); n++) {
 			final char c = msg.charAt(n);
 			sb.append(c);
-			if (l++ > 72 && " /:".indexOf(c) >= 0) {
+			l++;
+			if (c == '\n') {
+				l = 0;
+			}
+			if ((l > 100 && !Character.isLetterOrDigit(c)) || l >= 120) {
 				sb.append("\n");
 				l = 0;
 			}

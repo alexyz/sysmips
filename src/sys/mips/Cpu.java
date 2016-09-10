@@ -364,6 +364,7 @@ public final class Cpu {
 			}
 			
 		} catch (Exception e) {
+			log.println(e.toString());
 			throw new RuntimeException("exception in cycle " + cycle + ", "
 					+ "little endian: " + littleEndian + ", "
 					+ "kernel mode: " + kernelMode + ", "

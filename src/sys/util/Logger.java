@@ -1,7 +1,6 @@
 package sys.util;
 
 import sys.mips.Cpu;
-import sys.ui.LoggerJPanel;
 
 public class Logger {
 	
@@ -31,7 +30,7 @@ public class Logger {
 			} else {
 				log = new Log(name, msg);
 			}
-			System.out.println(log.toString());
+			//System.out.println(log.toString());
 		}
 	}
 }

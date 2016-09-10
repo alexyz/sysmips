@@ -10,6 +10,8 @@ import sys.util.Symbols;
 
 /**
  * 8042 keyboard controller as documented in various contradictory sources
+ * @see linux/drivers/input/keyboard/atkbd.c
+ * @see linux/include/linux/i8042.h
  */
 public class KBC implements Device {
 	
@@ -37,9 +39,11 @@ public class KBC implements Device {
 	/** enable keyboard interface */
 	private static final int CMD_ENABLEKEY = 0xae;
 	/** write keyboard output buffer */
-	private static final int CMD_WRITEKEY = 0xd2;
+	private static final int CMD_WRITEKEYOUT = 0xd2;
 	/** write aux output buffer */
-	private static final int CMD_WRITEAUX = 0xd3;
+	private static final int CMD_WRITEAUXOUT = 0xd3;
+	/** write aux input buffer (write to device) */
+	private static final int CMD_WRITEAUXIN = 0xd4;
 	
 	/** bit 0: output buffer full */
 	private static final int ST_OUTPUTFULL = 0x1;
@@ -114,7 +118,7 @@ public class KBC implements Device {
 		v = dev.writecmd(CMD_IFTESTAUX, -1, true);
 		System.out.println("aux test " + v + " should be 0");
 		
-		dev.writecmd(CMD_WRITEAUX, 0xfe, false);
+		dev.writecmd(CMD_WRITEAUXOUT, 0xfe, false);
 		System.out.println("wrote aux fe");
 		v = dev.readst();
 		System.out.println("st " + Integer.toHexString(v) + " should be 21");
@@ -208,6 +212,11 @@ public class KBC implements Device {
 	/** last command issued to command port (if required) */
 	private int datacmd;
 	
+	/** last command issued to device */
+	private int devcmd;
+	
+	private int devindex;
+	
 	public KBC(int baseAddr) {
 		this.baseAddr = baseAddr;
 	}
@@ -280,55 +289,71 @@ public class KBC implements Device {
 			case CMD_READCB:
 				data = config;
 				status |= ST_OUTPUTFULL;
-				return;
+				break;
 			case CMD_WRITECB:
 				// wait for the next byte...
 				datacmd = value;
 				status = 0;
-				return;
+				break;
 			case CMD_DISABLEAUX:
 				config |= CB_DISABLEAUX;
 				status = 0;
-				return;
+				break;
 			case CMD_ENABLEAUX:
 				config &= ~CB_DISABLEAUX;
 				status = 0;
-				return;
+				break;
 			case CMD_DISABLEKEY:
 				config |= CB_DISABLEKEY;
 				status = 0;
-				return;
+				break;
 			case CMD_ENABLEKEY:
 				config &= ~CB_DISABLEKEY;
 				status = 0;
-				return;
+				break;
 			case CMD_IFTESTAUX:
 				// success
 				data = 0;
 				status = ST_OUTPUTFULL;
-				return;
+				break;
 			case CMD_SELFTEST:
 				// success
 				data = 0x55;
 				status = 1;
-				return;
-			case CMD_WRITEKEY:
+				break;
+			case CMD_WRITEKEYOUT:
 				// wait for the next byte...
 				datacmd = value;
 				status = 0;
-				return;
-			case CMD_WRITEAUX:
+				break;
+			case CMD_WRITEAUXOUT:
 				// wait for the next byte...
 				datacmd = value;
 				status = 0;
-				return;
+				break;
+			case CMD_WRITEAUXIN:
+				datacmd = value;
+				status = 0;
+				break;
 			default:
-				throw new RuntimeException(String.format("unknown keycmd %x", value));
+				throw new RuntimeException(String.format("unknown kbc command %x", value));
 		}
 	}
 	
 	private void writeData (int value) {
 		//log.println("write data %x (cmd %x)", value, datacmd);
+		
+		if (devindex > 0) {
+			switch (devcmd) {
+				case 0xed:
+					log.println("write leds %x", value);
+					break;
+				default:
+					throw new RuntimeException(String.format("unknown devcmd %x data %x", devcmd, value));
+			}
+			devindex--;
+			return;
+		}
 		
 		switch (datacmd) {
 			case 0:
@@ -340,20 +365,20 @@ public class KBC implements Device {
 				//log.println("keydata: write config %x (was %x)", value, commandbyte);
 				config = value;
 				status = 0;
-				datacmd = 0;
 				// XXX should copy system flag to status
 				//log.println("config now " + cfgString(commandbyte));
 				break;
 				
-			case CMD_WRITEAUX:
+			case CMD_WRITEAUXOUT:
 				//log.println("keydata: write aux out %x", value);
 				pushData(value, true);
-				datacmd = 0;
 				break;
 				
 			default:
-				throw new RuntimeException(String.format("unknown keydata %x for cmd %x", value, datacmd));
+				throw new RuntimeException(String.format("unknown kbc data %x for cmd %x", value, datacmd));
 		}
+		
+		datacmd = 0;
 	}
 
 	private void writeDevice (int value) {
@@ -362,7 +387,15 @@ public class KBC implements Device {
 		boolean key = (config & CB_DISABLEKEY) == 0;
 		boolean aux = (config & CB_DISABLEAUX) == 0;
 		log.println("write device command key=" + key + " aux=" + aux);
+		
 		switch (value) {
+			case 0xed:
+				log.println("set leds");
+				pushData(0xfa, false);
+				devcmd = 0xed;
+				devindex = 2;
+				break;
+				
 			case 0xf2:
 				log.println("identify");
 				pushData(0x83abfa, false);
@@ -378,7 +411,7 @@ public class KBC implements Device {
 //						status = ST_OUTPUTFULL;
 				break;
 			default:
-				throw new RuntimeException(String.format("unknown keyboard command %x config %s", value, cfgString(config)));
+				throw new RuntimeException(String.format("unknown kbc device command %x config %s", value, cfgString(config)));
 		}
 	}
 	

@@ -1,6 +1,6 @@
 package sys.elf;
 
-import java.io.*;
+import java.nio.ByteBuffer;
 
 /**
  * An elf symbol object
@@ -35,13 +35,13 @@ public class ELF32Symbol implements Comparable<ELF32Symbol> {
 	 * Load a symbol from the given DataInput with reference to the given string
 	 * table.
 	 */
-	public ELF32Symbol (ELF32Header header, DataInput file, byte[] strings) throws IOException {
-		nameIndex = header.decode(file.readInt());
-		value = header.decode(file.readInt());
-		size = header.decode(file.readInt());
-		info = file.readByte();
-		other = file.readByte();
-		section = header.decode(file.readShort());
+	public ELF32Symbol (ELF32Header header, ByteBuffer buf, byte[] strings) {
+		nameIndex = header.decode(buf.getInt());
+		value = header.decode(buf.getInt());
+		size = header.decode(buf.getInt());
+		info = buf.get();
+		other = buf.get();
+		section = header.decode(buf.getShort());
 		name = ELF32.readString(strings, nameIndex);
 	}
 	

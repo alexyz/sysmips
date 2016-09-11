@@ -4,6 +4,8 @@ import java.awt.BorderLayout;
 import java.awt.Font;
 import java.beans.*;
 import java.io.*;
+import java.nio.channels.FileChannel;
+import java.nio.file.*;
 import java.text.NumberFormat;
 import java.util.*;
 import java.util.prefs.BackingStoreException;
@@ -180,9 +182,9 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 			return;
 		}
 		
-		final File file = new File(fileField.getText());
-		if (!file.isFile()) {
-			showErrorDialog("Run", "Invalid file: " + file);
+		final Path path = Paths.get(fileField.getText());
+		if (!path.toFile().isFile()) {
+			showErrorDialog("Run", "Invalid file: " + path);
 			return;
 		}
 		
@@ -206,9 +208,9 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		
 		final Cpu cpu;
 		
-		try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
+		try (FileChannel chan = FileChannel.open(path, StandardOpenOption.READ)) {
 			int[] top = new int[1];
-			cpu = CpuUtil.loadElf(raf, memsize, top);
+			cpu = CpuUtil.loadElf(chan, memsize, top);
 			CpuUtil.setMainArgs(cpu, top[0] + 0x100000, args, env);
 			
 		} catch (Exception e) {

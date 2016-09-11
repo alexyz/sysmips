@@ -1,6 +1,7 @@
 package sys.mips;
 
-import java.io.RandomAccessFile;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.*;
 
 import sys.elf.*;
@@ -18,8 +19,9 @@ public class CpuUtil {
 	public static final long NS_IN_S = 1000000000;
 	
 	/** load elf file into cpu, set entry point, return max address */
-	public static Cpu loadElf (final RandomAccessFile file, final int memsize, final int[] top) throws Exception {
-		ELF32 elf = new ELF32(file);
+	public static Cpu loadElf (final FileChannel chan, final int memsize, final int[] top) throws Exception {
+		MappedByteBuffer buf = chan.map(FileChannel.MapMode.READ_ONLY, 0, chan.size());
+		ELF32 elf = new ELF32(buf);
 		//System.out.println("elf=" + elf);
 		elf.print(System.out);
 		
@@ -32,9 +34,9 @@ public class CpuUtil {
 		for (ELF32Program program : elf.programs) {
 			if (program.type == ELF32Program.PT_LOAD) {
 				System.out.println("ph=" + program);
-				file.seek(program.fileOffset);
+				buf.position(program.fileOffset);
 				final byte[] data = new byte[program.memorySize];
-				file.read(data, 0, program.fileSize);
+				buf.get(data, 0, program.fileSize);
 				MemoryUtil.storeBytes(mem, program.physicalAddress, data);
 				top[0] = program.physicalAddress + program.memorySize;
 			}

@@ -1,6 +1,6 @@
 package sys.elf;
 
-import java.io.*;
+import java.nio.ByteBuffer;
 
 /**
  * An ELF program header
@@ -38,15 +38,15 @@ public class ELF32Program {
 	public final int flags;
 	public final int align;
 	
-	public ELF32Program (ELF32Header header, DataInput in) throws IOException {
-		type = header.decode(in.readInt());
-		fileOffset = header.decode(in.readInt());
-		virtualAddress = header.decode(in.readInt());
-		physicalAddress = header.decode(in.readInt());
-		fileSize = header.decode(in.readInt());
-		memorySize = header.decode(in.readInt());
-		flags = header.decode(in.readInt());
-		align = header.decode(in.readInt());
+	public ELF32Program (ELF32Header header, ByteBuffer buf) {
+		type = header.decode(buf.getInt());
+		fileOffset = header.decode(buf.getInt());
+		virtualAddress = header.decode(buf.getInt());
+		physicalAddress = header.decode(buf.getInt());
+		fileSize = header.decode(buf.getInt());
+		memorySize = header.decode(buf.getInt());
+		flags = header.decode(buf.getInt());
+		align = header.decode(buf.getInt());
 	}
 	
 	public String typeString () {

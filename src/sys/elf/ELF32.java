@@ -1,6 +1,7 @@
 package sys.elf;
 
 import java.io.*;
+import java.nio.ByteBuffer;
 import java.util.*;
 
 public class ELF32 {
@@ -21,31 +22,31 @@ public class ELF32 {
 	public final List<ELF32Program> programs = new ArrayList<>();
 	public final List<ELF32Symbol> symbols = new ArrayList<>();
 	
-	public ELF32 (RandomAccessFile file) throws Exception {
-		header = new ELF32Header(file);
+	public ELF32 (ByteBuffer buf) {
+		header = new ELF32Header(buf);
 		System.out.println(header);
 		
 		// load section headers
-		file.seek(header.sectionHeaderOffset);
+		buf.position(header.sectionHeaderOffset);
 		for (int n = 0; n < header.sectionHeaders; n++) {
-			sections.add(new ELF32Section(header, file));
+			sections.add(new ELF32Section(header, buf));
 		}
 		
 		// load section names
 		if (header.stringTableSection != ELF32Header.SHN_UNDEF) {
 			ELF32Section stSection = sections.get(header.stringTableSection);
 			byte[] strings = new byte[stSection.fileSize];
-			file.seek(stSection.fileOffset);
-			file.read(strings, 0, strings.length);
+			buf.position(stSection.fileOffset);
+			buf.get(strings, 0, strings.length);
 			for (ELF32Section section : sections) {
 				section.name = readString(strings, section.nameIndex);
 			}
 		}
 		
 		// load program headers
-		file.seek(header.programHeaderOffset);
+		buf.position(header.programHeaderOffset);
 		for (int n = 0; n < header.programHeaders; n++) {
-			programs.add(new ELF32Program(header, file));
+			programs.add(new ELF32Program(header, buf));
 		}
 		
 		// load symbols
@@ -54,13 +55,13 @@ public class ELF32 {
 				// load string table
 				ELF32Section stringSection = sections.get(section.linkedSection);
 				byte[] strings = new byte[stringSection.fileSize];
-				file.seek(stringSection.fileOffset);
-				file.read(strings, 0, strings.length);
+				buf.position(stringSection.fileOffset);
+				buf.get(strings, 0, strings.length);
 				// now load symbol table
-				file.seek(section.fileOffset);
+				buf.position(section.fileOffset);
 				int length = section.fileSize / section.entrySize;
 				for (int s = 0; s < length; s++) {
-					symbols.add(new ELF32Symbol(header, file, strings));
+					symbols.add(new ELF32Symbol(header, buf, strings));
 				}
 				break;
 			}

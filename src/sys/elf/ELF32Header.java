@@ -1,6 +1,6 @@
 package sys.elf;
 
-import java.io.*;
+import java.nio.ByteBuffer;
 
 import sys.util.ByteOrder;
 
@@ -56,27 +56,27 @@ public class ELF32Header {
 	public final short stringTableSection;
 	
 	/** load elf header from file */
-	public ELF32Header (DataInput f) throws IOException {
+	public ELF32Header (ByteBuffer buf) {
 		byte[] i = new byte[16];
-		f.readFully(i);
+		buf.get(i);
 		if (!(i[0] == 0x7f && i[1] == 'E' && i[2] == 'L' && i[3] == 'F')) {
-			throw new IOException("Not an ELF file");
+			throw new RuntimeException("Not an ELF file");
 		}
 		class_ = i[4];
 		data = i[5];
-		type = decode(f.readShort());
-		machine = decode(f.readShort());
-		version = decode(f.readInt());
-		entryAddress = decode(f.readInt());
-		programHeaderOffset = decode(f.readInt());
-		sectionHeaderOffset = decode(f.readInt());
-		flags = decode(f.readInt());
-		headerSize = decode(f.readShort());
-		programHeaderSize = decode(f.readShort());
-		programHeaders = decode(f.readShort());
-		sectionHeaderSize = decode(f.readShort());
-		sectionHeaders = decode(f.readShort());
-		stringTableSection = decode(f.readShort());
+		type = decode(buf.getShort());
+		machine = decode(buf.getShort());
+		version = decode(buf.getInt());
+		entryAddress = decode(buf.getInt());
+		programHeaderOffset = decode(buf.getInt());
+		sectionHeaderOffset = decode(buf.getInt());
+		flags = decode(buf.getInt());
+		headerSize = decode(buf.getShort());
+		programHeaderSize = decode(buf.getShort());
+		programHeaders = decode(buf.getShort());
+		sectionHeaderSize = decode(buf.getShort());
+		sectionHeaders = decode(buf.getShort());
+		stringTableSection = decode(buf.getShort());
 	}
 	
 	public short decode (short s) {

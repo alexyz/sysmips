@@ -22,7 +22,7 @@ public class MaltaDisplay implements Device {
 	
 	private static final Logger log = new Logger("Display");
 	
-	private final byte[] asciiPos = new byte[8];
+	private final char[] asciiPos = new char[8];
 	private final int baseAddr;
 	
 	private int ledBar = 0;
@@ -100,29 +100,19 @@ public class MaltaDisplay implements Device {
 	}
 	
 	private void asciiPosWrite (final int n, final int value) {
-		asciiPos[n] = (byte) value;
-		Cpu.getInstance().getSupport().firePropertyChange("display", null, displayText());
+		asciiPos[n] = (char) (value & 0xff);
+		String text = new String(asciiPos);
+		Cpu.getInstance().getSupport().firePropertyChange("displaytext", null, text);
 	}
 	
 	private void ledBarWrite (final int value) {
 		ledBar = value;
-		Cpu.getInstance().getSupport().firePropertyChange("display", null, displayText());
+		Cpu.getInstance().getSupport().firePropertyChange("displayled", null, ledBar);
 	}
 	
 	private void asciiWordWrite (final int value) {
 		asciiWord = value;
-		Cpu.getInstance().getSupport().firePropertyChange("display", null, displayText());
-	}
-	
-	public String displayText() {
-		final StringBuilder sb = new StringBuilder();
-		sb.append(Integer.toBinaryString(ledBar)).append(" ");
-		sb.append(Integer.toHexString(asciiWord)).append(" ");
-		for (int n = 0; n < 8; n++) {
-			final int w = asciiPos[n] & 0xff;
-			sb.append(w != 0 ? (char) w : ' ');
-		}
-		return sb.toString();
+		Cpu.getInstance().getSupport().firePropertyChange("displayword", null, asciiWord);
 	}
 	
 }

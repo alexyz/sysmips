@@ -187,23 +187,16 @@ public final class Memory {
 	
 	/**
 	 * translate virtual address to physical. store affects dirty bit if true
-	 * and type of exception thrown if addr is invalid.
+	 * and type of exception thrown if address is invalid.
 	 */
 	public final int translate (final int vaddr, final boolean store) {
-		if (vaddr >= 0) {
-			// useg/kuseg
+		final boolean kernelMode = this.kernelMode;
+		if (kernelMode && vaddr < KSEG2) {
+			// kseg0/kseg1 (direct)
+			return vaddr & KSEG_MASK;
+		} else if (vaddr >= 0 || (kernelMode && vaddr >= KSEG2)) {
+			// useg/kuseg/kseg2/kseg3 (translated, slow)
 			return lookup(vaddr, store);
-			
-		} else if (kernelMode) {
-			if (vaddr < KSEG2) {
-				// kseg0,1 (direct, though kseg1 is intercepted by system)
-				return vaddr & KSEG_MASK;
-				
-			} else {
-				// kseg2,3
-				return lookup(vaddr, store);
-			}
-			
 		} else {
 			throw new RuntimeException("cannot translate kseg as user: " + Integer.toHexString(vaddr));
 		}

@@ -30,11 +30,12 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	}
 	
 	private static final Font MONO = new Font("Monospaced", Font.PLAIN, 12);
-	private static int threadInstance = 1;
 	
 	private final JTextField fileField = new JTextField(20);
 	private final JTextField argsField = new JTextField(20);
-	private final JTextField displayField = new JTextField(20);
+	private final JTextField displayTextField = new JTextField(8);
+	private final JTextField displayLedField = new JTextField(8);
+	private final JTextField displayWordField = new JTextField(8);
 	private final JTextField cycleLabel = new JTextField(20);
 	private final JTextArea consoleArea = new JTextArea();
 	private final JButton fileButton = new JButton("File");
@@ -68,8 +69,12 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		
 		stopButton.addActionListener(ae -> stop());
 		
-		displayField.setFont(MONO);
-		displayField.setEditable(false);
+		displayTextField.setFont(MONO);
+		displayTextField.setEditable(false);
+		displayLedField.setFont(MONO);
+		displayLedField.setEditable(false);
+		displayWordField.setFont(MONO);
+		displayWordField.setEditable(false);
 		
 		cycleLabel.setFont(MONO);
 		cycleLabel.setEditable(false);
@@ -94,7 +99,9 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		
 		JPanel topPanel2 = new JPanel();
 		topPanel2.add(new JLabel("Display"));
-		topPanel2.add(displayField);
+		topPanel2.add(displayTextField);
+		topPanel2.add(displayLedField);
+		topPanel2.add(displayWordField);
 		topPanel2.add(new JLabel("Cycle"));
 		topPanel2.add(cycleLabel);
 		topPanel2.add(runButton);
@@ -326,10 +333,26 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	private void update (String propertyName, Object value) {
 		// System.out.println("jframe update " + propertyName);
 		switch (propertyName) {
-			case "display":
-				displayField.setText((String) value);
-				displayField.repaint();
+			case "displaytext":
+				displayTextField.setText((String) value);
+				displayTextField.repaint();
 				break;
+			case "displayled": {
+				char[] a = new char[8];
+				int v = ((Integer) value).intValue();
+				for (int n = 0; n < 8; n++) {
+					a[n] = (v & (1 << (7 - n))) != 0 ? '#' : ' ';
+				}
+				displayLedField.setText(new String(a));
+				displayTextField.repaint();
+				break;
+			}
+			case "displayword": {
+				int v = ((Integer) value).intValue();
+				displayWordField.setText(Integer.toHexString(v));
+				displayWordField.repaint();
+				break;
+			}
 			case "console": {
 				Document doc = consoleArea.getDocument();
 				try {

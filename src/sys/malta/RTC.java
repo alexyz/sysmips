@@ -153,6 +153,7 @@ public class RTC implements Device {
 	// XXX these are bytes represented as ints for convenience
 	private int rtcadr;
 	private int rtcdat;
+	// these should really be indexes into the cmos ram
 	private int controla;
 	private int controlb;
 	private int controlc;
@@ -313,17 +314,19 @@ public class RTC implements Device {
 			
 			if (rsp > 0) {
 				long rspNs = (long) (rsp * NS_IN_S);
-				timerFuture = getExecutor().scheduleAtFixedRate(() -> {
-					if ((controlb & 0x40) != 0) {
-						// add the exception...
-						Cpu.getInstance().addException(new CpuExceptionParams(CpuConstants.EX_TRAP));
-						throw new RuntimeException("periodic interrupt");
-					} else {
-						// just set the pf flag
-						controlc |= C_PF;
-					}
-				}, rspNs, rspNs, TimeUnit.NANOSECONDS);
+				timerFuture = getExecutor().scheduleAtFixedRate(() -> fireInt(), rspNs, rspNs, TimeUnit.NANOSECONDS);
 			}
+		}
+	}
+	
+	private void fireInt() {
+		if ((controlb & 0x40) != 0) {
+			// add the exception...
+			Cpu.getInstance().addException(new CpuExceptionParams(CpuConstants.EX_TRAP));
+			throw new RuntimeException("periodic interrupt");
+		} else {
+			// just set the pf flag
+			controlc |= C_PF;
 		}
 	}
 

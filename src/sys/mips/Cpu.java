@@ -171,7 +171,7 @@ public final class Cpu {
 	}
 	
 	public final long getHilo () {
-		return zeroExtendInt(hi) << 32 | zeroExtendInt(lo);
+		return Integer.toUnsignedLong(hi) << 32 | Integer.toUnsignedLong(lo);
 	}
 	
 	public final int getHi () {
@@ -590,10 +590,10 @@ public final class Cpu {
 				register[rt] = register[rs] + simm;
 				return;
 			case OP_ANDI:
-				register[rt] = register[rs] & zeroExtendShort(simm);
+				register[rt] = register[rs] & Short.toUnsignedInt(simm);
 				return;
 			case OP_XORI:
-				register[rt] = register[rs] ^ zeroExtendShort(simm);
+				register[rt] = register[rs] ^ Short.toUnsignedInt(simm);
 				return;
 			case OP_BGTZ:
 				if (register[rs] > 0) {
@@ -605,16 +605,12 @@ public final class Cpu {
 				register[rt] = register[rs] < simm ? 1 : 0;
 				return;
 			case OP_SLTIU: {
-				// zero extend
-				long rsValue = zeroExtendInt(register[rs]);
-				// sign extend then zero extend imm so it represents ends of
-				// unsigned range
-				long immValue = zeroExtendInt(simm);
-				register[rt] = (rsValue < immValue) ? 1 : 0;
+				// sign extend simm to int then compare as unsigned
+				register[rt] = Integer.compareUnsigned(register[rs], simm) < 0 ? 1 : 0;
 				return;
 			}
 			case OP_ORI:
-				register[rt] = register[rs] | zeroExtendShort(simm);
+				register[rt] = register[rs] | Short.toUnsignedInt(simm);
 				return;
 			case OP_SW:
 				memory.storeWord(register[rs] + simm, register[rt]);
@@ -661,7 +657,7 @@ public final class Cpu {
 				register[rt] = memory.loadByte(register[rs] + simm) & 0xff;
 				return;
 			case OP_LHU:
-				register[rt] = zeroExtendShort(memory.loadHalfWord(register[rs] + simm));
+				register[rt] = Short.toUnsignedInt(memory.loadHalfWord(register[rs] + simm));
 				return;
 			case OP_LH:
 				register[rt] = memory.loadHalfWord(register[rs] + simm);
@@ -868,9 +864,7 @@ public final class Cpu {
 			}
 			case FN_MULTU: {
 				// zero extend
-				final long rsValue = zeroExtendInt(register[rs]);
-				final long rtValue = zeroExtendInt(register[rt]);
-				final long result = rsValue * rtValue;
+				final long result = Integer.toUnsignedLong(register[rs]) * Integer.toUnsignedLong(register[rt]);
 				lo = (int) result;
 				hi = (int) (result >>> 32);
 				return;
@@ -889,11 +883,11 @@ public final class Cpu {
 			case FN_DIVU: {
 				// unpredictable result and no exception for zero
 				// zero extend
-				final long rsValue = zeroExtendInt(register[rs]);
-				final long rtValue = zeroExtendInt(register[rt]);
-				if (rtValue != 0) {
-					lo = (int) (rsValue / rtValue);
-					hi = (int) (rsValue % rtValue);
+				final long rsLong = Integer.toUnsignedLong(register[rs]);
+				final long rtLong = Integer.toUnsignedLong(register[rt]);
+				if (rtLong != 0) {
+					lo = (int) (rsLong / rtLong);
+					hi = (int) (rsLong % rtLong);
 				}
 				return;
 			}
@@ -918,13 +912,9 @@ public final class Cpu {
 			case FN_SLT:
 				register[rd] = (register[rs] < register[rt]) ? 1 : 0;
 				return;
-			case FN_SLTU: {
-				// zero extend
-				long rsValue = zeroExtendInt(register[rs]);
-				long rtValue = zeroExtendInt(register[rt]);
-				register[rd] = rsValue < rtValue ? 1 : 0;
+			case FN_SLTU:
+				register[rd] = Integer.compareUnsigned(register[rs], register[rt]) < 0 ? 1 : 0;
 				return;
-			}
 			case FN_TNE:
 				if (register[rs] != register[rt]) {
 					execException(new CpuExceptionParams(EX_TRAP));

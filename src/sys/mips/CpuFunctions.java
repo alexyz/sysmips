@@ -12,22 +12,6 @@ public final class CpuFunctions {
 	
 	private static final Random RANDOM = new Random();
 
-	/**
-	 * zero extend int to long (beware implicit sign extension of byte/short
-	 * parameters to int)
-	 */
-	public static final long zeroExtendInt (final int x) {
-		return x & ZX_INT_MASK;
-	}
-	
-	/**
-	 * zero extend short to int (beware implicit sign extension of byte
-	 * parameters to short)
-	 */
-	public static final int zeroExtendShort (final short x) {
-		return x & ZX_SHORT_MASK;
-	}
-
 	/** same as rs */
 	public static final int base (final int isn) {
 		return rs(isn);

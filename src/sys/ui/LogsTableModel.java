@@ -82,7 +82,7 @@ public class LogsTableModel extends AbstractTableModel {
 			case 3:
 				return "Message";
 			case 4:
-				return "Hash";
+				return "Name";
 			default:
 				throw new RuntimeException();
 		}
@@ -97,15 +97,15 @@ public class LogsTableModel extends AbstractTableModel {
 		Log l = viewlogs.get(row);
 		switch (col) {
 			case 0:
-				return l.cycle;
+				return Long.valueOf(l.cycle);
 			case 1:
-				return (l.km ? "km" : "") + (l.ie ? "ie" : "") + (l.ex ? "ex" : "");
+				return (l.km ? "K" : "") + (l.ie ? "I" : "") + (l.ex ? "X" : "");
 			case 2:
 				return l.name;
 			case 3:
 				return l.msg;
 			case 4:
-				return Integer.toHexString(Arrays.hashCode(l.calls));
+				return l.sym;
 			default:
 				throw new RuntimeException();
 		}

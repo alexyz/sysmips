@@ -261,11 +261,13 @@ public class InstructionUtil {
 	 * lookup constant name
 	 */
 	public static String lookup (Class<?> c, String prefix, int value) {
+		boolean foundPrefix = false;
 		for (final Field f : c.getFields()) {
 			String name = f.getName();
 			if (name.startsWith(prefix)) {
 				final int m = f.getModifiers();
-				if (Modifier.isPublic(m) && Modifier.isStatic(m) && Modifier.isFinal(m) && f.getType().isAssignableFrom(int.class)) {
+				if (Modifier.isPublic(m) && Modifier.isStatic(m) && Modifier.isFinal(m) && int.class.isAssignableFrom(f.getType())) {
+					foundPrefix = true;
 					try {
 						if (f.getInt(null) == value) {
 							return name;
@@ -276,7 +278,41 @@ public class InstructionUtil {
 				}
 			}
 		}
+		if (!foundPrefix) {
+			throw new RuntimeException("could not find public static final int " + prefix + " in " + c);
+		}
 		return null;
 	}
-		
+
+	/**
+	 * lookup flags for value
+	 */
+	public static String flagString (final Class<?> cl, final String prefix, final int value) {
+		StringBuilder sb = new StringBuilder();
+		boolean foundPrefix = false;
+		for (final Field f : cl.getFields()) {
+			String name = f.getName();
+			if (name.startsWith(prefix)) {
+				final int m = f.getModifiers();
+				if (Modifier.isPublic(m) && Modifier.isStatic(m) && Modifier.isFinal(m) && int.class.isAssignableFrom(f.getType())) {
+					foundPrefix = true;
+					try {
+						int c = f.getInt(null);
+						if ((value & c) != 0) {
+							if (sb.length() > 0) {
+								sb.append("|");
+							}
+							sb.append(f.getName());
+						}
+					} catch (final Exception e) {
+						throw new RuntimeException(e);
+					}
+				}
+			}
+		}
+		if (!foundPrefix) {
+			throw new RuntimeException("could not find public static final int " + prefix + " in " + cl);
+		}
+		return sb.length() > 0 ? sb.toString() : Integer.toHexString(value);
+	}		
 }

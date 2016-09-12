@@ -37,7 +37,6 @@ public final class Cpu {
 	private final boolean littleEndian;
 	/** pending exception queue, must be synchronised on this */
 	private final Deque<CpuExceptionParams> exceptions = new ArrayDeque<>();
-	private final CallLogger calls = new CallLogger(this);
 	/** 0 for little endian, 3 for big endian */
 	private final int wordAddrXor;
 	private final Fpu fpu = new Fpu(this);
@@ -198,10 +197,6 @@ public final class Cpu {
 		return littleEndian;
 	}
 	
-	public final CallLogger getCalls () {
-		return calls;
-	}
-	
 	public final boolean isInterruptsEnabled () {
 		return interruptsEnabled;
 	}
@@ -266,7 +261,6 @@ public final class Cpu {
 		
 		try {
 			instance.set(this);
-			calls.call(pc2);
 			log.println("run");
 			String[] regstr = new String[32];
 			// this should only be checked during call
@@ -370,8 +364,7 @@ public final class Cpu {
 					+ "kernel mode: " + kernelMode + ", "
 					+ "interrupts enabled: " + interruptsEnabled + ", " 
 					+ "executing exeception: " + execException + ", "
-					+ "program counter: " + symbols.getNameAddrOffset(pc) + ", "
-					+ calls.callString(), e);
+					+ "program counter: " + symbols.getNameAddrOffset(pc), e);
 			
 		} finally {
 			final long endTime = System.nanoTime();
@@ -506,8 +499,16 @@ public final class Cpu {
 			setPc(EXV_EXCEPTION);
 		}
 		
-		calls.push("ex" + ep.excode + "int" + ep.interrupt + "irq" + ep.irq);
-		calls.call(pc);
+		call(pc);
+	}
+	
+	private void call (int a) {
+		// XXX print out the call...
+	}
+	
+	private void ret () {
+		// print out the return value?
+		// after the delay slot...
 	}
 	
 	private final void execOp (final int isn) {
@@ -561,29 +562,24 @@ public final class Cpu {
 			}
 			case OP_J:
 				execJump(isn);
-				checkCall(false);
 				return;
 			case OP_JAL:
 				execLink();
 				execJump(isn);
-				calls.call(pc3);
 				return;
 			case OP_BLEZ:
 				if (register[rs] <= 0) {
 					execBranch(isn);
-					checkCall(false);
 				}
 				return;
 			case OP_BEQ:
 				if (register[rs] == register[rt]) {
 					execBranch(isn);
-					checkCall(false);
 				}
 				return;
 			case OP_BNE:
 				if (register[rs] != register[rt]) {
 					execBranch(isn);
-					checkCall(false);
 				}
 				return;
 			case OP_ADDIU:
@@ -598,7 +594,6 @@ public final class Cpu {
 			case OP_BGTZ:
 				if (register[rs] > 0) {
 					execBranch(isn);
-					checkCall(false);
 				}
 				return;
 			case OP_SLTI:
@@ -625,27 +620,12 @@ public final class Cpu {
 				// short promoted to int for shift
 				register[rt] = simm << 16;
 				return;
-			case OP_LL: {
-				final int va = register[rs] + simm;
-				final int pa =  memory.translate(va, false);
-				loadLinkedVaddr = va;
-				loadLinkedPaddr = pa;
-				loadLinkedBit = true;
-				register[rt] = memory.loadWord(va);
+			case OP_LL:
+				execLL(rs, rt, simm);
 				return;
-			}
-			case OP_SC: {
-				final int va = register[rs] + simm;
-				final int pa = memory.translate(va, true);
-				if (va == loadLinkedVaddr && pa == loadLinkedPaddr && loadLinkedBit) {
-					memory.storeWord(va, register[rt]);
-					register[rt] = 1;
-				} else {
-					log.println("store conditional word fail: va=" + Integer.toHexString(va) + " pa=" + Integer.toHexString(pa) + " ll=" + loadLinkedBit);
-					register[rt] = 0;
-				}
+			case OP_SC:
+				execSC(rs, rt, simm);
 				return;
-			}
 			case OP_LW:
 				register[rt] = memory.loadWord(register[rs] + simm);
 				return;
@@ -662,64 +642,18 @@ public final class Cpu {
 			case OP_LH:
 				register[rt] = memory.loadHalfWord(register[rs] + simm);
 				return;
-			case OP_LWL: {
-				// lealign 0: mem << 24 | regmask >> 8
-				// lealign 1: mem << 16 | regmask >> 16
-				// lealign 2: mem << 8 | regmask >> 24
-				// lealign 3: mem << 0 | regmask >> 32
-				final int a = register[rs] + simm;
-				final int lealign = (a & 3) ^ wordAddrXor;
-				final int mem = memory.loadWord(a & ~3);
-				final int rsh = (lealign + 1) * 8;
-				final int lsh = 32 - rsh;
-				register[rt] = (mem << lsh) | (register[rt] & (int) (ZX_INT_MASK >>> rsh));
+			case OP_LWL:
+				execLWL(rs, rt, simm);
 				return;
-			}
-			case OP_LWR: {
-				// lealign 0: regmask << 32 | mem >> 0
-				// lealign 1: regmask << 24 | mem >> 8
-				// lealign 2: regmask << 16 | mem >> 16
-				// lealign 3: regmask << 8 | mem >> 24
-				final int a = register[rs] + simm;
-				final int lealign = (a & 3) ^ wordAddrXor;
-				final int mem = memory.loadWord(a & ~3);
-				final int rsh = lealign * 8;
-				final int lsh = 32 - rsh;
-				register[rt] = (register[rt] & (int) (ZX_INT_MASK << lsh)) | (mem >>> rsh);
+			case OP_LWR:
+				execLWR(rs, rt, simm);
 				return;
-			}
-			case OP_SWL: {
-				// lealign 0: memmask << 8 | reg >> 24
-				// lealign 1: memmask << 16 | reg >> 16
-				// lealign 2: memmask << 24 | reg >> 8
-				// lealign 3: memmask << 32 | reg >> 0
-				final int a = register[rs] + simm;
-				final int aa = a & ~3;
-				// force tlb store error
-				memory.translate(aa, true);
-				final int lealign = (a & 3) ^ wordAddrXor;
-				final int word = memory.loadWord(aa);
-				final int lsh = (lealign + 1) * 8;
-				final int rsh = 32 - lsh;
-				memory.storeWord(aa, (word & (int) (ZX_INT_MASK << lsh)) | (register[rt] >>> rsh));
+			case OP_SWL: 
+				execSWL(rs, rt, simm);
 				return;
-			}
-			case OP_SWR: {
-				// lealign 0: reg << 0 | memmask >> 32
-				// lealign 1: reg << 8 | memmask >> 24
-				// lealign 2: reg << 16 | memmask >> 16
-				// lealign 3: reg << 24 | memmask >> 8
-				final int a = register[rs] + simm;
-				final int aa = a & ~3;
-				// force tlb store error
-				memory.translate(aa, true);
-				final int lealign = (a & 3) ^ wordAddrXor;
-				final int word = memory.loadWord(aa);
-				final int lsh = lealign * 8;
-				final int rsh = 32 - lsh;
-				memory.storeWord(aa, (register[rt] << lsh) | (word & (int) (ZX_INT_MASK >>> rsh)));
+			case OP_SWR: 
+				execSWR(rs, rt, simm);
 				return;
-			}
 			case OP_PREF:
 				// no-op
 				return;
@@ -728,23 +662,95 @@ public final class Cpu {
 		}
 	}
 
-	private void checkCall (boolean linked) {
-		String pcname = symbols.getName(pc);
-		String nextpcname = symbols.getName(pc3);
-		if (!pcname.equals(nextpcname)) {
-			calls.call(pc, linked);
-			//throw new RuntimeException("pcname=" + pcname + " nextpcname=" + nextpcname);
-		}
-	}
-	
-	/** update nextpc with jump */
-	private final void execJump (final int isn) {
-		pc3 = jump(isn, pc2);
+	private void execSWR (final int rs, final int rt, final short simm) {
+		// lealign 0: reg << 0 | memmask >> 32
+		// lealign 1: reg << 8 | memmask >> 24
+		// lealign 2: reg << 16 | memmask >> 16
+		// lealign 3: reg << 24 | memmask >> 8
+		final int a = register[rs] + simm;
+		final int aa = a & ~3;
+		// force tlb store error
+		memory.translate(aa, true);
+		final int lealign = (a & 3) ^ wordAddrXor;
+		final int word = memory.loadWord(aa);
+		final int lsh = lealign * 8;
+		final int rsh = 32 - lsh;
+		memory.storeWord(aa, (register[rt] << lsh) | (word & (int) (ZX_INT_MASK >>> rsh)));
 	}
 
-	/** update nextpc with branch */
+	private void execSWL (final int rs, final int rt, final short simm) {
+		// lealign 0: memmask << 8 | reg >> 24
+		// lealign 1: memmask << 16 | reg >> 16
+		// lealign 2: memmask << 24 | reg >> 8
+		// lealign 3: memmask << 32 | reg >> 0
+		final int a = register[rs] + simm;
+		final int aa = a & ~3;
+		// force tlb store error
+		memory.translate(aa, true);
+		final int lealign = (a & 3) ^ wordAddrXor;
+		final int word = memory.loadWord(aa);
+		final int lsh = (lealign + 1) * 8;
+		final int rsh = 32 - lsh;
+		memory.storeWord(aa, (word & (int) (ZX_INT_MASK << lsh)) | (register[rt] >>> rsh));
+	}
+
+	private void execLWR (final int rs, final int rt, final short simm) {
+		// lealign 0: regmask << 32 | mem >> 0
+		// lealign 1: regmask << 24 | mem >> 8
+		// lealign 2: regmask << 16 | mem >> 16
+		// lealign 3: regmask << 8 | mem >> 24
+		final int a = register[rs] + simm;
+		final int lealign = (a & 3) ^ wordAddrXor;
+		final int mem = memory.loadWord(a & ~3);
+		final int rsh = lealign * 8;
+		final int lsh = 32 - rsh;
+		register[rt] = (register[rt] & (int) (ZX_INT_MASK << lsh)) | (mem >>> rsh);
+	}
+
+	private void execLWL (final int rs, final int rt, final short simm) {
+		// lealign 0: mem << 24 | regmask >> 8
+		// lealign 1: mem << 16 | regmask >> 16
+		// lealign 2: mem << 8 | regmask >> 24
+		// lealign 3: mem << 0 | regmask >> 32
+		final int a = register[rs] + simm;
+		final int lealign = (a & 3) ^ wordAddrXor;
+		final int mem = memory.loadWord(a & ~3);
+		final int rsh = (lealign + 1) * 8;
+		final int lsh = 32 - rsh;
+		register[rt] = (mem << lsh) | (register[rt] & (int) (ZX_INT_MASK >>> rsh));
+	}
+
+	private void execSC (final int rs, final int rt, final short simm) {
+		final int va = register[rs] + simm;
+		final int pa = memory.translate(va, true);
+		if (va == loadLinkedVaddr && pa == loadLinkedPaddr && loadLinkedBit) {
+			memory.storeWord(va, register[rt]);
+			register[rt] = 1;
+		} else {
+			log.println("store conditional word fail: va=" + Integer.toHexString(va) + " pa=" + Integer.toHexString(pa) + " ll=" + loadLinkedBit);
+			register[rt] = 0;
+		}
+	}
+
+	private void execLL (final int rs, final int rt, final short simm) {
+		final int va = register[rs] + simm;
+		final int pa =  memory.translate(va, false);
+		loadLinkedVaddr = va;
+		loadLinkedPaddr = pa;
+		loadLinkedBit = true;
+		register[rt] = memory.loadWord(va);
+	}
+
+	/** update pc3 with jump */
+	private final void execJump (final int isn) {
+		pc3 = jump(isn, pc2);
+		call(pc3);
+	}
+
+	/** update pc3 with branch */
 	public final void execBranch (final int isn) {
 		pc3 = branch(isn, pc2);
+		call(pc3);
 	}
 
 	private final void execLink () {
@@ -764,7 +770,6 @@ public final class Cpu {
 			case RT_BGEZ:
 				if (register[rs] >= 0) {
 					execBranch(isn);
-					checkCall(link);
 				}
 				return;
 			case RT_BLTZAL:
@@ -774,7 +779,6 @@ public final class Cpu {
 			case RT_BLTZ:
 				if (register[rs] < 0) {
 					execBranch(isn);
-					checkCall(link);
 				}
 				return;
 			default:
@@ -812,13 +816,13 @@ public final class Cpu {
 			case FN_JR:
 				pc3 = register[rs];
 				if (rs == 31) {
-					calls.ret();
+					ret();
 				}
 				return;
 			case FN_JALR:
 				register[rd] = pc3;
 				pc3 = register[rs];
-				calls.call(pc3);
+				call(pc3);
 				return;
 			case FN_MOVZ:
 				if (register[rt] == 0) {
@@ -1164,7 +1168,6 @@ public final class Cpu {
 				loadLinkedBit = false;
 				execException = false;
 				statusUpdated();
-				calls.pop();
 				synchronized (this) {
 					exceptionPending = exceptions.size() > 0;
 				}
@@ -1197,6 +1200,18 @@ public final class Cpu {
 		if (e.pageMask != 0) {
 			throw new RuntimeException("non zero page mask");
 		}
+	}
+	
+	public void panic () {
+
+//		Cpu c = Cpu.getInstance();
+//		c.setPc(c.getSymbols().getAddr("panic"));
+//		int a = c.getSymbols().getAddr("_prom_argv");
+//		MemoryUtil.storeString(c.getMemory(), a, "");
+//		c.setRegister(CpuConstants.REG_A0, a);
+//		return;
+		
+		throw new CpuException(new CpuExceptionParams(CpuConstants.EX_TLB_LOAD, 0, false));
 	}
 	
 }

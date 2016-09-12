@@ -33,7 +33,8 @@ public class LoggerJPanel extends JPanel {
 			@Override
 			public String getToolTipText (MouseEvent e) {
 				int r = rowAtPoint(e.getPoint());
-				return "<html>" + String.join("<br>", tableModel.getRow(r).calls) + "</html>";
+				Log l = tableModel.getRow(r);
+				return "<html><b>" + l.sym + "</b><br>" + MaltaJFrame.wrap(l.msg, 100).replace("\n","<br>") + "</html>";
 			}
 		};
 		

@@ -297,18 +297,13 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 			e.printStackTrace();
 			return null;
 		}
-//		StringBuilder sb = new StringBuilder();
-//		while (t != null) {
-//			if (sb.length() > 0) {
-//				sb.append(": ");
-//			}
-//			sb.append(t);
-//			t = t.getCause();
-//		}
-//		return sb.toString();
 	}
 	
 	private void showErrorDialog(String title, String msg) {
+		JOptionPane.showMessageDialog(this, wrap(msg, 100), title, JOptionPane.ERROR_MESSAGE);
+	}
+
+	public static String wrap (String msg, int max) {
 		StringBuilder sb = new StringBuilder();
 		int l = 0;
 		for (int n = 0; n < msg.length(); n++) {
@@ -318,12 +313,12 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 			if (c == '\n') {
 				l = 0;
 			}
-			if ((l > 100 && !Character.isLetterOrDigit(c)) || l >= 120) {
+			if ((l > ((max*3)/4) && !Character.isLetterOrDigit(c)) || l >= max) {
 				sb.append("\n");
 				l = 0;
 			}
 		}
-		JOptionPane.showMessageDialog(this, sb.toString(), title, JOptionPane.ERROR_MESSAGE);
+		return sb.toString();
 	}
 
 	@Override

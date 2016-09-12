@@ -222,9 +222,6 @@ public class Uart implements Device {
 				}
 			}
 			log.println("{%.3f} %s", kt - et, line.trim());
-			if (line.contains("WARNING")) {
-				log.println("calls=" + cpu.getCalls().callString());
-			}
 			cpu.getSupport().firePropertyChange("console", null, line);
 			consoleSb.delete(0, consoleSb.length());
 		}

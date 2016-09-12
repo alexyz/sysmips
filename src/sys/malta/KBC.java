@@ -5,6 +5,7 @@ import java.util.*;
 import sys.mips.Cpu;
 import sys.mips.CpuConstants;
 import sys.mips.CpuExceptionParams;
+import sys.mips.InstructionUtil;
 import sys.util.Logger;
 import sys.util.Symbols;
 
@@ -21,55 +22,78 @@ public class KBC implements Device {
 	public static final int M_CMDSTATUS = 4;
 	
 	/** read command byte */
-	private static final int CMD_READCB = 0x20;
+	public static final int CMD_READCB = 0x20;
 	/** write command byte */
-	private static final int CMD_WRITECB = 0x60;
+	public static final int CMD_WRITECB = 0x60;
 	/** disable aux interface */
-	private static final int CMD_DISABLEAUX = 0xa7;
+	public static final int CMD_DISABLEAUX = 0xa7;
 	/** enable aux interface */
-	private static final int CMD_ENABLEAUX = 0xa8;
+	public static final int CMD_ENABLEAUX = 0xa8;
 	/** aux interface test */
-	private static final int CMD_IFTESTAUX = 0xa9;
+	public static final int CMD_IFTESTAUX = 0xa9;
 	/** self test */
-	private static final int CMD_SELFTEST = 0xaa;
+	public static final int CMD_SELFTEST = 0xaa;
 	/** keyboard interface test */
-	private static final int CMD_IFTESTKEY = 0xab;
+	public static final int CMD_IFTESTKEY = 0xab;
 	/** disable keyboard interface */
-	private static final int CMD_DISABLEKEY = 0xad;
+	public static final int CMD_DISABLEKEY = 0xad;
 	/** enable keyboard interface */
-	private static final int CMD_ENABLEKEY = 0xae;
+	public static final int CMD_ENABLEKEY = 0xae;
 	/** write keyboard output buffer */
-	private static final int CMD_WRITEKEYOUT = 0xd2;
+	public static final int CMD_WRITEKEYOUT = 0xd2;
 	/** write aux output buffer */
-	private static final int CMD_WRITEAUXOUT = 0xd3;
+	public static final int CMD_WRITEAUXOUT = 0xd3;
 	/** write aux input buffer (write to device) */
-	private static final int CMD_WRITEAUXIN = 0xd4;
+	public static final int CMD_WRITEAUXIN = 0xd4;
 	
 	/** bit 0: output buffer full */
-	private static final int ST_OUTPUTFULL = 0x1;
+	public static final int ST_OUTPUTFULL = 0x1;
 	/** bit 1: input buffer full */
-	private static final int ST_INPUTFULL = 0x2;
+	public static final int ST_INPUTFULL = 0x2;
 	/** bit 2: system */
-	private static final int ST_SYSTEM = 0x4;
+	public static final int ST_SYSTEM = 0x4;
 	/** bit 3: 0=data 1=command */
-	private static final int ST_CMDDATA = 0x8;
-	/** bit 4: inhibit keyboard */
-	private static final int ST_INHIBIT = 0x10;
+	public static final int ST_CMDDATA = 0x8;
+	/** bit 4: inhibit keyboard (linux calls this keylock?) */
+	public static final int ST_NOTINHIBITED = 0x10;
 	/** bit 5: aux data available */
-	private static final int ST_AUXDATA = 0x20;
+	public static final int ST_AUXDATA = 0x20;
 	/** bit 6: timeout error */
-	private static final int ST_TIMEOUT = 0x40;
+	public static final int ST_TIMEOUT = 0x40;
 	/** bit 7: parity error */
-	private static final int ST_PARITY = 0x80;
+	public static final int ST_PARITY = 0x80;
 	
 	/** bit 0: key interrupt enable */
-	private static final int CB_ENABLEKEYINT = 0x1;
+	public static final int CB_ENABLEKEYINT = 0x1;
 	/** bit 1: aux interrupt enable */
-	private static final int CB_ENABLEAUXINT = 0x2;
+	public static final int CB_ENABLEAUXINT = 0x2;
+	public static final int CB_SYSTEM = 0x4;
+	public static final int CB_OVERRIDE = 0x8;
 	/** bit 4: keyboard port clock disable */
-	private static final int CB_DISABLEKEY = 0x10;
+	public static final int CB_DISABLEKEY = 0x10;
 	/** bit 5: aux port clock disable */
-	private static final int CB_DISABLEAUX = 0x20;
+	public static final int CB_DISABLEAUX = 0x20;
+	public static final int CB_KEYTRANS = 0x40;
+	public static final int CB_RESERVED = 0x80;
+	
+	// keyboard commands
+	public static final int KB_SETLED = 0xed;
+	public static final int KB_ECHO = 0xee;
+	public static final int KB_SCANCODESET = 0xf0;
+	public static final int KB_IDENTIFY = 0xf2;
+	public static final int KB_SETTYPE = 0xf3;
+	public static final int KB_ENABLESCAN = 0xf4;
+	public static final int KB_DISABLESCAN = 0xf5;
+	public static final int KB_DEFAULT = 0xf6;
+	public static final int KB_ALLTYPE = 0xf7;
+	public static final int KB_ALLMAKEREL = 0xf8;
+	public static final int KB_ALLMAKE = 0xf9;
+	public static final int KB_ALLTYPEMAKEREL = 0xfa;
+	public static final int KB_SPECIFICTYPE = 0xfb;
+	public static final int KB_SPECIFICMAKEREL = 0xfc;
+	public static final int KB_SPECIFICMAKE = 0xfd;
+	public static final int KB_RESEND = 0xfe;
+	public static final int KB_RESET = 0xff;
 	
 	public static void main (String[] args) {
 		Deque<CpuExceptionParams> pa = new ArrayDeque<>();
@@ -215,8 +239,6 @@ public class KBC implements Device {
 	/** last command issued to device */
 	private int devcmd;
 	
-	private int devindex;
-	
 	public KBC(int baseAddr) {
 		this.baseAddr = baseAddr;
 	}
@@ -243,6 +265,7 @@ public class KBC implements Device {
 				// should this raise irq?
 				int v = data & 0xff;
 				int r = data >>> 8;
+				log.println("read data %x remaining %x", v, r);
 				if (r != 0) {
 					log.println("gonna push another byte...");
 					pushData(r, false);
@@ -250,11 +273,11 @@ public class KBC implements Device {
 					data = 0;
 					status = 0;
 				}
-				log.println("read data %x remaining %x", v, data);
 				return v;
 				
 			case M_CMDSTATUS: // 64
-				//log.println("read status %x", status);
+				status |= ST_NOTINHIBITED;
+				log.println("read status %x: %s", status, statusString(status));
 				return status;
 				
 			default:
@@ -273,7 +296,7 @@ public class KBC implements Device {
 				return;
 				
 			case M_CMDSTATUS:
-				writeCommand(value);
+				writeControllerCommand(value);
 				return;
 				
 			default:
@@ -281,19 +304,20 @@ public class KBC implements Device {
 		}
 	}
 	
-	private void writeCommand (final int value) {
-		//log.println("write command %x", value);
+	private void writeControllerCommand (final int value) {
+		log.println("write controller command %x: %s", value, cmdString(value));
 		datacmd = 0;
 		
 		switch (value) {
 			case CMD_READCB:
+				log.println("read config %x: %s", config, configString(config));
 				data = config;
-				status |= ST_OUTPUTFULL;
+				status = ST_OUTPUTFULL;
 				break;
 			case CMD_WRITECB:
 				// wait for the next byte...
 				datacmd = value;
-				status = 0;
+				status = ST_CMDDATA;
 				break;
 			case CMD_DISABLEAUX:
 				config |= CB_DISABLEAUX;
@@ -324,16 +348,16 @@ public class KBC implements Device {
 			case CMD_WRITEKEYOUT:
 				// wait for the next byte...
 				datacmd = value;
-				status = 0;
+				status = ST_CMDDATA;
 				break;
 			case CMD_WRITEAUXOUT:
 				// wait for the next byte...
 				datacmd = value;
-				status = 0;
+				status = ST_CMDDATA;
 				break;
 			case CMD_WRITEAUXIN:
 				datacmd = value;
-				status = 0;
+				status = ST_CMDDATA;
 				break;
 			default:
 				throw new RuntimeException(String.format("unknown kbc command %x", value));
@@ -341,28 +365,23 @@ public class KBC implements Device {
 	}
 	
 	private void writeData (int value) {
-		//log.println("write data %x (cmd %x)", value, datacmd);
-		
-		if (devindex > 0) {
-			switch (devcmd) {
-				case 0xed:
-					log.println("write leds %x", value);
-					break;
-				default:
-					throw new RuntimeException(String.format("unknown devcmd %x data %x", devcmd, value));
-			}
-			devindex--;
-			return;
+		if ((status & ST_CMDDATA) != 0) {
+			writeControllerData(value);
+		} else if (devcmd == 0) {
+			writeDeviceCommand(value);
+		} else {
+			writeDeviceData(value);
 		}
+	}
+
+	private void writeControllerData (int value) {
+		log.println("write controller data %x for cmd %x: %s", value, datacmd, cmdString(datacmd));
 		
 		switch (datacmd) {
-			case 0:
-				writeDevice(value);
-				break;
-				
 			case CMD_WRITECB:
 				// write to cfg
-				//log.println("keydata: write config %x (was %x)", value, commandbyte);
+				log.println("write config %x: %s (was %x: %s)", 
+						value, configString(value), config, configString(config));
 				config = value;
 				status = 0;
 				// XXX should copy system flag to status
@@ -370,7 +389,7 @@ public class KBC implements Device {
 				break;
 				
 			case CMD_WRITEAUXOUT:
-				//log.println("keydata: write aux out %x", value);
+				log.println("write aux out %x", value);
 				pushData(value, true);
 				break;
 				
@@ -381,37 +400,40 @@ public class KBC implements Device {
 		datacmd = 0;
 	}
 
-	private void writeDevice (int value) {
-		// device command
-		// atkbd.c atkbd_probe()
-		boolean key = (config & CB_DISABLEKEY) == 0;
-		boolean aux = (config & CB_DISABLEAUX) == 0;
-		log.println("write device command key=" + key + " aux=" + aux);
-		
-		switch (value) {
-			case 0xed:
-				log.println("set leds");
-				pushData(0xfa, false);
-				devcmd = 0xed;
-				devindex = 2;
-				break;
-				
-			case 0xf2:
-				log.println("identify");
-				pushData(0x83abfa, false);
-//						data = 0x83abfa;
-//						status = ST_OUTPUTFULL;
-				break;
-			case 0xff:
-				// [   19.044000] atkbd serio0: keyboard reset failed on isa0060/serio0
-				log.println("reset");
-				// fa = ack, aa = test pass
-				pushData(0xaafa, false);
-//						data = 0xaafa;
-//						status = ST_OUTPUTFULL;
+	private void writeDeviceData (int value) {
+		log.println("write device data %x for device command %x: %s", value, devcmd, kbString(devcmd));
+		switch (devcmd) {
+			case KB_SETLED:
+				// yawn
 				break;
 			default:
-				throw new RuntimeException(String.format("unknown kbc device command %x config %s", value, cfgString(config)));
+				throw new RuntimeException(String.format("unknown devcmd %x data %x", devcmd, value));
+		}
+		
+		devcmd = 0;
+	}
+
+	private void writeDeviceCommand (int value) {
+		// device command
+		// atkbd.c atkbd_probe()
+		log.println("write device command %x: %s", value, kbString(value));
+		
+		switch (value) {
+			case KB_SETLED:
+				pushData(0xfa, false);
+				devcmd = 0xed;
+				break;
+				
+			case KB_IDENTIFY:
+				pushData(0x83abfa, false);
+				break;
+			case KB_RESET:
+				// [   19.044000] atkbd serio0: keyboard reset failed on isa0060/serio0
+				// fa = ack, aa = test pass
+				pushData(0xaafa, false);
+				break;
+			default:
+				throw new RuntimeException(String.format("unknown kbc device command %x config %s", value, configString(config)));
 		}
 	}
 	
@@ -433,17 +455,19 @@ public class KBC implements Device {
 		Cpu.getInstance().addException(p);
 	}
 	
-	private static List<String> cfgString (int cfg) {
-		List<String> l = new ArrayList<>();
-		if ((cfg & 0x1) != 0) l.add("0:keyint");
-		if ((cfg & 0x2) != 0) l.add("1:auxint");
-		if ((cfg & 0x4) != 0) l.add("2:system");
-		if ((cfg & 0x8) != 0) l.add("3:ignorekeylock");
-		if ((cfg & 0x10) != 0) l.add("4:keydisable");
-		if ((cfg & 0x20) != 0) l.add("5:auxdisable");
-		if ((cfg & 0x40) != 0) l.add("6:translate");
-		if ((cfg & 0x80) != 0) l.add("7:reserved");
-		return l;
+	private String configString (int cfg) {
+		return InstructionUtil.flagString(getClass(), "CB_", cfg);
 	}
 	
+	private String statusString (int s) {
+		return InstructionUtil.flagString(getClass(), "ST_", s);
+	}
+
+	private String kbString (int c) {
+		return InstructionUtil.lookup(getClass(), "KB_", c);
+	}
+
+	private String cmdString (int v) {
+		return InstructionUtil.lookup(getClass(), "CMD_", v);
+	}
 }

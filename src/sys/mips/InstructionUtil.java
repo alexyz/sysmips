@@ -93,9 +93,9 @@ public class InstructionUtil {
 	}
 	
 	/**
-	 * Disassemble an instruction
+	 * Disassemble an instruction (cpu may be null)
 	 */
-	public static String isnString (final Cpu cpu, final int isn) {
+	public static String isnString (final int addr, final int isn, final Symbols symbols, final Cpu cpu) {
 		final int op = op(isn);
 		final int rs = rs(isn);
 		final int rt = rt(isn);
@@ -112,16 +112,15 @@ public class InstructionUtil {
 		
 		final String isnValue;
 		if (isnObj != null) {
-			isnValue = InstructionUtil.formatIsn(cpu, isn, isnObj);
+			isnValue = formatIsnObj(isnObj, addr, isn, symbols, cpu);
 		} else {
 			isnValue = "op=" + op + " rt=" + rt + " rs=" + rs + " fn=" + fn;
 		}
 		
-		final String addr = cpu.getSymbols().getNameAddrOffset(cpu.getPc());
-		return String.format("%-40s %08x %s", addr, isn, isnValue);
+		return isnValue;
 	}
 	
-	private static String formatIsn (final Cpu cpu, final int isn, final Instruction isnObj) {
+	private static String formatIsnObj (final Instruction isnObj, final int addr, final int isn, final Symbols symbols, final Cpu cpu) {
 		final StringBuilder sb = new StringBuilder(isnObj.name);
 		while (sb.length() < 8) {
 			sb.append(" ");
@@ -131,7 +130,15 @@ public class InstructionUtil {
 		while ((i = sb.indexOf("{")) >= 0) {
 			final int j = sb.indexOf("}", i);
 			if (j > i) {
-				sb.replace(i, j + 1, String.valueOf(formatCode(cpu, isn, sb.substring(i + 1, j))));
+				String name = sb.substring(i + 1, j);
+				String x = formatIsn(name, addr, isn, symbols);
+				if (x == null && cpu != null) {
+					x = formatIsnWithCpu(name, isn, cpu);
+					if (x == null) {
+						throw new RuntimeException(name);
+					}
+				}
+				sb.replace(i, j + 1, String.valueOf(x));
 			} else {
 				throw new RuntimeException("invalid format " + isnObj.format);
 			}
@@ -140,14 +147,7 @@ public class InstructionUtil {
 	}
 	
 	/** get value of format code */
-	private static String formatCode (final Cpu cpu, final int isn, final String name) {
-		final Fpu fpu = cpu.getFpu();
-		final Memory mem = cpu.getMemory();
-		final int[] reg = cpu.getRegisters();
-		final int pc = cpu.getPc();
-		final Symbols syms = cpu.getSymbols();
-		final int[] cpreg = cpu.getCpRegisters();
-		
+	private static String formatIsn (final String name, final int addr, final int isn, final Symbols symbols) {
 		switch (name) {
 			case "fr":
 				return fpRegName(fr(isn));
@@ -157,6 +157,45 @@ public class InstructionUtil {
 				return fpRegName(fd(isn));
 			case "fs":
 				return fpRegName(fs(isn));
+			case "rs":
+				return gpRegName(rs(isn));
+			case "rd":
+				return gpRegName(rd(isn));
+			case "rt":
+				return gpRegName(rt(isn));
+			case "base":
+				return gpRegName(base(isn));
+			case "offset":
+				return Integer.toString(simm(isn));
+			case "cprd":
+				return cpRegName(rd(isn), sel(isn));
+			case "imm":
+				return String.valueOf(simm(isn));
+			case "branch":
+				return symbols.getNameAddrOffset(branch(isn, addr));
+			case "syscall":
+				return Integer.toHexString(syscall(isn));
+			case "jump":
+				return symbols.getNameAddrOffset(jump(isn, addr));
+			case "sa":
+				return String.valueOf(sa(isn));
+			case "fptf":
+				return fptf(isn) ? "t" : "f";
+			case "fpcc":
+				return "cc" + fpcc(isn);
+			default:
+				return null;
+		}
+	}
+	
+	/** get value of format code */
+	private static String formatIsnWithCpu (final String name, final int isn, final Cpu cpu) {
+		final Fpu fpu = cpu.getFpu();
+		final Memory mem = cpu.getMemory();
+		final int[] reg = cpu.getRegisters();
+		final int[] cpreg = cpu.getCpRegisters();
+		
+		switch (name) {
 			case "regft":
 				return formatDouble(fpu.getFpRegister(ft(isn), FpFormat.getInstance(fmt(isn))));
 			case "regfs":
@@ -175,47 +214,24 @@ public class InstructionUtil {
 				int v = fpu.getFpRegister(fs(isn));
 				return "0x" + Integer.toHexString(v) + "(" + formatDouble(Float.intBitsToFloat(v)) + ")";
 			}
-			case "rs":
-				return gpRegName(rs(isn));
-			case "rd":
-				return gpRegName(rd(isn));
-			case "rt":
-				return gpRegName(rt(isn));
 			case "regrtx": {
 				int v = reg[rt(isn)];
 				return Integer.toHexString(v) + "(" + formatDouble(Float.intBitsToFloat(v)) + ")";
 			}
-			case "base":
-				return gpRegName(base(isn));
 			case "regrd":
 				return Integer.toHexString(reg[rd(isn)]);
-				//return syms.getName(reg[rd(isn)]);
 			case "regrt":
 				return Integer.toHexString(reg[rt(isn)]);
-				//return syms.getName(reg[rt(isn)]);
 			case "regrs":
 				return Integer.toHexString(reg[rs(isn)]);
-				//return syms.getName(reg[rs(isn)]);
-			case "offset":
-				return Integer.toString(simm(isn));
-			case "cprd":
-				return cpRegName(rd(isn), sel(isn));
 			case "cpregrd":
 				return Integer.toHexString(cpreg[cprIndex(rd(isn), sel(isn))]);
-			case "imm":
-				return String.valueOf(simm(isn));
-			case "branch":
-				return syms.getNameAddrOffset(branch(isn, pc));
 			case "hi":
 				return Integer.toHexString(cpu.getHi());
 			case "lo":
 				return Integer.toHexString(cpu.getLo());
 			case "hilo":
 				return String.valueOf(cpu.getHilo());
-			case "baseoffset":
-				return syms.getNameAddrOffset(reg[base(isn)] + simm(isn));
-			case "syscall":
-				return Integer.toHexString(syscall(isn));
 			case "membaseoffset": {
 				Integer w = mem.loadWordSafe((reg[base(isn)] + simm(isn)));
 				return w != null ? Integer.toHexString(w) : null;
@@ -234,18 +250,10 @@ public class InstructionUtil {
 				}
 				return null;
 			}
-			case "jump":
-				return syms.getNameAddrOffset(jump(isn, pc));
-			case "sa":
-				return String.valueOf(sa(isn));
-			case "fptf":
-				return fptf(isn) ? "t" : "f";
-			case "fpcc":
-				return "cc" + fpcc(isn);
 			case "regfpcc":
 				return String.valueOf(fccrFcc(fpu.getFpControlReg(), fpcc(isn)));
 			default:
-				throw new RuntimeException("unknown name " + name);
+				return null;
 		}
 	}
 	

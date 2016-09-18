@@ -31,7 +31,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		frame.setVisible(true);
 	}
 	
-	private static final Font MONO = new Font("Monospaced", Font.PLAIN, 12);
+	public static final Font MONO = new Font("Monospaced", Font.PLAIN, 12);
 	
 	private final JTextField fileField = new JTextField(20);
 	private final JTextField argsField = new JTextField(20);
@@ -48,6 +48,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	private final JTabbedPane tabbedPane = new JTabbedPane();
 	private final SymbolJPanel symbolsPanel = new SymbolJPanel();
 	private final LoggerJPanel loggerPanel = new LoggerJPanel();
+	private final MemoryJPanel memoryPanel = new MemoryJPanel();
 	private final Timer timer;
 	
 	private volatile Thread thread;
@@ -119,6 +120,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		
 		tabbedPane.add("Console", consoleSp);
 		tabbedPane.add("Symbols", symbolsPanel);
+		tabbedPane.add("Memory", memoryPanel);
 		tabbedPane.add("Logger", loggerPanel);
 		
 		JPanel contentPanel = new JPanel(new BorderLayout());
@@ -225,6 +227,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		this.cpu = cpu;
 		
 		symbolsPanel.setSymbols(cpu.getSymbols());
+		memoryPanel.setCpu(cpu);
 		
 		updateCycle();
 	}
@@ -372,6 +375,11 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 		if (cpu != null) {
 			cycleLabel.setText(NumberFormat.getInstance().format(cpu.getCycle()));
 		}
+	}
+
+	public void openMemory (int addr) {
+		memoryPanel.openMemory(addr);
+		tabbedPane.setSelectedComponent(memoryPanel);
 	}
 	
 }

@@ -2,8 +2,6 @@ package sys.elf;
 
 import java.nio.ByteBuffer;
 
-import sys.util.ByteOrder;
-
 /**
  * ELF header file
  */
@@ -82,7 +80,7 @@ public class ELF32Header {
 	public short decode (short s) {
 		switch (data) {
 			case 1:
-				return ByteOrder.swapShort(s);
+				return Short.reverseBytes(s);
 			case 2:
 				return s;
 			default:
@@ -93,7 +91,7 @@ public class ELF32Header {
 	public int decode (int i) {
 		switch (data) {
 			case 1:
-				return ByteOrder.swapInt(i);
+				return Integer.reverseBytes(i);
 			case 2:
 				return i;
 			default:

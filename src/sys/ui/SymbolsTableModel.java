@@ -48,4 +48,8 @@ public class SymbolsTableModel extends AbstractTableModel {
 		}
 	}
 	
+	public Symbol getRow (int row) {
+		return symbols.get(row);
+	}
+	
 }

@@ -4,8 +4,6 @@ import sys.mips.Cpu;
 import sys.util.Logger;
 import sys.util.Symbols;
 
-import static sys.util.ByteOrder.*;
-
 import static sys.malta.GTUtil.*;
 
 /**
@@ -47,7 +45,7 @@ public class GT implements Device {
 	@Override
 	public int systemRead (final int addr, final int size) {
 		int v = systemRead2(addr, size);
-		return masterByteSwap ? swapInt(v) : v;
+		return masterByteSwap ? Integer.reverseBytes(v) : v;
 	}
 	
 	private int systemRead2 (final int addr, final int size) {
@@ -91,7 +89,7 @@ public class GT implements Device {
 		final int offset = addr - baseAddr;
 		final Cpu cpu = Cpu.getInstance();
 		if (masterByteSwap) {
-			value = swapInt(value);
+			value = Integer.reverseBytes(value);
 		}
 		
 		final String name = cpu.getSymbols().getNameAddrOffset(addr);

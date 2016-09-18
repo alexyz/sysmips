@@ -156,6 +156,7 @@ public final class Memory {
 		}
 	}
 	
+	/** load byte according to kernel mode and asid */
 	public final byte loadByte (final int vaddr) {
 		if (isSystem(vaddr)) {
 			return (byte) malta.systemRead(vaddr, 1);
@@ -271,12 +272,26 @@ public final class Memory {
 		// TODO also need to throw modified exception if page is read only...
 		throw new CpuException(new CpuExceptionParams(store ? CpuConstants.EX_TLB_STORE : CpuConstants.EX_TLB_LOAD, vaddr, refill));
 	}
+
+	/** load word without address translation */
+	public final int loadWordKernel (final int vaddr) {
+		final int i = (vaddr & KSEG_MASK) >>> 2;
+		return i < data.length ? data[i] : 0;
+	}
 	
+	/** load byte without address translation */
+	public final byte loadByteKernel (final int vaddr) {
+		final int w = loadWordKernel(vaddr);
+		final int s = ((vaddr & 3) ^ wordAddrXor) << 3;
+		return (byte) (w >>> s);
+	}
+
 	/** load boxed word, null if unmapped */
-	public Integer loadWordSafe (final int paddr) {
+	public Integer loadWordSafe (final int vaddr) {
 		// hack to translate addr
-		final int vaddr = paddr & KSEG_MASK;
-		final int i = vaddr >>> 2;
+		// FIXME this doesn't translate
+		final int a = vaddr & KSEG_MASK;
+		final int i = a >>> 2;
 		if (i >= 0 && i < data.length) {
 			final int w = data[i];
 			return Integer.valueOf(w);

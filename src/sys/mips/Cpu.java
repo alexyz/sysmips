@@ -319,7 +319,9 @@ public final class Cpu {
 					
 					if (disasmCount > 0) {
 						log.println(CpuUtil.gpRegString(this, regstr));
-						log.println(InstructionUtil.isnString(this, isn));
+						final String name = symbols.getNameAddrOffset(pc);
+						final String x = InstructionUtil.isnString(pc, isn, symbols, this);
+						log.println(String.format("%-40s %08x %s", name, isn, x));
 						if (disasmCount > 0) {
 							disasmCount--;
 						}

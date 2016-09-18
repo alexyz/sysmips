@@ -29,10 +29,10 @@ public final class Cpu {
 	}
 	
 	/** general purpose registers */
-	private final int[] register = new int[32];
+	private final int[] register = new int[36];
 	/** coprocessor 0 registers (register+selection*32) */
 	private final int[] cpRegister = new int[64];
-	private final Map<String, int[]> isnCount = new HashMap<>();
+	private final CpuStats stats = new CpuStats();
 	private final Memory memory;
 	private final boolean littleEndian;
 	/** pending exception queue, must be synchronised on this */
@@ -49,8 +49,6 @@ public final class Cpu {
 	/** cycle count, used as value of CPR_COUNT */
 	private volatile long cycle;
 	private volatile boolean logScheduled;
-	private volatile long waitTimeNs;
-	private volatile int waitCount;
 	private volatile boolean exceptionPending;
 	
 	/**
@@ -62,19 +60,12 @@ public final class Cpu {
 	private int pc2;
 	/** within execOp: address of next next instruction (change this to branch) */ 
 	private int pc3;
-	private int loadLinkedVaddr;
-	private int loadLinkedPaddr;
-	private boolean loadLinkedBit;
 	private boolean kernelMode;
-	private int hi;
-	private int lo;
-	private boolean countIsns; 
-	private int disasmCount;
 	/** derived from CPR_STATUS_IE */
 	private boolean interruptsEnabled;
 	/** derived from CPR_STATUS_EXL */
 	private boolean execException;
-	private long startTimeNs;
+	
 	/** derived from CPR_COMPARE */
 	private long compare;
 	
@@ -85,10 +76,6 @@ public final class Cpu {
 		
 		memory.setKernelMode(true);
 		memory.init(this);
-		
-		for (String name : InstructionSet.getInstance().getNameMap().keySet()) {
-			isnCount.put(name, new int[1]);
-		}
 		
 		// default values on reboot
 		setCpValue(CPR_STATUS_EXL, true);
@@ -170,27 +157,7 @@ public final class Cpu {
 	}
 	
 	public final long getHilo () {
-		return Integer.toUnsignedLong(hi) << 32 | Integer.toUnsignedLong(lo);
-	}
-	
-	public final int getHi () {
-		return hi;
-	}
-	
-	public final int getLo () {
-		return lo;
-	}
-	
-	public final boolean isCountIsns () {
-		return countIsns;
-	}
-	
-	public final void setCountIsns (boolean countIsns) {
-		this.countIsns = countIsns;
-	}
-	
-	public final Map<String, int[]> getIsnCount () {
-		return isnCount;
+		return Integer.toUnsignedLong(register[REG_HI]) << 32 | Integer.toUnsignedLong(register[REG_LO]);
 	}
 	
 	public final boolean isLittleEndian () {
@@ -225,8 +192,8 @@ public final class Cpu {
 		return symbols;
 	}
 
-	public long getStartTime () {
-		return startTimeNs;
+	public CpuStats getCpuStats () {
+		return stats;
 	}
 
 	public final void addLog(Log log) {
@@ -257,12 +224,11 @@ public final class Cpu {
 
 	/** never returns, throws runtime exception... */
 	public final void run () {
-		startTimeNs = System.nanoTime();
+		stats.startTimeNs = System.nanoTime();
 		
 		try {
 			instance.set(this);
 			log.println("run");
-			String[] regstr = new String[32];
 			// this should only be checked during call
 //			int f = memory.getSymbols().getAddr("size_fifo");
 //			if (f == 0) {
@@ -317,6 +283,7 @@ public final class Cpu {
 					// this might cause tlb miss...
 					final int isn = memory.loadWord(pc);
 					
+					/*
 					if (disasmCount > 0) {
 						log.println(CpuUtil.gpRegString(this, regstr));
 						final String name = symbols.getNameAddrOffset(pc);
@@ -326,6 +293,7 @@ public final class Cpu {
 							disasmCount--;
 						}
 					}
+					*/
 					
 					// to signal a synchronous exception, either
 					// 1. call execException and return (more efficient)
@@ -340,23 +308,15 @@ public final class Cpu {
 					execException(e.ep);
 				}
 				
-				//if (printCall) {
-				//	calls.printCall();
-				//}
-				
 				//if (countIsns) {
 				//	isnCount.get(IsnSet.getInstance().getIsn(isn).name)[0]++;
 				//}
-				
-
 				
 				//if (singleStep) {
 				//	while (System.in.read() != 10) {
 				//		//
 				//	}
 				//}
-				
-				//cycle++;
 			}
 			
 		} catch (Exception e) {
@@ -369,10 +329,16 @@ public final class Cpu {
 					+ "program counter: " + symbols.getNameAddrOffset(pc), e);
 			
 		} finally {
-			final long endTime = System.nanoTime();
-			final long duration = endTime - startTimeNs - waitTimeNs;
+			stats.endTimeNs = System.nanoTime();
 			log.println("ended");
-			log.println("nanoseconds per isn: " + (duration / cycle));
+			log.println("run time: " + stats.durationS());
+			log.println("waits: " + stats.waitCount + " wait time: " + stats.waitTimeNs);
+			log.println("total time: " + stats.totalS());
+			log.println("nanoseconds per isn: " + (stats.durationNs() / cycle));
+			log.println("exceptions: " + stats.exceptionsString());
+			log.println("interrupts: " + stats.interruptsString());
+			log.println("irqs: " + stats.irqsString());
+			log.println("isns by pop: " + stats.instructionsByPop());
 			instance.remove();
 			executor.shutdown();
 			fireLogs();
@@ -421,6 +387,13 @@ public final class Cpu {
 //		log.println(IsnUtil.isnString(this, memory.loadWord(pc)));
 		
 		execException = true;
+		stats.exceptions[ep.excode]++;
+		if (ep.interrupt != null) {
+			stats.interrupts[ep.interrupt.intValue()]++;
+		}
+		if (ep.irq != null) {
+			stats.irqs[ep.irq.intValue()]++;
+		}
 
 		if (getCpValueBoolean(CPR_STATUS_BEV)) {
 			// we don't have a boot rom...
@@ -514,6 +487,7 @@ public final class Cpu {
 	}
 	
 	private final void execOp (final int isn) {
+		final int[] register = this.register;
 		final int op = op(isn);
 		final int rs = rs(isn);
 		final int rt = rt(isn);
@@ -601,11 +575,10 @@ public final class Cpu {
 			case OP_SLTI:
 				register[rt] = register[rs] < simm ? 1 : 0;
 				return;
-			case OP_SLTIU: {
+			case OP_SLTIU:
 				// sign extend simm to int then compare as unsigned
 				register[rt] = Integer.compareUnsigned(register[rs], simm) < 0 ? 1 : 0;
 				return;
-			}
 			case OP_ORI:
 				register[rt] = register[rs] | Short.toUnsignedInt(simm);
 				return;
@@ -622,11 +595,23 @@ public final class Cpu {
 				// short promoted to int for shift
 				register[rt] = simm << 16;
 				return;
-			case OP_LL:
-				execLL(rs, rt, simm);
+			case OP_LL: {
+				final int va = register[rs] + simm;
+				register[rt] = memory.loadWord(va);
+				register[REG_LLBIT] = 1;
 				return;
+			}
 			case OP_SC:
-				execSC(rs, rt, simm);
+				final int va = register[rs] + simm;
+				if (register[REG_LLBIT] != 0) {
+					memory.storeWord(va, register[rt]);
+					register[rt] = 1;
+					stats.scSuccess++;
+				} else {
+					log.println("store conditional word failed: va=" + Integer.toHexString(va));
+					register[rt] = 0;
+					stats.scFail++;
+				}
 				return;
 			case OP_LW:
 				register[rt] = memory.loadWord(register[rs] + simm);
@@ -645,16 +630,16 @@ public final class Cpu {
 				register[rt] = memory.loadHalfWord(register[rs] + simm);
 				return;
 			case OP_LWL:
-				execLWL(rs, rt, simm);
+				execLWL(isn);
 				return;
 			case OP_LWR:
-				execLWR(rs, rt, simm);
+				execLWR(isn);
 				return;
 			case OP_SWL: 
-				execSWL(rs, rt, simm);
+				execSWL(isn);
 				return;
 			case OP_SWR: 
-				execSWR(rs, rt, simm);
+				execSWR(isn);
 				return;
 			case OP_PREF:
 				// no-op
@@ -664,11 +649,14 @@ public final class Cpu {
 		}
 	}
 
-	private void execSWR (final int rs, final int rt, final short simm) {
+	private void execSWR (final int isn) {
 		// lealign 0: reg << 0 | memmask >> 32
 		// lealign 1: reg << 8 | memmask >> 24
 		// lealign 2: reg << 16 | memmask >> 16
 		// lealign 3: reg << 24 | memmask >> 8
+		final int rs = rs(isn);
+		final int rt = rt(isn);
+		final int simm = simm(isn);
 		final int a = register[rs] + simm;
 		final int aa = a & ~3;
 		// force tlb store error
@@ -680,11 +668,14 @@ public final class Cpu {
 		memory.storeWord(aa, (register[rt] << lsh) | (word & (int) (ZX_INT_MASK >>> rsh)));
 	}
 
-	private void execSWL (final int rs, final int rt, final short simm) {
+	private void execSWL (final int isn) {
 		// lealign 0: memmask << 8 | reg >> 24
 		// lealign 1: memmask << 16 | reg >> 16
 		// lealign 2: memmask << 24 | reg >> 8
 		// lealign 3: memmask << 32 | reg >> 0
+		final int rs = rs(isn);
+		final int rt = rt(isn);
+		final int simm = simm(isn);
 		final int a = register[rs] + simm;
 		final int aa = a & ~3;
 		// force tlb store error
@@ -696,11 +687,14 @@ public final class Cpu {
 		memory.storeWord(aa, (word & (int) (ZX_INT_MASK << lsh)) | (register[rt] >>> rsh));
 	}
 
-	private void execLWR (final int rs, final int rt, final short simm) {
+	private void execLWR (final int isn) {
 		// lealign 0: regmask << 32 | mem >> 0
 		// lealign 1: regmask << 24 | mem >> 8
 		// lealign 2: regmask << 16 | mem >> 16
 		// lealign 3: regmask << 8 | mem >> 24
+		final int rs = rs(isn);
+		final int rt = rt(isn);
+		final int simm = simm(isn);
 		final int a = register[rs] + simm;
 		final int lealign = (a & 3) ^ wordAddrXor;
 		final int mem = memory.loadWord(a & ~3);
@@ -709,38 +703,20 @@ public final class Cpu {
 		register[rt] = (register[rt] & (int) (ZX_INT_MASK << lsh)) | (mem >>> rsh);
 	}
 
-	private void execLWL (final int rs, final int rt, final short simm) {
+	private void execLWL (final int isn) {
 		// lealign 0: mem << 24 | regmask >> 8
 		// lealign 1: mem << 16 | regmask >> 16
 		// lealign 2: mem << 8 | regmask >> 24
 		// lealign 3: mem << 0 | regmask >> 32
+		final int rs = rs(isn);
+		final int rt = rt(isn);
+		final int simm = simm(isn);
 		final int a = register[rs] + simm;
 		final int lealign = (a & 3) ^ wordAddrXor;
 		final int mem = memory.loadWord(a & ~3);
 		final int rsh = (lealign + 1) * 8;
 		final int lsh = 32 - rsh;
 		register[rt] = (mem << lsh) | (register[rt] & (int) (ZX_INT_MASK >>> rsh));
-	}
-
-	private void execSC (final int rs, final int rt, final short simm) {
-		final int va = register[rs] + simm;
-		final int pa = memory.translate(va, true);
-		if (va == loadLinkedVaddr && pa == loadLinkedPaddr && loadLinkedBit) {
-			memory.storeWord(va, register[rt]);
-			register[rt] = 1;
-		} else {
-			log.println("store conditional word fail: va=" + Integer.toHexString(va) + " pa=" + Integer.toHexString(pa) + " ll=" + loadLinkedBit);
-			register[rt] = 0;
-		}
-	}
-
-	private void execLL (final int rs, final int rt, final short simm) {
-		final int va = register[rs] + simm;
-		final int pa =  memory.translate(va, false);
-		loadLinkedVaddr = va;
-		loadLinkedPaddr = pa;
-		loadLinkedBit = true;
-		register[rt] = memory.loadWord(va);
 	}
 
 	/** update pc3 with jump */
@@ -789,6 +765,7 @@ public final class Cpu {
 	}
 
 	private final void execFunction (final int isn) {
+		final int[] register = this.register;
 		final int rd = rd(isn);
 		final int rt = rt(isn);
 		final int rs = rs(isn);
@@ -848,31 +825,31 @@ public final class Cpu {
 				// no-op
 				return;
 			case FN_MFHI:
-				register[rd] = hi;
+				register[rd] = register[REG_HI];
 				return;
 			case FN_MTHI:
-				hi = register[rs];
+				register[REG_HI] = register[rs];
 				return;
 			case FN_MFLO:
-				register[rd] = lo;
+				register[rd] = register[REG_LO];
 				return;
 			case FN_MTLO:
-				lo = register[rs];
+				register[REG_LO] = register[rs];
 				return;
 			case FN_MULT: {
 				// sign extend
 				final long rsValue = register[rs];
 				final long rtValue = register[rt];
 				final long result = rsValue * rtValue;
-				lo = (int) result;
-				hi = (int) (result >>> 32);
+				register[REG_LO] = (int) result;
+				register[REG_HI] = (int) (result >>> 32);
 				return;
 			}
 			case FN_MULTU: {
 				// zero extend
 				final long result = Integer.toUnsignedLong(register[rs]) * Integer.toUnsignedLong(register[rt]);
-				lo = (int) result;
-				hi = (int) (result >>> 32);
+				register[REG_LO] = (int) result;
+				register[REG_HI] = (int) (result >>> 32);
 				return;
 			}
 			case FN_DIV: {
@@ -881,8 +858,8 @@ public final class Cpu {
 				int rsValue = register[rs];
 				int rtValue = register[rt];
 				if (rtValue != 0) {
-					lo = rsValue / rtValue;
-					hi = rsValue % rtValue;
+					register[REG_LO] = rsValue / rtValue;
+					register[REG_HI] = rsValue % rtValue;
 				}
 				return;
 			}
@@ -892,8 +869,8 @@ public final class Cpu {
 				final long rsLong = Integer.toUnsignedLong(register[rs]);
 				final long rtLong = Integer.toUnsignedLong(register[rt]);
 				if (rtLong != 0) {
-					lo = (int) (rsLong / rtLong);
-					hi = (int) (rsLong % rtLong);
+					register[REG_LO] = (int) (rsLong / rtLong);
+					register[REG_HI] = (int) (rsLong % rtLong);
 				}
 				return;
 			}
@@ -942,8 +919,8 @@ public final class Cpu {
 				long rsValue = register[rs];
 				long rtValue = register[rt];
 				long result = rsValue * rtValue + getHilo();
-				lo = (int) result;
-				hi = (int) (result >>> 32);
+				register[REG_LO] = (int) result;
+				register[REG_HI] = (int) (result >>> 32);
 				return;
 			}
 			case FN2_MUL: {
@@ -1143,17 +1120,18 @@ public final class Cpu {
 					while (exceptions.size() == 0) {
 						try {
 							log.println("waiting...");
+							stats.waitCount++;
 							long t = System.nanoTime();
 							wait();
 							t = System.nanoTime() - t;
-							waitTimeNs += t;
-							waitCount++;
-							if (waitCount > 10) {
+							stats.waitTimeNs += t;
+							if (stats.waitCount > 10) {
 								throw new RuntimeException("wait count exceeded");
 							}
 							log.println("continuing after " + ((t*1.0)/CpuUtil.NS_IN_S) + " seconds");
 						} catch (InterruptedException e) {
-							log.println("interrupted in wait...");
+							throw new RuntimeException(e);
+//							log.println("interrupted in wait...");
 						}
 					}
 				}
@@ -1167,7 +1145,7 @@ public final class Cpu {
 				// no delay slot
 				setPc(epc);
 				setCpValue(CPR_STATUS_EXL, false);
-				loadLinkedBit = false;
+				register[REG_LLBIT] = 0;
 				execException = false;
 				statusUpdated();
 				synchronized (this) {

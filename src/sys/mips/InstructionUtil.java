@@ -227,9 +227,9 @@ public class InstructionUtil {
 			case "cpregrd":
 				return Integer.toHexString(cpreg[cprIndex(rd(isn), sel(isn))]);
 			case "hi":
-				return Integer.toHexString(cpu.getHi());
+				return Integer.toHexString(reg[REG_HI]);
 			case "lo":
-				return Integer.toHexString(cpu.getLo());
+				return Integer.toHexString(reg[REG_LO]);
 			case "hilo":
 				return String.valueOf(cpu.getHilo());
 			case "membaseoffset": {

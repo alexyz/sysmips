@@ -208,7 +208,7 @@ public class Uart implements Device {
 		if (value == '\n' || consoleSb.length() > 160) {
 			final String line = consoleSb.toString();
 			Cpu cpu = Cpu.getInstance();
-			double et = (System.nanoTime() - cpu.getStartTime()) / 1_000_000_000.0;
+			double et = (System.nanoTime() - cpu.getCpuStats().startTimeNs) / 1_000_000_000.0;
 			double kt = 0;
 			int i1 = line.indexOf("[");
 			if (i1 >= 0) {

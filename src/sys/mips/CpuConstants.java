@@ -362,6 +362,10 @@ public final class CpuConstants {
 	public static final int REG_SP = 29;
 	public static final int REG_RA = 31;
 	
+	public static final int REG_LO = 32;
+	public static final int REG_HI = 33;
+	public static final int REG_LLBIT = 34;
+	
 	//
 	// floating point control registers and constants
 	//

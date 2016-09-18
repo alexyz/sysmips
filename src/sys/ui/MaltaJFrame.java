@@ -254,19 +254,6 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 				
 			} catch (Exception e) {
 				System.out.println();
-//				cpu.getLog().print(System.out);
-//				cpu.getMemory().print(System.out);
-				
-				System.out.println();
-				final List<String> l = cpu.getIsnCount().entrySet()
-						.stream()
-						.filter(x -> x.getValue()[0] > 0)
-						.sorted((x,y) -> y.getValue()[0] - x.getValue()[0])
-						.map(x -> x.getKey() + "=" + x.getValue()[0])
-						.collect(Collectors.toList());
-				System.out.println("isn count " + l);
-				
-				System.out.println();
 				e.printStackTrace(System.out);
 				
 				SwingUtilities.invokeLater(() -> {

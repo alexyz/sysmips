@@ -1,6 +1,7 @@
 package sys.malta;
 
 import sys.mips.Cpu;
+import sys.mips.Device;
 import sys.util.Logger;
 import sys.util.Symbols;
 
@@ -10,10 +11,9 @@ import static sys.malta.UartUtil.*;
  * 16550A emulation
  * COM port detection - 8250.c - autoconfig()
  */
-public class Uart implements Device {
+public class Uart extends Device {
 	
 	private final Logger log;
-	private final int baseAddr;
 	private final String name;
 	private final StringBuilder consoleSb = new StringBuilder();
 	private final byte[] rxFifo = new byte[16];
@@ -30,9 +30,9 @@ public class Uart implements Device {
 	private int rxWrite;
 	
 	public Uart(final int baseAddr, final int offsetMul, final String name) {
+		super(baseAddr);
 		this.offsetMul = offsetMul;
 		this.log = new Logger(name);
-		this.baseAddr = baseAddr;
 		this.name = name;
 		this.lsr |= LSR_THRE;
 	}
@@ -67,7 +67,12 @@ public class Uart implements Device {
 	}
 	
 	@Override
-	public int systemRead (final int addr, final int size) {
+	public int loadWord (int addr) {
+		return loadByte(addr) & 0xff;
+	}
+	
+	@Override
+	public byte loadByte (final int addr) {
 		// don't validate size, just assume byte
 		final int offset = (addr - baseAddr) / offsetMul;
 		
@@ -93,30 +98,34 @@ public class Uart implements Device {
 				//log.println("uart read lsr %x", x);
 				// reset overrun bit on read
 				lsr &= ~LSR_OE;
-				return x;
+				return (byte) x;
 			}
 			case M_IER:
 				if (debug) log.println("uart read ier %x", ier);
-				return ier;
+				return (byte) ier;
 			case M_MCR:
 				if (debug) log.println("uart read mcr %x", mcr);
-				return mcr;
+				return (byte) mcr;
 			case M_LCR:
 				if (debug) log.println("uart read lcr %x", lcr);
-				return lcr;
+				return (byte) lcr;
 			case M_FCR_IIR_EFR:
 				if (debug) log.println("uart read iir %x", iir);
-				return iir;
+				return (byte) iir;
 			default:
 				throw new RuntimeException("unknown uart read " + offset);
 		}
 	}
 	
 	@Override
-	public void systemWrite (final int addr, final int size, final int valueInt) {
+	public void storeWord (int addr, int value) {
+		storeByte(addr, (byte) value); 
+	}
+	
+	@Override
+	public void storeByte (final int addr, final byte value) {
 		// don't validate size, just assume byte
 		final int offset = (addr - baseAddr) / offsetMul;
-		final byte value = (byte) valueInt;
 		
 		switch (offset) {
 			case M_RX_TX:

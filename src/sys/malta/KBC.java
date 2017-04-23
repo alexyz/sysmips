@@ -5,6 +5,7 @@ import java.util.*;
 import sys.mips.Cpu;
 import sys.mips.CpuConstants;
 import sys.mips.CpuExceptionParams;
+import sys.mips.Device;
 import sys.mips.InstructionUtil;
 import sys.util.Logger;
 import sys.util.Symbols;
@@ -14,7 +15,7 @@ import sys.util.Symbols;
  * @see linux/drivers/input/keyboard/atkbd.c
  * @see linux/include/linux/i8042.h
  */
-public class KBC implements Device {
+public class KBC extends Device {
 	
 	/** keyboard data read/write */
 	public static final int M_DATA = 0;
@@ -178,26 +179,26 @@ public class KBC implements Device {
 	}
 	
 	private int readst () {
-		return (byte) systemRead(M_CMDSTATUS, 1);
+		return loadByte(M_CMDSTATUS);
 	}
 	
 	private int readdat () {
 		int s = readst();
 		if ((s & 1) == 0) throw new RuntimeException("status not set");
-		return (byte) systemRead(M_DATA, 1);
+		return loadByte(M_DATA);
 	}
 	
 	private void writedat (int v) {
 		int s = readst();
 		if ((s & 1) != 0) throw new RuntimeException("buffer full");
-		systemWrite(M_DATA, 1, v);
+		storeByte(M_DATA, (byte) v);
 	}
 	
 	private int writecmd (int cmd, int next, boolean resp) {
 		int s, r = -1;
 		s = readst();
 		if ((s & 1) != 0) throw new RuntimeException("buffer full");
-		systemWrite(M_CMDSTATUS, 1, cmd);
+		storeByte(M_CMDSTATUS, (byte) cmd);
 		if (next >= 0) {
 			writedat(next);
 		}
@@ -208,7 +209,6 @@ public class KBC implements Device {
 	}
 	
 	private final Logger log = new Logger("KBC");
-	private final int baseAddr;
 	
 	// there are really bytes represented as ints for convenience
 	
@@ -240,7 +240,7 @@ public class KBC implements Device {
 	private int devcmd;
 	
 	public KBC(int baseAddr) {
-		this.baseAddr = baseAddr;
+		super(baseAddr);
 	}
 	
 	@Override
@@ -255,7 +255,7 @@ public class KBC implements Device {
 	}
 	
 	@Override
-	public int systemRead (int addr, int size) {
+	public byte loadByte (final int addr) {
 		final int offset = addr - baseAddr;
 		
 		switch (offset) {
@@ -273,12 +273,12 @@ public class KBC implements Device {
 					data = 0;
 					status = 0;
 				}
-				return v;
+				return (byte) v;
 				
 			case M_CMDSTATUS: // 64
 				status |= ST_NOTINHIBITED;
 				log.println("read status %x: %s", status, statusString(status));
-				return status;
+				return (byte) status;
 				
 			default:
 				throw new RuntimeException();
@@ -286,17 +286,16 @@ public class KBC implements Device {
 	}
 	
 	@Override
-	public void systemWrite (int addr, int size, int value) {
+	public void storeByte (final int addr, final byte value) {
 		final int offset = addr - baseAddr;
-		value &= 0xff;
 		
 		switch (offset) {
 			case M_DATA:
-				writeData(value);
+				writeData(value & 0xff);
 				return;
 				
 			case M_CMDSTATUS:
-				writeControllerCommand(value);
+				writeControllerCommand(value & 0xff);
 				return;
 				
 			default:

@@ -16,7 +16,7 @@ import static sys.mips.MemoryUtil.*;
  * implement the Device interface as it is a special case (referred to directly
  * by cpu).
  */
-public final class Memory {
+public final class Memory extends Device {
 	
 	private static final Logger log = new Logger("Memory");
 	
@@ -32,6 +32,7 @@ public final class Memory {
 	private int asid;
 	
 	public Memory(int size, boolean littleEndian) {
+		super(0);
 		this.data = new int[size >>> 2];
 		this.littleEndian = littleEndian;
 		this.wordAddrXor = littleEndian ? 0 : 3;
@@ -54,9 +55,9 @@ public final class Memory {
 		this.asid = asid;
 	}
 	
-	public void init (Cpu cpu) {
+	@Override
+	public void init (Symbols symbols) {
 		log.println("init memory");
-		Symbols symbols = cpu.getSymbols();
 		symbols.put(KSEG0, "KSEG0");
 		symbols.put(KSEG1, "KSEG1");
 		symbols.put(KSEG2, "KSEG2");
@@ -81,32 +82,35 @@ public final class Memory {
 		return malta;
 	}
 	
+	@Override
 	public final int loadWord (final int vaddr) {
 		if ((vaddr & 3) == 0) {
 			final int i = index(vaddr, false);
 			if (i >= 0) {
 				return data[i];
 			} else {
-				return malta.systemRead(vaddr, 4);
+				return malta.loadWord(vaddr);
 			}
 		} else {
 			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_LOAD, vaddr));
 		}
 	}
 	
+	@Override
 	public final void storeWord (final int vaddr, final int value) {
 		if ((vaddr & 3) == 0) {
 			int i = index(vaddr, true);
 			if (i >= 0) {
 				data[i] = value;
 			} else {
-				malta.systemWrite(vaddr, 4, value);
+				malta.storeWord(vaddr, value);
 			}
 		} else {
 			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_STORE, vaddr));
 		}
 	}
 	
+	@Override
 	public final short loadHalfWord (final int vaddr) {
 		if ((vaddr & 1) == 0) {
 			final int i = index(vaddr, false);
@@ -116,13 +120,14 @@ public final class Memory {
 				final int s = ((vaddr & 2) ^ halfWordAddrXor) << 3;
 				return (short) (w >>> s);
 			} else {
-				return (short) malta.systemRead(vaddr, 2);
+				return malta.loadHalfWord(vaddr);
 			}
 		} else {
 			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_LOAD, vaddr));
 		}
 	}
 	
+	@Override
 	public final void storeHalfWord (final int vaddr, final short value) {
 		if ((vaddr & 1) == 0) {
 			int i = index(vaddr, true);
@@ -134,7 +139,7 @@ public final class Memory {
 				final int orm = (value & 0xffff) << s;
 				data[i] = (w & andm) | orm;
 			} else {
-				malta.systemWrite(vaddr, 2, value);
+				malta.storeHalfWord(vaddr, value);
 			}
 		} else {
 			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_STORE, vaddr));
@@ -142,6 +147,7 @@ public final class Memory {
 	}
 	
 	/** load byte according to kernel mode and asid */
+	@Override
 	public final byte loadByte (final int vaddr) {
 		final int i = index(vaddr, false);
 		if (i >= 0) {
@@ -152,10 +158,11 @@ public final class Memory {
 			final int s = ((vaddr & 3) ^ wordAddrXor) << 3;
 			return (byte) (w >>> s);
 		} else {
-			return (byte) malta.systemRead(vaddr, 1);
+			return malta.loadByte(vaddr);
 		}
 	}
 	
+	@Override
 	public final void storeByte (final int vaddr, final byte value) {
 		int i = index(vaddr, true);
 		if (i >= 0) {
@@ -167,7 +174,7 @@ public final class Memory {
 			final int orm = (value & 0xff) << s;
 			data[i] = (w & andm) | orm;
 		} else {
-			malta.systemWrite(vaddr, 1, value);
+			malta.storeByte(vaddr, value);
 		}
 	}
 	

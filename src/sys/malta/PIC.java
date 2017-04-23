@@ -1,5 +1,6 @@
 package sys.malta;
 
+import sys.mips.Device;
 import sys.util.Logger;
 import sys.util.Symbols;
 
@@ -8,7 +9,7 @@ import sys.util.Symbols;
  * TODO this really needs to intercept calls to addException...
  * device.addexception() -> ?
  */
-public class PIC implements Device {
+public class PIC extends Device {
 	
 	/** Address 0: Init Command Word 1, Operational Command Word 2 and 3 */
 	public static final int M_CMD = 0;
@@ -47,7 +48,6 @@ public class PIC implements Device {
 	}
 	
 	private final Logger log;
-	private final int baseAddr;
 	private final boolean master;
 	
 	/** 
@@ -100,7 +100,7 @@ public class PIC implements Device {
 	private int init;
 	
 	public PIC(final int baseAddr, boolean master) {
-		this.baseAddr = baseAddr;
+		super(baseAddr);
 		this.master = master;
 		this.log = new Logger("PIC" + (master ? 1 : 2));
 	}
@@ -117,7 +117,7 @@ public class PIC implements Device {
 	}
 	
 	@Override
-	public int systemRead (final int addr, final int size) {
+	public byte loadByte (final int addr) {
 		final int offset = addr - baseAddr;
 		
 		switch (offset) {
@@ -128,7 +128,7 @@ public class PIC implements Device {
 			case M_DATA:
 				//log.println("read ocw1 %x", ocw1);
 				// read the imr
-				return ocw1;
+				return (byte) ocw1;
 				
 			default:
 				throw new RuntimeException();
@@ -136,16 +136,15 @@ public class PIC implements Device {
 	}
 	
 	@Override
-	public void systemWrite (final int addr, final int size, final int valueInt) {
+	public void storeByte (final int addr, final byte value) {
 		final int offset = addr - baseAddr;
-		final int value = valueInt & 0xff;
 		
 		switch (offset) {
 			case M_CMD:
-				writeCommand(value);
+				writeCommand(value & 0xff);
 				return;
 			case M_DATA:
-				writeData(value);
+				writeData(value & 0xff);
 				return;
 			default:
 				throw new RuntimeException();

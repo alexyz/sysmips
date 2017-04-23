@@ -1,6 +1,7 @@
 package sys.malta;
 
 import sys.mips.Cpu;
+import sys.mips.Device;
 import sys.util.Logger;
 import sys.util.Symbols;
 
@@ -9,11 +10,9 @@ import static sys.malta.GTUtil.*;
 /**
  * the GT64120A northbridge
  */
-public class GT implements Device {
+public class GT extends Device {
 	
 	private static final Logger log = new Logger("GT");
-	
-	private final int baseAddr;
 	
 	private int configData;
 	private int configAddr;
@@ -22,7 +21,7 @@ public class GT implements Device {
 	private boolean masterByteSwap;
 	
 	public GT (final int baseAddr) {
-		this.baseAddr = baseAddr;
+		super(baseAddr);
 	}
 	
 	public void setIrq (final int irq) {
@@ -43,12 +42,12 @@ public class GT implements Device {
 	}
 	
 	@Override
-	public int systemRead (final int addr, final int size) {
-		int v = systemRead2(addr, size);
+	public int loadWord (int vaddr) {
+		int v = loadWord2(vaddr);
 		return masterByteSwap ? Integer.reverseBytes(v) : v;
 	}
 	
-	private int systemRead2 (final int addr, final int size) {
+	private int loadWord2 (final int addr) {
 		final int offset = addr - baseAddr;
 		switch (offset) {
 			case GT_PCI0IOLD:
@@ -85,7 +84,7 @@ public class GT implements Device {
 	}
 	
 	@Override
-	public void systemWrite (final int addr, final int size, int value) {
+	public void storeWord (final int addr, int value) {
 		final int offset = addr - baseAddr;
 		final Cpu cpu = Cpu.getInstance();
 		if (masterByteSwap) {
@@ -93,7 +92,7 @@ public class GT implements Device {
 		}
 		
 		final String name = cpu.getSymbols().getNameAddrOffset(addr);
-		log.println(String.format("write addr=%x name=%s <= value %x size %d", offset, name, value, size));
+		log.println(String.format("write addr=%x name=%s <= value %x", offset, name, value));
 		
 		switch (offset) {
 			case GT_PCI0IOREMAP:
@@ -117,7 +116,7 @@ public class GT implements Device {
 						masterByteSwap = (value & 0x1) == 0;
 						break;
 					default:
-						throw new RuntimeException(String.format("invalid gt command %x size %d", value, size));
+						throw new RuntimeException(String.format("invalid gt command %x", value));
 				}
 				break;
 				

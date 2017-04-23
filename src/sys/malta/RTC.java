@@ -10,7 +10,7 @@ import sys.util.*;
 /**
  * real time clock
  */
-public class RTC implements Device {
+public class RTC extends Device {
 	
 	public static final int M_ADR = 0x0;
 	public static final int M_DAT = 0x1;
@@ -139,17 +139,16 @@ public class RTC implements Device {
 	}
 	
 	private int read (int i) {
-		systemWrite(M_ADR, 1, i);
-		return (byte) systemRead(M_DAT, 1);
+		storeByte(M_ADR, (byte) i);
+		return loadByte(M_DAT);
 	}
 	
 	private void write (int i, int v) {
-		systemWrite(M_ADR, 1, (byte) i);
-		systemWrite(M_DAT, 1, (byte) v);
+		storeByte(M_ADR, (byte) i);
+		storeByte(M_DAT, (byte) v);
 	}
 	
 	private final Logger log = new Logger("RTC");
-	private final int baseAddr;
 	// XXX these are bytes represented as ints for convenience
 	private int rtcadr;
 	private int rtcdat;
@@ -161,7 +160,7 @@ public class RTC implements Device {
 	private Future<?> timerFuture;
 	
 	public RTC(int baseAddr) {
-		this.baseAddr = baseAddr;
+		super(baseAddr);
 		// binary not bcd
 		// if this is missing you get a weird error about persistent clock invalid
 		this.controlb = B_HF24 | B_DMBIN;
@@ -179,13 +178,13 @@ public class RTC implements Device {
 	}
 	
 	@Override
-	public int systemRead (int addr, int size) {
+	public byte loadByte (final int addr) {
 		final int offset = addr - baseAddr;
 		
 		switch (offset) {
 			case M_DAT:
 				// should compute this from rtcadr each time?
-				return rtcdat;
+				return (byte) rtcdat;
 				
 			default:
 				throw new RuntimeException();
@@ -193,17 +192,16 @@ public class RTC implements Device {
 	}
 	
 	@Override
-	public void systemWrite (int addr, int size, int value) {
-		final int offset = addr - baseAddr;
-		value = value & 0xff;
+	public void storeByte (final int addr, final byte value) {
+		final int offset = offset(addr);
 		
 		switch (offset) {
 			case M_ADR:
-				rtcAdrWrite(value);
+				rtcAdrWrite(value & 0xff);
 				return;
 				
 			case M_DAT:
-				rtcDatWrite(value);
+				rtcDatWrite(value & 0xff);
 				return;
 				
 			default:

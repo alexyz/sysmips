@@ -1,13 +1,14 @@
 package sys.malta;
 
 import sys.mips.Cpu;
+import sys.mips.Device;
 import sys.util.Logger;
 import sys.util.Symbols;
 
 /**
  * malta on board display
  */
-public class MaltaDisplay implements Device {
+public class MaltaDisplay extends Device {
 	
 	public static final int M_DISPLAY_LEDBAR = 0x8;
 	public static final int M_DISPLAY_ASCIIWORD = 0x10;
@@ -23,13 +24,12 @@ public class MaltaDisplay implements Device {
 	private static final Logger log = new Logger("Display");
 	
 	private final char[] asciiPos = new char[8];
-	private final int baseAddr;
 	
 	private int ledBar = 0;
 	private int asciiWord = 0;
 	
 	public MaltaDisplay(final int baseAddr) {
-		this.baseAddr = baseAddr;
+		super(baseAddr);
 	}
 	
 	@Override
@@ -45,12 +45,7 @@ public class MaltaDisplay implements Device {
 	}
 	
 	@Override
-	public int systemRead (final int addr, final int size) {
-		throw new RuntimeException("display read");
-	}
-	
-	@Override
-	public void systemWrite (final int addr, final int size, final int value) {
+	public void storeWord (final int addr, final int value) {
 		final int offset = addr - baseAddr;
 		
 		switch (offset) {

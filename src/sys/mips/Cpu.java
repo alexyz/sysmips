@@ -75,7 +75,7 @@ public final class Cpu {
 		this.wordAddrXor = littleEndian ? 0 : 3;
 		
 		memory.setKernelMode(true);
-		memory.init(this);
+		memory.init(symbols);
 		
 		// default values on reboot
 		setCpValue(CPR_STATUS_EXL, true);

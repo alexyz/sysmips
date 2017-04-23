@@ -7,13 +7,14 @@ import java.util.concurrent.TimeUnit;
 import sys.mips.Cpu;
 import sys.mips.CpuConstants;
 import sys.mips.CpuExceptionParams;
+import sys.mips.Device;
 import sys.util.Logger;
 import sys.util.Symbols;
 
 /**
  * I8253 programmable interval timer
  */
-public class PIT implements Device {
+public class PIT extends Device {
 	
 	public static final int M_COUNTER_0 = 0x0;
 	public static final int M_COUNTER_1 = 0x1;
@@ -21,7 +22,6 @@ public class PIT implements Device {
 	public static final int M_TCW = 0x3;
 	
 	private final Logger log = new Logger("PIT");
-	private final int baseAddr;
 	
 	private int timerCounter0;
 	private int timerControlWord = -1;
@@ -29,7 +29,7 @@ public class PIT implements Device {
 	private Future<?> timerFuture;
 	
 	public PIT(int baseAddr) {
-		this.baseAddr = baseAddr;
+		super(baseAddr);
 	}
 
 	@Override
@@ -42,23 +42,18 @@ public class PIT implements Device {
 		final int offset = addr - baseAddr;
 		return offset >= 0 && offset < 4;
 	}
-
+	
 	@Override
-	public int systemRead (int addr, int size) {
+	public void storeByte (final int addr, final byte value) {
 		final int offset = addr - baseAddr;
-		throw new RuntimeException("unknown system read offset " + Integer.toHexString(offset));
-	}
-
-	@Override
-	public void systemWrite (int addr, int size, int value) {
-		final int offset = addr - baseAddr;
+		
 		switch (offset) {
 			case M_TCW:
-				timerControlWrite((byte) value);
+				timerControlWrite(value & 0xff);
 				return;
 				
 			case M_COUNTER_0:
-				timerCounter0Write((byte) value);
+				timerCounter0Write(value & 0xff);
 				return;
 				
 			default:
@@ -79,7 +74,7 @@ public class PIT implements Device {
 		}
 	}
 	
-	private void timerCounter0Write (final byte value) {
+	private void timerCounter0Write (final int value) {
 		log.println("timer counter 0 write " + Integer.toHexString(value));
 		// lsb then msb
 		// #define CLOCK_TICK_RATE 1193182
@@ -90,11 +85,11 @@ public class PIT implements Device {
 		// dur = (c-0.5)/1193182
 		
 		if (timerCounterByte == 0) {
-			timerCounter0 = value & 0xff;
+			timerCounter0 = value;
 			timerCounterByte++;
 			
 		} else if (timerCounterByte == 1) {
-			timerCounter0 = (timerCounter0 & 0xff) | ((value & 0xff) << 8);
+			timerCounter0 = (timerCounter0 & 0xff) | (value << 8);
 			timerCounterByte = 0;
 			if (timerFuture != null) {
 				timerFuture.cancel(false);

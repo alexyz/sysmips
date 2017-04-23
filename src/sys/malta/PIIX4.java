@@ -1,10 +1,7 @@
 package sys.malta;
 
-import java.util.*;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import sys.mips.*;
+import java.util.Arrays;
+
 import sys.util.Logger;
 import sys.util.Symbols;
 
@@ -12,7 +9,7 @@ import sys.util.Symbols;
  * the intel 82371AB (PIIX4) southbridge (and bits of the SMSC FDC37M81 super io
  * controller)
  */
-public class PIIX4 implements Device {
+public class PIIX4 extends MultiDevice {
 	
 	// I8259 programmable interrupt controller
 	public static final int M_PIC_MASTER = 0x20;
@@ -37,8 +34,6 @@ public class PIIX4 implements Device {
 	
 	private static final Logger log = new Logger("PIIX4");
 	
-	private final Device[] devices;
-	private final int baseAddr;
 	private final Uart com1;
 	private final Uart com2;
 	private final PIC pic1;
@@ -48,7 +43,7 @@ public class PIIX4 implements Device {
 	private final PIT pit;
 	
 	public PIIX4(final int baseAddr) {
-		this.baseAddr = baseAddr;
+		super(baseAddr);
 		this.com1 = new Uart(baseAddr + M_COM1, 1, "Uart:COM1");
 		this.com1.setConsole(true);
 		this.com2 = new Uart(baseAddr + M_COM2, 1, "Uart:COM2");
@@ -57,48 +52,25 @@ public class PIIX4 implements Device {
 		this.kbc = new KBC(baseAddr + M_KEYBOARD);
 		this.rtc = new RTC(baseAddr + M_RTC);
 		this.pit = new PIT(baseAddr + M_PIT);
-		this.devices = new Device[] { com1, com2, pic1, pic2, kbc, rtc, pit };
+		this.devices.addAll(Arrays.asList(com1, com2, pic1, pic2, kbc, rtc, pit));
 	}
 	
 	@Override
 	public void init (final Symbols sym) {
 		sym.init(PIIX4.class, "M_", null, baseAddr, 1);
-		for (Device d : devices) {
-			d.init(sym);
-		}
+		super.init(sym);
 	}
 	
 	@Override
 	public boolean isMapped (final int addr) {
-		final int offset = addr - baseAddr;
+		final int offset = offset(addr);
 		return offset >= 0 && offset < 0xd00;
 	}
 	
 	@Override
-	public int systemRead (final int addr, final int size) {
-		for (Device d : devices) {
-			if (d.isMapped(addr)) {
-				return d.systemRead(addr, size);
-			}
-		}
+	public void storeByte (final int addr, final byte value) {
+		final int offset = offset(addr);
 		
-		final int offset = addr - baseAddr;
-		switch (offset) {
-			default:
-				throw new RuntimeException("unknown system read offset " + Integer.toHexString(offset));
-		}
-	}
-	
-	@Override
-	public void systemWrite (final int addr, final int size, final int value) {
-		for (Device d : devices) {
-			if (d.isMapped(addr)) {
-				d.systemWrite(addr, size, value);
-				return;
-			}
-		}
-		
-		final int offset = addr - baseAddr;
 		switch (offset) {
 			case M_DMA2_MASK_REG:
 				// information in asm/dma.h
@@ -106,9 +78,8 @@ public class PIIX4 implements Device {
 				return;
 				
 			default:
-				throw new RuntimeException("unknown system write offset " + Integer.toHexString(offset));
+				super.storeByte(addr, value);
 		}
 	}
-	
 	
 }

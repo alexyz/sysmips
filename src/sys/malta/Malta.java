@@ -1,6 +1,6 @@
 package sys.malta;
 
-import java.util.*;
+import java.util.Arrays;
 
 import sys.mips.Cpu;
 import sys.util.Logger;
@@ -10,7 +10,7 @@ import sys.util.Symbols;
  * malta device mapping and board specific functions as described in the malta
  * user's manual
  */
-public class Malta implements Device {
+public class Malta extends MultiDevice {
 	
 	/** the on board memory (128mb max) */
 	public static final int M_SDRAM = 0x0;
@@ -41,8 +41,6 @@ public class Malta implements Device {
 	
 	private static final Logger log = new Logger("Malta");
 	
-	private final Device[] devices;
-	private final int baseAddr;
 	/** the northbridge */
 	private final GT gt;
 	private final MaltaDisplay display;
@@ -51,14 +49,14 @@ public class Malta implements Device {
 	private final Uart cbusUart;
 	
 	public Malta (final int baseAddr) {
-		this.baseAddr = baseAddr;
+		super(baseAddr);
 		this.p4 = new PIIX4(baseAddr + M_PIIX4);
 		this.gt = new GT(baseAddr + M_GTBASE);
 		this.display = new MaltaDisplay(baseAddr + M_DISPLAYS);
 		// XXX strictly, this should be a TI 16C550C, not a SMSC NS 16C550A compatible
 		this.cbusUart = new Uart(baseAddr + M_CBUS_UART, 8, "Uart:CBUS");
 		this.cbusUart.setDebug(true);
-		this.devices = new Device[] { p4, gt, display, cbusUart };
+		this.devices.addAll(Arrays.asList(p4, gt, display, cbusUart, new MaltaRev(baseAddr + M_REVISION)));
 	}
 	
 	public void setIrq (final int irq) {
@@ -69,51 +67,20 @@ public class Malta implements Device {
 	public void init (final Symbols sym) {
 		log.println("init malta at " + Integer.toHexString(baseAddr));
 		sym.init(Malta.class, "M_", null, baseAddr, Integer.MAX_VALUE);
-		for (Device d : devices) {
-			d.init(sym);
-		}
+		super.init(sym);
 	}
 	
 	@Override
-	public boolean isMapped (final int addr) {
-		// root device, everything is mapped
-		throw new RuntimeException();
-	}
-	
-	@Override
-	public int systemRead (final int addr, final int size) {
-		for (Device d : devices) {
-			if (d.isMapped(addr)) {
-				return d.systemRead(addr, size);
-			}
-		}
+	public void storeWord (final int addr, final int value) {
+		final int offset = offset(addr);
 		
-		final int offset = addr - baseAddr;
-		switch (offset) {
-			case M_REVISION:
-				return 1;
-			default:
-				throw new RuntimeException("unknown system read " + Cpu.getInstance().getSymbols().getNameAddrOffset(addr) + " size " + size);
-		}
-	}
-	
-	@Override
-	public void systemWrite (final int addr, final int size, final int value) {
-		for (Device d : devices) {
-			if (d.isMapped(addr)) {
-				d.systemWrite(addr, size, value);
-				return;
-			}
-		}
-		
-		final int offset = addr - baseAddr;
 		if (offset >= M_UNCACHED_EX_H && offset < M_UNCACHED_EX_H + 0x100) {
 			// should map straight through to memory?
 			// the values look like mips code...
 			log.println("ignore set uncached exception handler " + Cpu.getInstance().getSymbols().getNameOffset(baseAddr + addr) + " <= " + Integer.toHexString(value));
 			
 		} else {
-			throw new RuntimeException("unknown system write " + Cpu.getInstance().getSymbols().getNameAddrOffset(addr) + " <= " + Integer.toHexString(value));
+			super.storeWord(addr, value);
 		}
 	}
 	

@@ -6,6 +6,8 @@ import sys.malta.Malta;
 import sys.util.Logger;
 import sys.util.Symbols;
 
+import static sys.mips.MemoryUtil.*;
+
 /**
  * int[] backed memory as described in the MIPS32 4K processor core family
  * software user's manual.
@@ -17,22 +19,6 @@ import sys.util.Symbols;
 public final class Memory {
 	
 	private static final Logger log = new Logger("Memory");
-	/**
-	 * kseg0 - 0x80.. to 0x9f.. (512MB) - direct mapping to physical memory
-	 * address 0
-	 */
-	private static final int KSEG0 = 0x8000_0000;
-	/**
-	 * kseg1 - 0xa0.. to 0xbf.. (512MB) - direct mapping to physical memory
-	 * address 0, uncached, intercepted by malta board services
-	 */
-	private static final int KSEG1 = 0xa000_0000;
-	/** kseg2 - 0xc0.. to 0xdf... (512MB) - mapped through tlb */
-	private static final int KSEG2 = 0xc000_0000;
-	/** kseg3 - 0xe0.. to 0xff... (512MB) - mapped through tlb */
-	private static final int KSEG3 = 0xe000_0000;
-	
-	private static final int KSEG_MASK = 0x1fff_ffff;
 	
 	/** backing data as int (shift addr left 2 for index) */
 	private final int[] data;
@@ -40,7 +26,6 @@ public final class Memory {
 	private final int halfWordAddrXor;
 	private final boolean littleEndian;
 	private final Entry[] entries = new Entry[16];
-	//private final int[] pe = new int[16*3];
 	private final Malta malta;
 	
 	private boolean kernelMode;
@@ -98,11 +83,11 @@ public final class Memory {
 	
 	public final int loadWord (final int vaddr) {
 		if ((vaddr & 3) == 0) {
-			if (isSystem(vaddr)) {
-				return malta.systemRead(vaddr, 4);
-			} else {
-				int i = translate(vaddr, false) >>> 2;
+			final int i = index(vaddr, false);
+			if (i >= 0) {
 				return data[i];
+			} else {
+				return malta.systemRead(vaddr, 4);
 			}
 		} else {
 			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_LOAD, vaddr));
@@ -111,11 +96,11 @@ public final class Memory {
 	
 	public final void storeWord (final int vaddr, final int value) {
 		if ((vaddr & 3) == 0) {
-			if (isSystem(vaddr)) {
-				malta.systemWrite(vaddr, 4, value);
-			} else {
-				int i = translate(vaddr, true) >>> 2;
+			int i = index(vaddr, true);
+			if (i >= 0) {
 				data[i] = value;
+			} else {
+				malta.systemWrite(vaddr, 4, value);
 			}
 		} else {
 			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_STORE, vaddr));
@@ -124,14 +109,14 @@ public final class Memory {
 	
 	public final short loadHalfWord (final int vaddr) {
 		if ((vaddr & 1) == 0) {
-			if (isSystem(vaddr)) {
-				return (short) malta.systemRead(vaddr, 2);
-			} else {
-				final int i = translate(vaddr, false) >>> 2;
+			final int i = index(vaddr, false);
+			if (i >= 0) {
 				final int w = data[i];
 				// 0,2 -> 2,0 -> 16,0
 				final int s = ((vaddr & 2) ^ halfWordAddrXor) << 3;
 				return (short) (w >>> s);
+			} else {
+				return (short) malta.systemRead(vaddr, 2);
 			}
 		} else {
 			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_LOAD, vaddr));
@@ -140,16 +125,16 @@ public final class Memory {
 	
 	public final void storeHalfWord (final int vaddr, final short value) {
 		if ((vaddr & 1) == 0) {
-			if (isSystem(vaddr)) {
-				malta.systemWrite(vaddr, 2, value);
-			} else {
-				final int i = translate(vaddr, true) >>> 2;
+			int i = index(vaddr, true);
+			if (i >= 0) {
 				final int w = data[i];
 				// 0,2 -> 2,0 -> 16,0
 				final int s = ((vaddr & 2) ^ halfWordAddrXor) << 3;
 				final int andm = ~(0xffff << s);
 				final int orm = (value & 0xffff) << s;
 				data[i] = (w & andm) | orm;
+			} else {
+				malta.systemWrite(vaddr, 2, value);
 			}
 		} else {
 			throw new CpuException(new CpuExceptionParams(CpuConstants.EX_ADDR_ERROR_STORE, vaddr));
@@ -158,24 +143,22 @@ public final class Memory {
 	
 	/** load byte according to kernel mode and asid */
 	public final byte loadByte (final int vaddr) {
-		if (isSystem(vaddr)) {
-			return (byte) malta.systemRead(vaddr, 1);
-		} else {
-			final int i = translate(vaddr, false) >>> 2;
+		final int i = index(vaddr, false);
+		if (i >= 0) {
 			final int w = data[i];
 			// 0,1,2,3 xor 0 -> 0,1,2,3
 			// 0,1,2,3 xor 3 -> 3,2,1,0
 			// 0,1,2,3 -> 3,2,1,0 -> 24,16,8,0
 			final int s = ((vaddr & 3) ^ wordAddrXor) << 3;
 			return (byte) (w >>> s);
+		} else {
+			return (byte) malta.systemRead(vaddr, 1);
 		}
 	}
 	
 	public final void storeByte (final int vaddr, final byte value) {
-		if (isSystem(vaddr)) {
-			malta.systemWrite(vaddr, 1, value);
-		} else {
-			final int i = translate(vaddr, true) >>> 2;
+		int i = index(vaddr, true);
+		if (i >= 0) {
 			final int w = data[i];
 			// if xor=0: 0,1,2,3 -> 0,8,16,24
 			// if xor=3: 0,1,2,3 -> 3,2,1,0 -> 24,16,8,0
@@ -183,6 +166,8 @@ public final class Memory {
 			final int andm = ~(0xff << s);
 			final int orm = (value & 0xff) << s;
 			data[i] = (w & andm) | orm;
+		} else {
+			malta.systemWrite(vaddr, 1, value);
 		}
 	}
 	
@@ -190,21 +175,24 @@ public final class Memory {
 	 * translate virtual address to physical. store affects dirty bit if true
 	 * and type of exception thrown if address is invalid.
 	 */
-	public final int translate (final int vaddr, final boolean store) {
-		final boolean kernelMode = this.kernelMode;
-		if (kernelMode && vaddr < KSEG2) {
-			// kseg0/kseg1 (direct)
-			return vaddr & KSEG_MASK;
-		} else if (vaddr >= 0 || (kernelMode && vaddr >= KSEG2)) {
+	public final int index (final int vaddr, final boolean store) {
+		final boolean km = this.kernelMode;
+		// useg > kseg3 > kseg2 > kseg1 > kseg0
+		if (km && vaddr < KSEG1) {
+			// kseg0 (direct, fast)
+			return (vaddr & KSEG_MASK) >> 2;
+		} else if (vaddr >= 0 || (km && vaddr >= KSEG2)) {
 			// useg/kuseg/kseg2/kseg3 (translated, slow)
-			return lookup(vaddr, store);
+			return lookup(vaddr, store) >> 2;
+		} else if (km && vaddr < KSEG2) {
+			// kseg1 (malta/direct, very slow)
+			// really this should be same as kseg0, but we want to use the return value
+			// to know if we should call malta instead
+			//return vaddr & KSEG_MASK;
+			return -1;
 		} else {
 			throw new RuntimeException("cannot translate kseg as user: " + Integer.toHexString(vaddr));
 		}
-	}
-	
-	private final boolean isSystem (final int vaddr) {
-		return vaddr >= KSEG1 && vaddr < KSEG2 && kernelMode;
 	}
 	
 	public final int probe (final int vpn2) {
@@ -264,19 +252,19 @@ public final class Memory {
 		
 		log.println("tlb miss");
 		
-//		for (int n = 0; n < entries.length; n++) {
-//			Entry e = entries[n];
-//			log.println("entry[" + n + "]=" + e);
-//		}
+		//		for (int n = 0; n < entries.length; n++) {
+		//			Entry e = entries[n];
+		//			log.println("entry[" + n + "]=" + e);
+		//		}
 		
 		// TODO also need to throw modified exception if page is read only...
 		throw new CpuException(new CpuExceptionParams(store ? CpuConstants.EX_TLB_STORE : CpuConstants.EX_TLB_LOAD, vaddr, refill));
 	}
-
+	
 	/** load word without address translation */
 	public final int loadWordKernel (final int vaddr) {
 		final int i = (vaddr & KSEG_MASK) >>> 2;
-		return i < data.length ? data[i] : 0;
+				return i < data.length ? data[i] : 0;
 	}
 	
 	/** load byte without address translation */
@@ -285,7 +273,7 @@ public final class Memory {
 		final int s = ((vaddr & 3) ^ wordAddrXor) << 3;
 		return (byte) (w >>> s);
 	}
-
+	
 	/** load boxed word, null if unmapped */
 	public Integer loadWordSafe (final int vaddr) {
 		// hack to translate addr
@@ -304,15 +292,15 @@ public final class Memory {
 	/** load boxed word, null if unmapped */
 	public Long loadDoubleWordSafe (final int paddr) {
 		final int i = paddr >>> 2;
-		if (i >= 0 && i < data.length - 1) {
-			final long w1 = data[i] & 0xffff_ffffL;
-			final long w2 = data[i + 1] & 0xffff_ffffL;
-			// XXX might need swap
-			return Long.valueOf((w1 << 32) | w2);
-			
-		} else {
-			return null;
-		}
+				if (i >= 0 && i < data.length - 1) {
+					final long w1 = data[i] & 0xffff_ffffL;
+					final long w2 = data[i + 1] & 0xffff_ffffL;
+					// XXX might need swap
+					return Long.valueOf((w1 << 32) | w2);
+					
+				} else {
+					return null;
+				}
 	}
 	
 	public void print (PrintStream ps) {

@@ -8,7 +8,7 @@ import sys.malta.MaltaUtil;
 
 public class CpuStats {
 	public final Map<String, int[]> isnCount = new HashMap<>();
-	public final int[] exceptions = new int[8];
+	public final int[] exceptions = new int[32];
 	public final int[] irqs = new int[16];
 	public final int[] interrupts = new int[16];
 	public volatile long endTimeNs;

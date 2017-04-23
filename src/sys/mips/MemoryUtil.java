@@ -5,6 +5,27 @@ import java.util.*;
 
 public class MemoryUtil {
 	
+	/**
+	 * useg - 0x00.. to 0x80.. (2GB) - translated through tlb
+	 */
+	public static final int USEG = 0;
+	/**
+	 * kseg0 - 0x80.. to 0x9f.. (512MB) - direct mapping to physical memory
+	 * address 0
+	 */
+	public static final int KSEG0 = 0x8000_0000;
+	/**
+	 * kseg1 - 0xa0.. to 0xbf.. (512MB) - direct mapping to physical memory
+	 * address 0, uncached, intercepted by malta board services
+	 */
+	public static final int KSEG1 = 0xa000_0000;
+	/** kseg2 - 0xc0.. to 0xdf... (512MB) - mapped through tlb */
+	public static final int KSEG2 = 0xc000_0000;
+	/** kseg3 - 0xe0.. to 0xff... (512MB) - mapped through tlb */
+	public static final int KSEG3 = 0xe000_0000;
+	/** 512mb mask */
+	public static final int KSEG_MASK = 0x1fff_ffff;
+	
 	/** round up to nearest word */
 	public static final int nextWord (final int addr) {
 		return (addr + 3) & ~3;
@@ -110,6 +131,19 @@ public class MemoryUtil {
 			throw new IllegalArgumentException("unaligned");
 		}
 	}
+	
+	/** convert index out of bounds exception to virtual address (assuming kseg0) */
+	public static int toAddr (Exception e) {
+		if (e instanceof ArrayIndexOutOfBoundsException) {
+			try {
+				return KSEG0 + (Integer.parseInt(e.getMessage()) << 2);
+			} catch (Exception e2) {
+				//
+			}
+		}
+		return 0;
+	}
+	
 	
 	private MemoryUtil () {
 		//

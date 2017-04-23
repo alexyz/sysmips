@@ -3,3 +3,5 @@ images
 xbin
 dist
 .DS_Store
+target
+.settings

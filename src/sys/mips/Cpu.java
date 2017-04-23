@@ -179,11 +179,11 @@ public final class Cpu {
 	public final Fpu getFpu () {
 		return fpu;
 	}
-
+	
 	public final ScheduledExecutorService getExecutor () {
 		return executor;
 	}
-
+	
 	public final PropertyChangeSupport getSupport () {
 		return support;
 	}
@@ -191,11 +191,11 @@ public final class Cpu {
 	public Symbols getSymbols () {
 		return symbols;
 	}
-
+	
 	public CpuStats getCpuStats () {
 		return stats;
 	}
-
+	
 	public final void addLog(Log log) {
 		synchronized (this) {
 			logs.add(log);
@@ -209,7 +209,7 @@ public final class Cpu {
 			}
 		}
 	}
-
+	
 	private void fireLogs () {
 		Log[] a;
 		synchronized (this) {
@@ -221,7 +221,7 @@ public final class Cpu {
 			support.firePropertyChange("logs", null, a);
 		}
 	}
-
+	
 	/** never returns, throws runtime exception... */
 	public final void run () {
 		stats.startTimeNs = System.nanoTime();
@@ -230,11 +230,11 @@ public final class Cpu {
 			instance.set(this);
 			log.println("run");
 			// this should only be checked during call
-//			int f = memory.getSymbols().getAddr("size_fifo");
-//			if (f == 0) {
-//				throw new RuntimeException();
-//			}
-//			boolean x = false;
+			//			int f = memory.getSymbols().getAddr("size_fifo");
+			//			if (f == 0) {
+			//				throw new RuntimeException();
+			//			}
+			//			boolean x = false;
 			
 			while (true) {
 				// set up zero before anything
@@ -249,21 +249,21 @@ public final class Cpu {
 				pc2 = pc3;
 				pc3 += 4;
 				
-//				if (pc == f) {
-//					log.println("----- size_fifo -----");
-//					disasm = true;
-//					calls.setPrintCalls(true);
-//					x = true;
-//				}
+				//				if (pc == f) {
+				//					log.println("----- size_fifo -----");
+				//					disasm = true;
+				//					calls.setPrintCalls(true);
+				//					x = true;
+				//				}
 				
-//				if (x) {
-//					log.println(memory.getSymbols().getNameOffset(pc));
-//				}
+				//				if (x) {
+				//					log.println(memory.getSymbols().getNameOffset(pc));
+				//				}
 				
 				// set up cycle before exception
 				// don't set CPR_CAUSE twice...
-//				final int cmp = cpRegister[CPR_COMPARE];
-//				final int count = (int) (cycle >>> 1);
+				//				final int cmp = cpRegister[CPR_COMPARE];
+				//				final int count = (int) (cycle >>> 1);
 				if (cycle++ == compare) {
 					// IP7, hardware interrupt 5 (timer)
 					log.println("compare hit");
@@ -293,7 +293,7 @@ public final class Cpu {
 							disasmCount--;
 						}
 					}
-					*/
+					 */
 					
 					// to signal a synchronous exception, either
 					// 1. call execException and return (more efficient)
@@ -321,12 +321,15 @@ public final class Cpu {
 			
 		} catch (Exception e) {
 			log.println(e.toString());
-			throw new RuntimeException("exception in cycle " + cycle + ", "
-					+ "little endian: " + littleEndian + ", "
-					+ "kernel mode: " + kernelMode + ", "
-					+ "interrupts enabled: " + interruptsEnabled + ", " 
-					+ "executing exeception: " + execException + ", "
-					+ "program counter: " + symbols.getNameAddrOffset(pc), e);
+			int a = MemoryUtil.toAddr(e);
+			throw new RuntimeException("cycle " + cycle
+					+ " le: " + littleEndian
+					+ " km: " + kernelMode
+					+ " ie: " + interruptsEnabled 
+					+ " ex: " + execException
+					+ " pc: " + symbols.getNameAddrOffset(pc)
+					+ (a > 0 ? " addr (kseg0): " + symbols.getNameAddrOffset(a) : ""),
+					e);
 			
 		} finally {
 			stats.endTimeNs = System.nanoTime();
@@ -348,9 +351,9 @@ public final class Cpu {
 	/** exec exception if there is one */
 	private boolean checkException () {
 		if (interruptsEnabled) {
-//			if (execException) {
-//				throw new RuntimeException();
-//			}
+			//			if (execException) {
+			//				throw new RuntimeException();
+			//			}
 			CpuExceptionParams ep;
 			synchronized (this) {
 				ep = exceptions.poll();
@@ -363,7 +366,7 @@ public final class Cpu {
 		}
 		return false;
 	}
-
+	
 	public final void addException (final CpuExceptionParams ep) {
 		//log.println("add exn " + ep);
 		synchronized (this) {
@@ -383,8 +386,8 @@ public final class Cpu {
 	// malta-int.c plat_irq_dispatch (deals with hardware interrupts)
 	private final void execException (CpuExceptionParams ep) {
 		log.println("exec exception " + ep);
-//		log.println(CpuUtil.gpRegString(this, null));
-//		log.println(IsnUtil.isnString(this, memory.loadWord(pc)));
+		//		log.println(CpuUtil.gpRegString(this, null));
+		//		log.println(IsnUtil.isnString(this, memory.loadWord(pc)));
 		
 		execException = true;
 		stats.exceptions[ep.excode]++;
@@ -394,7 +397,7 @@ public final class Cpu {
 		if (ep.irq != null) {
 			stats.irqs[ep.irq.intValue()]++;
 		}
-
+		
 		if (getCpValueBoolean(CPR_STATUS_BEV)) {
 			// we don't have a boot rom...
 			throw new RuntimeException("bootstrap exception");
@@ -430,6 +433,8 @@ public final class Cpu {
 			case EX_TLB_LOAD:
 			case EX_TLB_STORE:
 				isTlbException = true;
+				break;
+			case EX_BREAKPOINT:
 				break;
 			default:
 				throw new RuntimeException("unexpected exception " + ep.excode + ": " + InstructionUtil.exceptionString(ep.excode));
@@ -648,7 +653,7 @@ public final class Cpu {
 				throw new RuntimeException("invalid op " + opString(op));
 		}
 	}
-
+	
 	private void execSWR (final int isn) {
 		// lealign 0: reg << 0 | memmask >> 32
 		// lealign 1: reg << 8 | memmask >> 24
@@ -660,14 +665,14 @@ public final class Cpu {
 		final int a = register[rs] + simm;
 		final int aa = a & ~3;
 		// force tlb store error
-		memory.translate(aa, true);
+		memory.index(aa, true);
 		final int lealign = (a & 3) ^ wordAddrXor;
 		final int word = memory.loadWord(aa);
 		final int lsh = lealign * 8;
 		final int rsh = 32 - lsh;
 		memory.storeWord(aa, (register[rt] << lsh) | (word & (int) (ZX_INT_MASK >>> rsh)));
 	}
-
+	
 	private void execSWL (final int isn) {
 		// lealign 0: memmask << 8 | reg >> 24
 		// lealign 1: memmask << 16 | reg >> 16
@@ -679,14 +684,14 @@ public final class Cpu {
 		final int a = register[rs] + simm;
 		final int aa = a & ~3;
 		// force tlb store error
-		memory.translate(aa, true);
+		memory.index(aa, true);
 		final int lealign = (a & 3) ^ wordAddrXor;
 		final int word = memory.loadWord(aa);
 		final int lsh = (lealign + 1) * 8;
 		final int rsh = 32 - lsh;
 		memory.storeWord(aa, (word & (int) (ZX_INT_MASK << lsh)) | (register[rt] >>> rsh));
 	}
-
+	
 	private void execLWR (final int isn) {
 		// lealign 0: regmask << 32 | mem >> 0
 		// lealign 1: regmask << 24 | mem >> 8
@@ -702,7 +707,7 @@ public final class Cpu {
 		final int lsh = 32 - rsh;
 		register[rt] = (register[rt] & (int) (ZX_INT_MASK << lsh)) | (mem >>> rsh);
 	}
-
+	
 	private void execLWL (final int isn) {
 		// lealign 0: mem << 24 | regmask >> 8
 		// lealign 1: mem << 16 | regmask >> 16
@@ -718,19 +723,19 @@ public final class Cpu {
 		final int lsh = 32 - rsh;
 		register[rt] = (mem << lsh) | (register[rt] & (int) (ZX_INT_MASK >>> rsh));
 	}
-
+	
 	/** update pc3 with jump */
 	private final void execJump (final int isn) {
 		pc3 = jump(isn, pc2);
 		call(pc3);
 	}
-
+	
 	/** update pc3 with branch */
 	public final void execBranch (final int isn) {
 		pc3 = branch(isn, pc2);
 		call(pc3);
 	}
-
+	
 	private final void execLink () {
 		register[31] = pc3;
 	}
@@ -763,7 +768,7 @@ public final class Cpu {
 				throw new RuntimeException("invalid regimm " + opString(rt));
 		}
 	}
-
+	
 	private final void execFunction (final int isn) {
 		final int[] register = this.register;
 		final int rd = rd(isn);
@@ -779,132 +784,132 @@ public final class Cpu {
 				return;
 			case FN_SRL:
 				register[rd] = register[rt] >>> sa(isn);
-				return;
-			case FN_SRA:
-				register[rd] = register[rt] >> sa(isn);
+					return;
+					case FN_SRA:
+						register[rd] = register[rt] >> sa(isn);
 				return;
 			case FN_SRLV:
 				register[rd] = register[rt] >>> (register[rs] & 0x1f);
-				return;
-			case FN_SRAV:
-				register[rd] = register[rt] >> (register[rs] & 0x1f);
-				return;
-			case FN_SLLV:
-				register[rd] = register[rt] << (register[rs] & 0x1f);
-				return;
-			case FN_JR:
-				pc3 = register[rs];
-				if (rs == 31) {
-					ret();
-				}
-				return;
-			case FN_JALR:
-				register[rd] = pc3;
-				pc3 = register[rs];
-				call(pc3);
-				return;
-			case FN_MOVZ:
-				if (register[rt] == 0) {
-					register[rd] = register[rs];
-				}
-				return;
-			case FN_MOVN:
-				if (register[rt] != 0) {
-					register[rd] = register[rs];
-				}
-				return;
-			case FN_SYSCALL:
-				// won't this try to re-execute the syscall?
-				// unless linux is smart enough to add 4 to the return address...
-				execException(new CpuExceptionParams(EX_SYSCALL));
-				return;
-			case FN_BREAK:
-				execException(new CpuExceptionParams(EX_BREAKPOINT));
-				return;
-			case FN_SYNC:
-				// no-op
-				return;
-			case FN_MFHI:
-				register[rd] = register[REG_HI];
-				return;
-			case FN_MTHI:
-				register[REG_HI] = register[rs];
-				return;
-			case FN_MFLO:
-				register[rd] = register[REG_LO];
-				return;
-			case FN_MTLO:
-				register[REG_LO] = register[rs];
-				return;
-			case FN_MULT: {
-				// sign extend
-				final long rsValue = register[rs];
-				final long rtValue = register[rt];
-				final long result = rsValue * rtValue;
-				register[REG_LO] = (int) result;
-				register[REG_HI] = (int) (result >>> 32);
-				return;
+		return;
+		case FN_SRAV:
+			register[rd] = register[rt] >> (register[rs] & 0x1f);
+		return;
+		case FN_SLLV:
+			register[rd] = register[rt] << (register[rs] & 0x1f);
+			return;
+		case FN_JR:
+			pc3 = register[rs];
+			if (rs == 31) {
+				ret();
 			}
-			case FN_MULTU: {
-				// zero extend
-				final long result = Integer.toUnsignedLong(register[rs]) * Integer.toUnsignedLong(register[rt]);
-				register[REG_LO] = (int) result;
-				register[REG_HI] = (int) (result >>> 32);
-				return;
+			return;
+		case FN_JALR:
+			register[rd] = pc3;
+			pc3 = register[rs];
+			call(pc3);
+			return;
+		case FN_MOVZ:
+			if (register[rt] == 0) {
+				register[rd] = register[rs];
 			}
-			case FN_DIV: {
-				// divide as signed
-				// result is unpredictable for zero, no exceptions thrown
-				int rsValue = register[rs];
-				int rtValue = register[rt];
-				if (rtValue != 0) {
-					register[REG_LO] = rsValue / rtValue;
-					register[REG_HI] = rsValue % rtValue;
-				}
-				return;
+			return;
+		case FN_MOVN:
+			if (register[rt] != 0) {
+				register[rd] = register[rs];
 			}
-			case FN_DIVU: {
-				// unpredictable result and no exception for zero
-				// zero extend
-				final long rsLong = Integer.toUnsignedLong(register[rs]);
-				final long rtLong = Integer.toUnsignedLong(register[rt]);
-				if (rtLong != 0) {
-					register[REG_LO] = (int) (rsLong / rtLong);
-					register[REG_HI] = (int) (rsLong % rtLong);
-				}
-				return;
+			return;
+		case FN_SYSCALL:
+			// won't this try to re-execute the syscall?
+			// unless linux is smart enough to add 4 to the return address...
+			execException(new CpuExceptionParams(EX_SYSCALL));
+			return;
+		case FN_BREAK:
+			execException(new CpuExceptionParams(EX_BREAKPOINT));
+			return;
+		case FN_SYNC:
+			// no-op
+			return;
+		case FN_MFHI:
+			register[rd] = register[REG_HI];
+			return;
+		case FN_MTHI:
+			register[REG_HI] = register[rs];
+			return;
+		case FN_MFLO:
+			register[rd] = register[REG_LO];
+			return;
+		case FN_MTLO:
+			register[REG_LO] = register[rs];
+			return;
+		case FN_MULT: {
+			// sign extend
+			final long rsValue = register[rs];
+			final long rtValue = register[rt];
+			final long result = rsValue * rtValue;
+			register[REG_LO] = (int) result;
+			register[REG_HI] = (int) (result >>> 32);
+			return;
+		}
+		case FN_MULTU: {
+			// zero extend
+			final long result = Integer.toUnsignedLong(register[rs]) * Integer.toUnsignedLong(register[rt]);
+			register[REG_LO] = (int) result;
+			register[REG_HI] = (int) (result >>> 32);
+			return;
+		}
+		case FN_DIV: {
+			// divide as signed
+			// result is unpredictable for zero, no exceptions thrown
+			int rsValue = register[rs];
+			int rtValue = register[rt];
+			if (rtValue != 0) {
+				register[REG_LO] = rsValue / rtValue;
+				register[REG_HI] = rsValue % rtValue;
 			}
-			case FN_ADDU:
-				register[rd] = register[rs] + register[rt];
-				return;
-			case FN_SUBU:
-				register[rd] = register[rs] - register[rt];
-				return;
-			case FN_AND:
-				register[rd] = register[rs] & register[rt];
-				return;
-			case FN_OR:
-				register[rd] = register[rs] | register[rt];
-				return;
-			case FN_XOR:
-				register[rd] = register[rs] ^ register[rt];
-				return;
-			case FN_NOR:
-				register[rd] = ~(register[rs] | register[rt]);
-				return;
-			case FN_SLT:
-				register[rd] = (register[rs] < register[rt]) ? 1 : 0;
-				return;
-			case FN_SLTU:
-				register[rd] = Integer.compareUnsigned(register[rs], register[rt]) < 0 ? 1 : 0;
-				return;
-			case FN_TNE:
-				if (register[rs] != register[rt]) {
-					execException(new CpuExceptionParams(EX_TRAP));
-				}
-				return;
-			default:
-				throw new IllegalArgumentException("invalid fn " + opString(fn));
+			return;
+		}
+		case FN_DIVU: {
+			// unpredictable result and no exception for zero
+			// zero extend
+			final long rsLong = Integer.toUnsignedLong(register[rs]);
+			final long rtLong = Integer.toUnsignedLong(register[rt]);
+			if (rtLong != 0) {
+				register[REG_LO] = (int) (rsLong / rtLong);
+				register[REG_HI] = (int) (rsLong % rtLong);
+			}
+			return;
+		}
+		case FN_ADDU:
+			register[rd] = register[rs] + register[rt];
+			return;
+		case FN_SUBU:
+			register[rd] = register[rs] - register[rt];
+			return;
+		case FN_AND:
+			register[rd] = register[rs] & register[rt];
+			return;
+		case FN_OR:
+			register[rd] = register[rs] | register[rt];
+			return;
+		case FN_XOR:
+			register[rd] = register[rs] ^ register[rt];
+			return;
+		case FN_NOR:
+			register[rd] = ~(register[rs] | register[rt]);
+			return;
+		case FN_SLT:
+			register[rd] = (register[rs] < register[rt]) ? 1 : 0;
+			return;
+		case FN_SLTU:
+			register[rd] = Integer.compareUnsigned(register[rs], register[rt]) < 0 ? 1 : 0;
+			return;
+		case FN_TNE:
+			if (register[rs] != register[rt]) {
+				execException(new CpuExceptionParams(EX_TRAP));
+			}
+			return;
+		default:
+			throw new IllegalArgumentException("invalid fn " + opString(fn));
 		}
 	}
 	
@@ -1068,7 +1073,7 @@ public final class Cpu {
 		
 		// don't need to preserve anything
 		cpRegister[CPR_STATUS] = newValue & mask;
-
+		
 		statusUpdated();
 	}
 	
@@ -1131,7 +1136,7 @@ public final class Cpu {
 							log.println("continuing after " + ((t*1.0)/CpuUtil.NS_IN_S) + " seconds");
 						} catch (InterruptedException e) {
 							throw new RuntimeException(e);
-//							log.println("interrupted in wait...");
+							//							log.println("interrupted in wait...");
 						}
 					}
 				}
@@ -1157,7 +1162,7 @@ public final class Cpu {
 				throw new RuntimeException("invalid coprocessor fn " + opString(fn));
 		}
 	}
-
+	
 	private void updateEntry (final int i) {
 		log.println("update entry " + i + " in " + symbols.getNameAddrOffset(pc));
 		
@@ -1183,15 +1188,8 @@ public final class Cpu {
 	}
 	
 	public void panic () {
-
-//		Cpu c = Cpu.getInstance();
-//		c.setPc(c.getSymbols().getAddr("panic"));
-//		int a = c.getSymbols().getAddr("_prom_argv");
-//		MemoryUtil.storeString(c.getMemory(), a, "");
-//		c.setRegister(CpuConstants.REG_A0, a);
-//		return;
-		
-		throw new CpuException(new CpuExceptionParams(CpuConstants.EX_TLB_LOAD, 0, false));
+		log.println("panic in cycle " + cycle);
+		execException(new CpuExceptionParams(CpuConstants.EX_BREAKPOINT));
 	}
 	
 }

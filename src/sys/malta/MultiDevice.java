@@ -3,7 +3,6 @@ package sys.malta;
 import java.util.*;
 
 import sys.mips.Device;
-import sys.util.Symbols;
 
 /**
  * a device that contains several other devices
@@ -12,14 +11,14 @@ public class MultiDevice extends Device {
 	
 	protected final List<Device> devices = new ArrayList<>();
 	
-	public MultiDevice (int baseAddr) {
-		super(baseAddr);
+	public MultiDevice (Device parent, int baseAddr) {
+		super(parent, baseAddr);
 	}
 	
 	@Override
-	public void init (final Symbols sym) {
+	public void init () {
 		for (Device d : devices) {
-			d.init(sym);
+			d.init();
 		}
 	}
 	

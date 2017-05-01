@@ -28,14 +28,14 @@ public class MaltaDisplay extends Device {
 	private int ledBar = 0;
 	private int asciiWord = 0;
 	
-	public MaltaDisplay(final int baseAddr) {
-		super(baseAddr);
+	public MaltaDisplay(final Device device, final int baseAddr) {
+		super(device, baseAddr);
 	}
 	
 	@Override
-	public void init (final Symbols sym) {
+	public void init () {
 		log.println("init display at " + Integer.toHexString(baseAddr));
-		sym.init(MaltaDisplay.class, "M_", null, baseAddr, 4);
+		getCpu().getSymbols().init(MaltaDisplay.class, "M_", null, baseAddr, 4);
 	}
 	
 	@Override
@@ -97,17 +97,17 @@ public class MaltaDisplay extends Device {
 	private void asciiPosWrite (final int n, final int value) {
 		asciiPos[n] = (char) (value & 0xff);
 		String text = new String(asciiPos);
-		Cpu.getInstance().getSupport().firePropertyChange("displaytext", null, text);
+		getCpu().getSupport().firePropertyChange("displaytext", null, text);
 	}
 	
 	private void ledBarWrite (final int value) {
 		ledBar = value;
-		Cpu.getInstance().getSupport().firePropertyChange("displayled", null, ledBar);
+		getCpu().getSupport().firePropertyChange("displayled", null, ledBar);
 	}
 	
 	private void asciiWordWrite (final int value) {
 		asciiWord = value;
-		Cpu.getInstance().getSupport().firePropertyChange("displayword", null, asciiWord);
+		getCpu().getSupport().firePropertyChange("displayword", null, asciiWord);
 	}
 	
 }

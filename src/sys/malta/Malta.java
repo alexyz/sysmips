@@ -2,9 +2,8 @@ package sys.malta;
 
 import java.util.Arrays;
 
-import sys.mips.Cpu;
+import sys.mips.Device;
 import sys.util.Logger;
-import sys.util.Symbols;
 
 /**
  * malta device mapping and board specific functions as described in the malta
@@ -48,15 +47,15 @@ public class Malta extends MultiDevice {
 	private final PIIX4 p4;
 	private final Uart cbusUart;
 	
-	public Malta (final int baseAddr) {
-		super(baseAddr);
-		this.p4 = new PIIX4(baseAddr + M_PIIX4);
-		this.gt = new GT(baseAddr + M_GTBASE);
-		this.display = new MaltaDisplay(baseAddr + M_DISPLAYS);
+	public Malta (final Device parent, final int baseAddr) {
+		super(parent, baseAddr);
+		this.p4 = new PIIX4(this, baseAddr + M_PIIX4);
+		this.gt = new GT(this, baseAddr + M_GTBASE);
+		this.display = new MaltaDisplay(this, baseAddr + M_DISPLAYS);
 		// XXX strictly, this should be a TI 16C550C, not a SMSC NS 16C550A compatible
-		this.cbusUart = new Uart(baseAddr + M_CBUS_UART, 8, "Uart:CBUS");
+		this.cbusUart = new Uart(this, baseAddr + M_CBUS_UART, 8, "Uart:CBUS");
 		this.cbusUart.setDebug(true);
-		this.devices.addAll(Arrays.asList(p4, gt, display, cbusUart, new MaltaRev(baseAddr + M_REVISION)));
+		this.devices.addAll(Arrays.asList(p4, gt, display, cbusUart, new MaltaRev(this, baseAddr + M_REVISION)));
 	}
 	
 	public void setIrq (final int irq) {
@@ -64,10 +63,10 @@ public class Malta extends MultiDevice {
 	}
 	
 	@Override
-	public void init (final Symbols sym) {
+	public void init () {
 		log.println("init malta at " + Integer.toHexString(baseAddr));
-		sym.init(Malta.class, "M_", null, baseAddr, Integer.MAX_VALUE);
-		super.init(sym);
+		getCpu().getSymbols().init(Malta.class, "M_", null, baseAddr, Integer.MAX_VALUE);
+		super.init();
 	}
 	
 	@Override
@@ -77,7 +76,7 @@ public class Malta extends MultiDevice {
 		if (offset >= M_UNCACHED_EX_H && offset < M_UNCACHED_EX_H + 0x100) {
 			// should map straight through to memory?
 			// the values look like mips code...
-			log.println("ignore set uncached exception handler " + Cpu.getInstance().getSymbols().getNameOffset(baseAddr + addr) + " <= " + Integer.toHexString(value));
+			log.println("ignore set uncached exception handler " + getCpu().getSymbols().getNameOffset(baseAddr + addr) + " <= " + Integer.toHexString(value));
 			
 		} else {
 			super.storeWord(addr, value);

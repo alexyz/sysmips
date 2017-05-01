@@ -4,8 +4,8 @@ import sys.mips.Device;
 
 public class MaltaRev extends Device {
 	
-	public MaltaRev (final int baseAddr) {
-		super(baseAddr);
+	public MaltaRev (Device parent, final int baseAddr) {
+		super(parent, baseAddr);
 	}
 	
 	@Override

@@ -2,6 +2,10 @@ package sys.malta;
 
 import java.util.Arrays;
 
+import sys.mips.Cpu;
+import sys.mips.CpuConstants;
+import sys.mips.CpuExceptionParams;
+import sys.mips.Device;
 import sys.util.Logger;
 import sys.util.Symbols;
 
@@ -42,23 +46,23 @@ public class PIIX4 extends MultiDevice {
 	private final RTC rtc;
 	private final PIT pit;
 	
-	public PIIX4(final int baseAddr) {
-		super(baseAddr);
-		this.com1 = new Uart(baseAddr + M_COM1, 1, "Uart:COM1");
+	public PIIX4(final Device parent, final int baseAddr) {
+		super(parent, baseAddr);
+		this.com1 = new Uart(this, baseAddr + M_COM1, 1, "Uart:COM1");
 		this.com1.setConsole(true);
-		this.com2 = new Uart(baseAddr + M_COM2, 1, "Uart:COM2");
-		this.pic1 = new PIC(baseAddr + M_PIC_MASTER, true);
-		this.pic2 = new PIC(baseAddr + M_PIC_SLAVE, false);
-		this.kbc = new KBC(baseAddr + M_KEYBOARD);
-		this.rtc = new RTC(baseAddr + M_RTC);
-		this.pit = new PIT(baseAddr + M_PIT);
+		this.com2 = new Uart(this, baseAddr + M_COM2, 1, "Uart:COM2");
+		this.pic1 = new PIC(this, baseAddr + M_PIC_MASTER, true);
+		this.pic2 = new PIC(this, baseAddr + M_PIC_SLAVE, false);
+		this.kbc = new KBC(this, baseAddr + M_KEYBOARD);
+		this.rtc = new RTC(this, baseAddr + M_RTC);
+		this.pit = new PIT(this, baseAddr + M_PIT);
 		this.devices.addAll(Arrays.asList(com1, com2, pic1, pic2, kbc, rtc, pit));
 	}
 	
 	@Override
-	public void init (final Symbols sym) {
-		sym.init(PIIX4.class, "M_", null, baseAddr, 1);
-		super.init(sym);
+	public void init () {
+		getCpu().getSymbols().init(PIIX4.class, "M_", null, baseAddr, 1);
+		super.init();
 	}
 	
 	@Override
@@ -82,4 +86,25 @@ public class PIIX4 extends MultiDevice {
 		}
 	}
 	
+	@Override
+	public void fire (int irq) {
+		if (irq >= 0 && irq < 8) {
+			if (pic1.isMasked(irq)) {
+				log.println("irq masked: %d", irq);
+				return;
+			}
+		} else if (irq >= 8 && irq < 16) {
+			if (pic1.isMasked(MaltaUtil.IRQ_CASCADE) || pic2.isMasked(irq - 8)) {
+				log.println("irq masked: %d", irq);
+				return;
+			}
+		} else {
+			throw new RuntimeException("invalid irq " + irq);
+		}
+		
+		// should this queue the interrupts here?
+		// should this set the irq in the gt?
+		getCpu().addException(new CpuExceptionParams(CpuConstants.EX_INTERRUPT, MaltaUtil.INT_SOUTHBRIDGE, irq));
+		return;
+	}
 }

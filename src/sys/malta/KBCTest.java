@@ -19,12 +19,12 @@ public class KBCTest {
 	public void run() {
 		Deque<CpuExceptionParams> pa = new ArrayDeque<>();
 		
-		dev = new KBC(0) {
+		dev = new KBC(null, 0); /* {
 			@Override
 			protected void addException (CpuExceptionParams p) {
 				pa.add(p);
 			}
-		};
+		}; */
 		
 		
 		asEq("test", 0x55, cmdresp(CMD_SELFTEST));

@@ -27,12 +27,14 @@ public final class Memory extends Device {
 	private final boolean littleEndian;
 	private final Entry[] entries = new Entry[16];
 	private final Malta malta;
+	private final Cpu cpu;
 	
 	private boolean kernelMode;
 	private int asid;
 	
-	public Memory(int size, boolean littleEndian) {
-		super(0);
+	public Memory (Cpu cpu, int size, boolean littleEndian) {
+		super(null, 0);
+		this.cpu = cpu;
 		this.data = new int[size >>> 2];
 		this.littleEndian = littleEndian;
 		this.wordAddrXor = littleEndian ? 0 : 3;
@@ -40,7 +42,7 @@ public final class Memory extends Device {
 		for (int n = 0; n < entries.length; n++) {
 			entries[n] = new Entry();
 		}
-		this.malta = new Malta(KSEG1);
+		this.malta = new Malta(this, KSEG1);
 	}
 	
 	public Entry getEntry (int n) {
@@ -56,14 +58,13 @@ public final class Memory extends Device {
 	}
 	
 	@Override
-	public void init (Symbols symbols) {
+	public void init () {
 		log.println("init memory");
-		symbols.put(KSEG0, "KSEG0");
-		symbols.put(KSEG1, "KSEG1");
-		symbols.put(KSEG2, "KSEG2");
-		symbols.put(KSEG3, "KSEG3");
-		malta.init(symbols);
-		log.println("symbols=" + symbols);
+		getCpu().getSymbols().put(KSEG0, "KSEG0");
+		getCpu().getSymbols().put(KSEG1, "KSEG1");
+		getCpu().getSymbols().put(KSEG2, "KSEG2");
+		getCpu().getSymbols().put(KSEG3, "KSEG3");
+		malta.init();
 	}
 	
 	public boolean isLittleEndian () {
@@ -322,6 +323,11 @@ public final class Memory extends Device {
 			}
 			ps.println("  addr 0x" + Integer.toHexString(j * 4) + " usage " + (c / 0x100000));
 		}
+	}
+	
+	@Override
+	public Cpu getCpu () {
+		return cpu;
 	}
 	
 	@Override

@@ -2,7 +2,6 @@ package sys.malta;
 
 import sys.mips.*;
 import sys.util.Logger;
-import sys.util.Symbols;
 
 import static sys.malta.KBCUtil.*;
 
@@ -22,7 +21,17 @@ public class KBC extends Device {
 	 */
 	private int data;
 	
-	/** status byte */
+	/** 
+	 * status byte<br>
+	 * 0: output buffer full (can read from data port)<br>
+	 * 1: input buffer full (cannot write to cmd/data port)<br>
+	 * 2: system (1)<br>
+	 * 3: command/data (1 for controller)<br>
+	 * 4: unknown (keylock?)<br>
+	 * 5: unknown (receive timeout?)<br>
+	 * 6: unknown (timeout?)<br>
+	 * 7: unknown (parity?)<br>
+	 */
 	private int status;
 	
 	/** 
@@ -30,11 +39,11 @@ public class KBC extends Device {
 	 * bit 0: key interrupt enable<br>
 	 * bit 1: aux interrupt enable<br>
 	 * bit 2: system flag<br>
-	 * bit 3: inhibit override<br>
-	 * bit 4: keyboard port clock disable<br>
-	 * bit 5: aux port clock disable<br>
+	 * bit 3: zero/inhibit override<br>
+	 * bit 4: key clock disable<br>
+	 * bit 5: aux clock disable<br>
 	 * bit 6: key translation<br>
-	 * bit 7: 0<br>
+	 * bit 7: zero<br>
 	 */
 	private int config;
 	
@@ -44,13 +53,15 @@ public class KBC extends Device {
 	/** last command issued to device */
 	private int devcmd;
 	
-	public KBC(int baseAddr) {
-		super(baseAddr);
+	public KBC (Device parent, int baseAddr) {
+		super(parent, baseAddr);
+		status = ST_NOKEYLOCK|ST_SYSTEM|ST_CMDDATA;
+		config = CB_KEYTRANS|CB_DISABLEKEY|CB_SYSTEM|CB_ENABLEKEYINT;
 	}
 	
 	@Override
-	public void init (Symbols sym) {
-		sym.init(KBCUtil.class, "M_", null, baseAddr, 1);
+	public void init () {
+		getCpu().getSymbols().init(KBCUtil.class, "M_", null, baseAddr, 1);
 	}
 	
 	@Override
@@ -264,17 +275,17 @@ public class KBC extends Device {
 		// output buffer full, aux data available
 		status = ST_OUTPUTFULL | (aux ? ST_AUXDATA : 0);
 		if ((config & (aux ? CB_ENABLEAUXINT : CB_ENABLEKEYINT)) != 0) {
-			log.println("fire kbc irq aux=" + aux);
-			addException(new CpuExceptionParams(CpuConstants.EX_INTERRUPT, 
-					MaltaUtil.INT_SOUTHBRIDGE_INTR, 
-					aux ? MaltaUtil.IRQ_MOUSE : MaltaUtil.IRQ_KEYBOARD));
+			log.println("1fire kbc irq aux=" + aux);
+			fire(aux ? MaltaUtil.IRQ_MOUSE : MaltaUtil.IRQ_KEYBOARD);
 		} else {
 			log.println("not firing kbc irq due to disabled");
 		}
 	}
-
-	protected void addException (CpuExceptionParams p) {
-		Cpu.getInstance().addException(p);
-	}
 	
+	@Override
+	public void fire (int irq) {
+		// XXX for some reason this isn't visible in log
+		log.println("2fire irq " + irq);
+		super.fire(irq);
+	}
 }

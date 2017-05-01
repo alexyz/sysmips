@@ -70,12 +70,12 @@ public final class Cpu {
 	private long compare;
 	
 	public Cpu (int memsize, boolean littleEndian) {
-		this.memory = new Memory(memsize, littleEndian);
+		this.memory = new Memory(this, memsize, littleEndian);
 		this.littleEndian = littleEndian;
 		this.wordAddrXor = littleEndian ? 0 : 3;
 		
 		memory.setKernelMode(true);
-		memory.init(symbols);
+		memory.init();
 		
 		// default values on reboot
 		setCpValue(CPR_STATUS_EXL, true);
@@ -423,7 +423,7 @@ public final class Cpu {
 					throw new RuntimeException("masked interrupt " + ep.interrupt);
 				}
 				switch (ep.interrupt.intValue()) {
-					case MaltaUtil.INT_SOUTHBRIDGE_INTR:
+					case MaltaUtil.INT_SOUTHBRIDGE:
 						isSouthbridgeInterrupt = true;
 						break;
 					default:

@@ -20,8 +20,8 @@ public class GT extends Device {
 	/** byte swapping (set to true for big endian) */
 	private boolean masterByteSwap;
 	
-	public GT (final int baseAddr) {
-		super(baseAddr);
+	public GT (final Device parent, final int baseAddr) {
+		super(parent, baseAddr);
 	}
 	
 	public void setIrq (final int irq) {
@@ -30,9 +30,9 @@ public class GT extends Device {
 	}
 	
 	@Override
-	public void init (final Symbols sym) {
+	public void init () {
 		log.println("init gt at " + Integer.toHexString(baseAddr));
-		sym.init(GTUtil.class, "GT_", null, baseAddr, 4);
+		getCpu().getSymbols().init(GTUtil.class, "GT_", null, baseAddr, 4);
 	}
 	
 	@Override
@@ -86,12 +86,11 @@ public class GT extends Device {
 	@Override
 	public void storeWord (final int addr, int value) {
 		final int offset = addr - baseAddr;
-		final Cpu cpu = Cpu.getInstance();
 		if (masterByteSwap) {
 			value = Integer.reverseBytes(value);
 		}
 		
-		final String name = cpu.getSymbols().getNameAddrOffset(addr);
+		final String name = getCpu().getSymbols().getNameAddrOffset(addr);
 		log.println(String.format("write addr=%x name=%s <= value %x", offset, name, value));
 		
 		switch (offset) {

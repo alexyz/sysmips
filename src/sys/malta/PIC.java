@@ -43,7 +43,7 @@ public class PIC extends Device {
 	public static void main (String[] args) {
 		// write command words, init words
 		// test interrupt masking/mapping/cascading...
-		PIC dev = new PIC(0, true);
+		PIC dev = new PIC(null, 0, true);
 		//dev.systemWrite();
 	}
 	
@@ -99,15 +99,15 @@ public class PIC extends Device {
 	/** data mode: 0 = imr, 2 = icw2, 3 = icw3, 4 = icw4 */
 	private int init;
 	
-	public PIC(final int baseAddr, boolean master) {
-		super(baseAddr);
+	public PIC(final Device parent, final int baseAddr, boolean master) {
+		super(parent, baseAddr);
 		this.master = master;
 		this.log = new Logger("PIC" + (master ? 1 : 2));
 	}
 	
 	@Override
-	public void init (final Symbols sym) {
-		sym.init(getClass(), "M_", "M_PIC" + (master ? 1 : 2), baseAddr, 1);
+	public void init () {
+		getCpu().getSymbols().init(getClass(), "M_", "M_PIC" + (master ? 1 : 2), baseAddr, 1);
 	}
 	
 	@Override
@@ -149,6 +149,10 @@ public class PIC extends Device {
 			default:
 				throw new RuntimeException();
 		}
+	}
+	
+	public boolean isMasked (int irq) {
+		return (ocw1 & (1 << irq)) != 0;
 	}
 
 	/** write address 0 */

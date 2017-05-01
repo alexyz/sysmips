@@ -65,7 +65,7 @@ public class RTC extends Device {
 	
 	public static void main (String[] args) throws Exception {
 		ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-		final RTC dev = new RTC(0) {
+		final RTC dev = new RTC(null, 0) {
 			@Override
 			protected ScheduledExecutorService getExecutor () {
 				return executor;
@@ -159,16 +159,16 @@ public class RTC extends Device {
 	private double period;
 	private Future<?> timerFuture;
 	
-	public RTC(int baseAddr) {
-		super(baseAddr);
+	public RTC(Device parent, int baseAddr) {
+		super(parent, baseAddr);
 		// binary not bcd
 		// if this is missing you get a weird error about persistent clock invalid
 		this.controlb = B_HF24 | B_DMBIN;
 	}
 	
 	@Override
-	public void init (Symbols sym) {
-		sym.init(getClass(), "M_", "M_RTC_", baseAddr, 1);
+	public void init () {
+		getCpu().getSymbols().init(getClass(), "M_", "M_RTC_", baseAddr, 1);
 	}
 	
 	@Override
@@ -320,7 +320,7 @@ public class RTC extends Device {
 	private void fireInt() {
 		if ((controlb & 0x40) != 0) {
 			// add the exception...
-			Cpu.getInstance().addException(new CpuExceptionParams(CpuConstants.EX_TRAP));
+			getCpu().addException(new CpuExceptionParams(CpuConstants.EX_TRAP));
 			throw new RuntimeException("periodic interrupt");
 		} else {
 			// just set the pf flag
@@ -360,7 +360,7 @@ public class RTC extends Device {
 	}
 	
 	protected ScheduledExecutorService getExecutor() {
-		return Cpu.getInstance().getExecutor();
+		return getCpu().getExecutor();
 	}
 	
 }

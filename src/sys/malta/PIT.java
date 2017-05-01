@@ -28,13 +28,13 @@ public class PIT extends Device {
 	private int timerCounterByte;
 	private Future<?> timerFuture;
 	
-	public PIT(int baseAddr) {
-		super(baseAddr);
+	public PIT(Device parent, int baseAddr) {
+		super(parent, baseAddr);
 	}
 
 	@Override
-	public void init (Symbols sym) {
-		sym.init(PIT.class, "M_", "M_PIT_", baseAddr, 1);
+	public void init () {
+		getCpu().getSymbols().init(PIT.class, "M_", "M_PIT_", baseAddr, 1);
 	}
 
 	@Override
@@ -95,9 +95,9 @@ public class PIT extends Device {
 				timerFuture.cancel(false);
 			}
 			
-			final Cpu cpu = Cpu.getInstance();
+			final Cpu cpu = getCpu();
 			final ScheduledExecutorService e = cpu.getExecutor();
-			final CpuExceptionParams ep = new CpuExceptionParams(CpuConstants.EX_INTERRUPT, MaltaUtil.INT_SOUTHBRIDGE_INTR, MaltaUtil.IRQ_TIMER);
+			final CpuExceptionParams ep = new CpuExceptionParams(CpuConstants.EX_INTERRUPT, MaltaUtil.INT_SOUTHBRIDGE, MaltaUtil.IRQ_TIMER);
 			final Runnable r = () -> cpu.addException(ep);
 			
 			if (timerControlWord == 0x34) {

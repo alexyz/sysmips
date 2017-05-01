@@ -1,16 +1,16 @@
 package sys.mips;
 
-import sys.util.Symbols;
-
 /**
  * device interface. all addresses are physical (so you can look them up in the
  * symbol table) and need to be translated to offsets by the device itself.
  */
 public abstract class Device {
 	
+	private final Device parent;
 	protected final int baseAddr;
 	
-	public Device (int baseAddr) {
+	public Device (Device parent, int baseAddr) {
+		this.parent = parent;
 		this.baseAddr = baseAddr;
 	}
 	
@@ -19,7 +19,7 @@ public abstract class Device {
 	}
 	
 	/** init symbol table with symbols from this device */
-	public void init (final Symbols sym) {
+	public void init () {
 		//
 	}
 	
@@ -56,6 +56,14 @@ public abstract class Device {
 	/** write at the physical address */
 	public void storeWord (final int addr, final int value) {
 		throw rx(addr);
+	}
+	
+	public void fire (int irq) {
+		parent.fire(irq);
+	}
+	
+	public Cpu getCpu () {
+		return parent.getCpu();
 	}
 	
 	private RuntimeException rx (int a) {

@@ -1,14 +1,6 @@
 package sys.malta;
 
-import java.util.*;
-
-import sys.mips.Cpu;
-import sys.mips.CpuConstants;
-import sys.mips.CpuExceptionParams;
-import sys.mips.Device;
 import sys.mips.InstructionUtil;
-import sys.util.Logger;
-import sys.util.Symbols;
 
 public class KBCUtil {
 	
@@ -53,7 +45,7 @@ public class KBCUtil {
 	/** bit 3: 0=data 1=command */
 	public static final int ST_CMDDATA = 0x8;
 	/** bit 4: inhibit keyboard (linux calls this keylock?) */
-	public static final int ST_NOTINHIBITED = 0x10;
+	public static final int ST_NOKEYLOCK = 0x10;
 	/** bit 5: aux data available */
 	public static final int ST_AUXDATA = 0x20;
 	/** bit 6: timeout error */

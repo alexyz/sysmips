@@ -29,8 +29,8 @@ public class Uart extends Device {
 	private int rxRead;
 	private int rxWrite;
 	
-	public Uart(final int baseAddr, final int offsetMul, final String name) {
-		super(baseAddr);
+	public Uart(Device parent, final int baseAddr, final int offsetMul, final String name) {
+		super(parent, baseAddr);
 		this.offsetMul = offsetMul;
 		this.log = new Logger(name);
 		this.name = name;
@@ -54,9 +54,9 @@ public class Uart extends Device {
 	}
 	
 	@Override
-	public void init (final Symbols sym) {
+	public void init () {
 		log.println("init uart " + name + " at " + Integer.toHexString(baseAddr));
-		sym.init(UartUtil.class, "M_", "M_" + name + "_", baseAddr, 1, offsetMul);
+		getCpu().getSymbols().init(UartUtil.class, "M_", "M_" + name + "_", baseAddr, 1, offsetMul);
 	}
 	
 	@Override
@@ -204,7 +204,7 @@ public class Uart extends Device {
 				return;
 			}
 			default:
-				throw new RuntimeException("unknown uart write " + Cpu.getInstance().getSymbols().getNameAddrOffset(addr));
+				throw new RuntimeException("unknown uart write " + getCpu().getSymbols().getNameAddrOffset(addr));
 		}
 	}
 	
@@ -216,8 +216,7 @@ public class Uart extends Device {
 		}
 		if (value == '\n' || consoleSb.length() > 160) {
 			final String line = consoleSb.toString();
-			Cpu cpu = Cpu.getInstance();
-			double et = (System.nanoTime() - cpu.getCpuStats().startTimeNs) / 1_000_000_000.0;
+			double et = (System.nanoTime() - getCpu().getCpuStats().startTimeNs) / 1_000_000_000.0;
 			double kt = 0;
 			int i1 = line.indexOf("[");
 			if (i1 >= 0) {
@@ -231,7 +230,7 @@ public class Uart extends Device {
 				}
 			}
 			log.println("{%.3f} %s", kt - et, line.trim());
-			cpu.getSupport().firePropertyChange("console", null, line);
+			getCpu().getSupport().firePropertyChange("console", null, line);
 			consoleSb.delete(0, consoleSb.length());
 		}
 	}

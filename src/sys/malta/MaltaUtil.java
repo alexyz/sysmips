@@ -39,9 +39,9 @@ public class MaltaUtil {
 	/** software interrupt 1 */
 	public static final int INT_SOFTWARE_1 = 1;
 	/** southbridge interrupt (hardware interrupt 0) */
-	public static final int INT_SOUTHBRIDGE_INTR = 2;
+	public static final int INT_SOUTHBRIDGE = 2;
 	/** southbridge system management interrupt (hardware interrupt 1) */
-	public static final int INT_SOUTHBRIDGE_SMI = 3;
+	public static final int INT_SMI = 3;
 	/** cbus uart (tty2) (hardware interrupt 2) */
 	public static final int INT_CBUS_UART = 4;
 	/** core card hi (hardware interrupt 3) */

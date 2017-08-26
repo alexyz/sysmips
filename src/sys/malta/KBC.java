@@ -55,8 +55,8 @@ public class KBC extends Device {
 	
 	public KBC (Device parent, int baseAddr) {
 		super(parent, baseAddr);
-		status = ST_NOKEYLOCK|ST_SYSTEM|ST_CMDDATA;
-		config = CB_KEYTRANS|CB_DISABLEKEY|CB_SYSTEM|CB_ENABLEKEYINT;
+		status = initialStatus();
+		config = initialConfig();
 	}
 	
 	@Override
@@ -114,12 +114,12 @@ public class KBC extends Device {
 			case CMD_READCB:
 				log.println("read config %x: %s", config, configString(config));
 				data = config;
-				status = ST_OUTPUTFULL;
+				status = ST_OUTPUTFULL|initialStatus();
 				break;
 			case CMD_WRITECB:
 				// wait for the next byte...
 				datacmd = value;
-				status = ST_CMDDATA;
+				status = initialStatus();
 				break;
 			case CMD_DISABLEAUX:
 				config |= CB_DISABLEAUX;
@@ -182,7 +182,7 @@ public class KBC extends Device {
 			pushData(r, false);
 		} else {
 			data = 0;
-			status = 0;
+			status = initialStatus();
 		}
 		return (byte) v;
 	}
@@ -206,9 +206,7 @@ public class KBC extends Device {
 				log.println("write config %x: %s (was %x: %s)", 
 						value, configString(value), config, configString(config));
 				config = value;
-				status = 0;
-				// XXX should copy system flag to status
-				//log.println("config now " + cfgString(commandbyte));
+				status = initialStatus();
 				break;
 				
 			case CMD_WRITEAUXOUT:

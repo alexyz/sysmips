@@ -85,6 +85,17 @@ public class KBCUtil {
 	public static final int KB_RESEND = 0xfe;
 	public static final int KB_RESET = 0xff;
 	
+	/** system, command, nokeylock, buffers clear **/
+	public static int initialStatus () {
+		// 0x1c
+		return ST_NOKEYLOCK|ST_SYSTEM|ST_CMDDATA;
+	}
+	
+	public static int initialConfig () {
+		// 0x55
+		return CB_KEYTRANS|CB_DISABLEKEY|CB_SYSTEM|CB_ENABLEKEYINT;
+	}
+	
 	public static String configString (int cfg) {
 		return InstructionUtil.flagString(KBCUtil.class, "CB_", cfg);
 	}

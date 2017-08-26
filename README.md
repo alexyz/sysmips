@@ -45,8 +45,8 @@ Linux:
 
 ## Screenshot
 
-![Screenshot](https://dl.dropboxusercontent.com/u/8069847/sysmips.png)
+![Screenshot](sysmips.png)
 
 ## Download
 
-[Runnable jar file](https://dl.dropboxusercontent.com/u/8069847/sysmips.jar)
+[Runnable jar file](https://www.dropbox.com/s/ki82qqluup8j2oq/sysmips.jar?dl=0)

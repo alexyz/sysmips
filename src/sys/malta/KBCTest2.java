@@ -17,64 +17,89 @@ public class KBCTest2 {
 	}
 	
 	private final PIIX4 p4 = new PIIX4(null, 0);
+	private static final int IS = 0x1c;
 	
 	private void run() {
 
-		asEqual("initial status", 0x1c, status());
+		// initial pic imr,isr
 		
-		asTrue("getconfig", cmd(0x20));
-		asEqual("initial config", 0x55, read());
-		asEqual("clear", 0, status() & 1);
+		asEqual("0 initial status", IS, status());
 		
-		// set config
+		// get config
+		asTrue("1 get config cmd", cmd(0x20));
+		asEqual("1 get config data", 0x55, read());
+		asEqual("1 status", IS, status()); // vb says 0x1c = sys,cmd,keylock
+		
+		// set config 0x45
+		asTrue("2 write config cmd", cmd(0x60));
+		asTrue("2 write config data", writecon(0x45));
+		asTrue("2 get config cmd", cmd(0x20));
+		asEqual("2 read config data", 0x45, read());
+		asEqual("2 status", IS, status());
+		
+		// keyout when not masked
+		// handler: imr=0. isr=1. irr=1.? 
+		// handler: read byte, send eoi 
+		// imr=0. isr=0. irr=0.? 
+
+		// keyout when masked
+		// sleep 1 tick
+		// imr=1. isr=0. irr=1.
+		// unmask?
+		// handler as before?
+		
+		//asTrue("2 write keyout cmd", cmd(0xd2));
+		//asTrue("2 write config data", writecon(0xee));
+		
 		
 		// self test
 		
-		// keyout
-		// see if it delivers int
-		
-		// pic masking...
 	}
-
+	
 	private int status() {
 		return p4.loadByte(CMD) & 0xff;
 	}
 	
 	private boolean cmd(int c) {
-		if ((status()&2)!=0) {
-			return false;
-		} else {
+		if (status()==IS) {
 			p4.storeByte(CMD, (byte) c);
 			return true;
+		} else {
+			System.out.println("status=" + KBCUtil.statusString(status()));
+			return false;
 		}
 	}
 	
 	private int read() {
-		if ((status()&1)!=1) {
-			return -1;
-		} else {
+		if (status()==(IS|1)) {
 			return p4.loadByte(DATA) & 0xff;
+		} else {
+			System.out.println("status=" + KBCUtil.statusString(status()));
+			return -1;
 		}
 	}
 	
 	private boolean writecon (int x) {
-		if ((status()&6)!=4) {
-			return false;
-		} else {
+		if (status()==IS) { // ob clear, ib clear, sys, cmd
 			p4.storeByte(DATA, (byte) x);
 			return true;
+		} else {
+			System.out.println("status=" + KBCUtil.statusString(status()));
+			return false;
 		}
 	}
 	
 	private static void asTrue (String name, boolean ac) {
-		asEqual(name, 1, ac ? 1 : 0);
+		as(name, ac, String.valueOf(true), String.valueOf(ac));
 	}
 	
 	private static void asEqual (String name, int ex, int ac) {
-		System.out.println(String.format("%s: %s expected: %x actual: %x", ex==ac ? "OK" : "FAIL", name, ex, ac));
+		as(name, ex==ac, Integer.toHexString(ex), Integer.toHexString(ac));
 	}
 	
-	
+	private static void as (String name, boolean value, String ex, String ac) {
+		System.out.println(String.format("%s: %s expected: %s actual: %s", value ? "OK" : "FAIL", name, ex, ac));
+	}
 	
 	
 	

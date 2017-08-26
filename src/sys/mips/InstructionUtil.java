@@ -296,6 +296,8 @@ public class InstructionUtil {
 	 * lookup flags for value
 	 */
 	public static String flagString (final Class<?> cl, final String prefix, final int value) {
+		return flagChangeString(cl, prefix, 0, value);
+		/*
 		StringBuilder sb = new StringBuilder();
 		boolean foundPrefix = false;
 		for (final Field f : cl.getFields()) {
@@ -322,5 +324,34 @@ public class InstructionUtil {
 			throw new RuntimeException("could not find public static final int " + prefix + " in " + cl);
 		}
 		return sb.length() > 0 ? sb.toString() : Integer.toHexString(value);
+		*/
+	}
+	
+	public static String flagChangeString (final Class<?> cl, final String prefix, final int value1, final int value2) {
+		StringBuilder sb = new StringBuilder();
+		boolean foundPrefix = false;
+		for (final Field f : cl.getFields()) {
+			String name = f.getName();
+			if (name.startsWith(prefix)) {
+				final int m = f.getModifiers();
+				if (Modifier.isPublic(m) && Modifier.isStatic(m) && Modifier.isFinal(m) && int.class.isAssignableFrom(f.getType())) {
+					foundPrefix = true;
+					try {
+						int c = f.getInt(null);
+						if ((value1 & c) != (value2 & c)) {
+							sb.append((value1 & c) == 0 ? "+" : "-");
+							sb.append(f.getName());
+							// XXX also print unmapped bits?
+						}
+					} catch (final Exception e) {
+						throw new RuntimeException(e);
+					}
+				}
+			}
+		}
+		if (!foundPrefix) {
+			throw new RuntimeException("could not find public static final int " + prefix + " in " + cl);
+		}
+		return sb.toString();
 	}		
 }

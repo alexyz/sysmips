@@ -463,6 +463,7 @@ public final class Cpu {
 		
 		if (isSouthbridgeInterrupt) {
 			// uh....
+			// XXX pretty certain the P4 should be doing this
 			memory.getMalta().setIrq(ep.irq.intValue());
 		}
 		

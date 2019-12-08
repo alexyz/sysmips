@@ -28,6 +28,7 @@ public class MaltaJFrame extends JFrame implements PropertyChangeListener {
 	public static void main (String[] args) {
 		ToolTipManager.sharedInstance().setDismissDelay(60000);
 		MaltaJFrame frame = new MaltaJFrame();
+		frame.setLocationRelativeTo(null);
 		frame.setVisible(true);
 	}
 	

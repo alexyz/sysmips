@@ -41,7 +41,9 @@ Linux:
 
 ## Suggested Software
 
-* [Linux 3.2.68 kernel image](https://packages.debian.org/stable/kernel/linux-image-3.2.0-4-4kc-malta) - extract using ar -x *.deb; tar -xf data.tar.xz
+[Linux kernel image](https://packages.debian.org/stable/kernel/) - search for linux-image-(version)-4kc-malta
+ * extract using ar -x *.deb; tar -xf data.tar.xz
+ * it's only been developed with "vmlinux-3.2.0-4-4kc-malta" which is no longer available for download
 
 ## Screenshot
 
@@ -49,4 +51,4 @@ Linux:
 
 ## Download
 
-[Runnable jar file](https://www.dropbox.com/s/ki82qqluup8j2oq/sysmips.jar?dl=0)
+No binary download provided
